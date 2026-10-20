@@ -1,0 +1,34 @@
+# Syntax checks on every push and pull request. The package itself is built locally
+# (tools/build.py release), because the build copies a stock component from a sim install.
+name: Check
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+
+      - name: JavaScript
+        run: |
+          node --check src/html_ui/paul-batc-pill/pill.js
+          node --check docs/render/pills.js
+
+      - name: Python
+        run: python -m py_compile tools/*.py docs/*.py
+
+      - name: JSON
+        run: for f in config.json injections.json stock.lock.json; do python -m json.tool "$f" > /dev/null; done

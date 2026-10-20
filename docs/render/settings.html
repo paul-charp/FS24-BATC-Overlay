@@ -1,0 +1,23 @@
+<!doctype html>
+<!-- README settings shot: the real pill.js with its settings card open, on a 1080p page.
+     Rendered (and cropped to the top-right corner) by docs/render_images.py. -->
+<meta charset="utf-8">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;500&display=swap">
+<link rel="stylesheet" href="../../src/html_ui/paul-batc-pill/pill.css">
+<link rel="stylesheet" href="common.css">
+<style>
+  html, body { width: 1920px; height: 1080px; overflow: hidden; }
+  body { font-family: "Roboto", "Segoe UI", Arial, sans-serif; }
+  .sky { position: absolute; inset: 0; }
+  /* a screenshot is one frame: skip the open/resize animations */
+  #batc-pill, #batc-pill *, #batc-pill-cfg, #batc-pill-cfg * { transition: none !important; }
+</style>
+<body class="live">
+<div class="sky"></div>
+<ui-resource-element name="MasterPage_InGame"></ui-resource-element>
+<script>window.batcPillInlineCss = " "; /* the <link> above already loads pill.css */</script>
+<script src="../../src/html_ui/paul-batc-pill/pill.js"></script>
+<script>
+  // open the card the way a click does; the pill switches to its sample ATC state
+  setTimeout(function () { document.getElementById("batc-pill").click(); }, 300);
+</script>

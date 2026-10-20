@@ -1,0 +1,22 @@
+/* Shared backdrop for the doc renders: a dusk sky over terrain, close to what the pill sits on in flight. */
+html, body { margin: 0; }
+body {
+  font-family: "Roboto", "Segoe UI", Arial, sans-serif;
+  background: #0e1218;
+}
+.sky {
+  position: relative;
+  overflow: hidden;
+  background:
+    radial-gradient(120% 70% at 75% 38%, rgba(255, 196, 140, 0.55) 0%, rgba(255, 196, 140, 0) 60%),
+    linear-gradient(180deg, #34507a 0%, #6f8fb5 36%, #c9b9a6 56%, #8f9278 58%, #5f6650 72%, #3b4234 100%);
+}
+.sky.photo { background-size: cover; background-position: center; }
+.sky::after { /* distant ridge */
+  content: ""; position: absolute; left: -5%; right: -5%; top: 52%; height: 10%;
+  background: linear-gradient(180deg, rgba(70, 82, 96, 0.9), rgba(70, 82, 96, 0));
+  clip-path: polygon(0 60%, 8% 35%, 17% 55%, 28% 20%, 38% 50%, 47% 30%, 58% 58%, 69% 25%, 80% 48%, 90% 30%, 100% 50%, 100% 100%, 0 100%);
+}
+.sky.photo::after { display: none; }
+/* static pills: the stylesheet keys on #batc-pill, so each sample reuses the id */
+body:not(.live) #batc-pill { position: relative; display: inline-flex; width: auto; }

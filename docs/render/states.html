@@ -1,0 +1,29 @@
+<!doctype html>
+<!-- README state sheet. Rendered by docs/render_images.py. -->
+<meta charset="utf-8">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;500&display=swap">
+<link rel="stylesheet" href="../../src/html_ui/paul-batc-pill/pill.css">
+<link rel="stylesheet" href="common.css">
+<style>
+  body { width: 1200px; background: #0e1218; }
+  .grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 2px; background: #0e1218; }
+  .tile { height: 150px; display: flex; flex-direction: column; justify-content: space-between; }
+  .tile .slot { display: flex; justify-content: flex-end; padding: 22px 22px 0; }
+  .tile .cap { padding: 0 22px 16px; color: #f2f5f8; text-shadow: 0 1px 6px rgba(0, 0, 0, 0.55); }
+  .tile .cap b { display: block; font-weight: 500; font-size: 17px; }
+  .tile .cap span { font-size: 13px; opacity: 0.85; }
+</style>
+<div class="grid" id="grid"></div>
+<script src="pills.js"></script>
+<script>
+  var grid = document.getElementById("grid");
+  BP.STATES.forEach(function (s, i) {
+    var t = document.createElement("div");
+    t.className = "tile sky";
+    // shift the backdrop per tile so the sheet doesn't repeat one patch nine times
+    t.style.backgroundPosition = (i % 3) * 50 + "% " + Math.floor(i / 3) * 40 + "%";
+    t.style.backgroundSize = "300% 260%";
+    t.innerHTML = '<div class="slot">' + BP.pill(s[0], 2) + '</div><div class="cap"><b>' + s[3] + "</b><span>" + s[4] + "</span></div>";
+    grid.appendChild(t);
+  });
+</script>

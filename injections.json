@@ -1,0 +1,12 @@
+{
+  "_comment": "Stock cooked components we override, copied from the local sim install at build time and patched with a hidden <img onerror> that loads pill.js once. MasterPage_InGame is the in-flight root of the fullscreen mainUi view, so it only mounts in flight (Toolbar_Trigger was tried first, but it renders in the toolbar's own 1836x324 panel view). No installed mod overrides it (42 Flow owns HUD_AirTraffic/HUD_Waypoint, FS24-UI owns MenuBarPage).",
+  "injections": [
+    {
+      "package": "fs-base-ui",
+      "component": "MasterPage_InGame",
+      "guid": "14293394-0041-4A90-B239-83617B5E633F",
+      "boot": "/paul-batc-pill/pill.js",
+      "guard": "batcpill_booted"
+    }
+  ]
+}

@@ -1,0 +1,50 @@
+<!doctype html>
+<!-- Desktop preview of the pill against the live BeyondATC socket. Open in a browser:
+     python -m http.server -d . 8765, then http://localhost:8765/tools/harness.html
+     Replay buttons feed captured messages through batcPill.feed(). -->
+<meta charset="utf-8">
+<title>BATC pill harness</title>
+<style>
+  html, body { margin: 0; height: 100%; font-family: "Segoe UI", system-ui, sans-serif; }
+  body { background: linear-gradient(180deg, #5d84b3 0%, #8fb0d3 45%, #a5a998 60%, #5d604f 100%); }
+  .bar { position: absolute; left: 16px; bottom: 16px; display: flex; flex-wrap: wrap; gap: 8px; }
+  button { font: 600 13px system-ui; border: 0; border-radius: 6px; padding: 8px 12px; background: #1a2129; color: #fff; cursor: pointer; }
+</style>
+<ui-resource-element name="MasterPage_InGame" id="host"></ui-resource-element>
+<link rel="stylesheet" href="../src/html_ui/paul-batc-pill/pill.css">
+<div class="bar">
+  <button data-seq="wind">Replay wind check</button>
+  <button data-seq="voice">Replay voice request</button>
+  <button id="err">AppError</button>
+  <button id="mute">Toggle COM1 mute</button>
+  <button id="flight">Toggle in flight</button>
+</div>
+<script>
+  window.batcPillInlineCss = null;
+  // pill.js would add its own <link>; the harness already has one with a path that resolves here
+</script>
+<script src="../src/html_ui/paul-batc-pill/pill.js"></script>
+<script>
+  const SEQ = {
+    // timings from the live capture on 2026-10-20
+    wind: [[0, 'QueuedAction: Pilot Request'], [0, 'CommsState: {"mode":"queued","text":"Pilot Request"}'],
+           [10, 'CommsState: {"mode":"ready","text":""}'], [10, 'CommsState: {"mode":"awaiting","text":"Awaiting Response"}'],
+           [750, 'Player: Airfrans 1234, wind check.'], [770, 'CommsState: {"mode":"speaking","text":"Speaking"}'],
+           [3070, 'CommsState: {"mode":"request","text":"Wind Check"}'], [4170, 'CommsState: {"mode":"awaiting","text":"Awaiting Response"}'],
+           [4920, 'ATC: Wind 310 degrees, 8 knots.'], [4940, 'CommsState: {"mode":"speaking","text":"Speaking"}'],
+           [7350, 'CommsState: {"mode":"ready","text":""}']],
+    voice: [[0, 'CommsState: {"mode":"processing","text":"Processing Request"}'],
+            [1560, 'CommsState: {"mode":"request","text":"Processing Response"}'],
+            [3920, 'CommsState: {"mode":"awaiting","text":"Awaiting Response"}'],
+            [4720, 'ATC: Unable, this is an ATC frequency.'], [4740, 'CommsState: {"mode":"speaking","text":"Speaking"}'],
+            [7220, 'CommsState: {"mode":"ready","text":""}']],
+  };
+  document.querySelectorAll('[data-seq]').forEach(b => b.onclick = () => {
+    batcPill.state.connected = true;
+    SEQ[b.dataset.seq].forEach(([t, m]) => setTimeout(() => batcPill.feed(m), t));
+  });
+  err.onclick = () => batcPill.feed('AppError: Speech service unavailable');
+  let muted = false;
+  mute.onclick = () => batcPill.feed('RadioMute: ' + JSON.stringify({ com1: (muted = !muted), com2: false }));
+  flight.onclick = () => host.isConnected ? host.remove() : document.body.prepend(host);
+</script>

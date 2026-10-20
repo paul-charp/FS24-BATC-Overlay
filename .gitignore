@@ -1,0 +1,11 @@
+# private working files: local sim paths (config.json overrides), mockups, screenshots
+.local/
+
+# Claude Code local settings
+.claude/
+
+# created by the tools
+build/
+dist/
+logs/
+__pycache__/
