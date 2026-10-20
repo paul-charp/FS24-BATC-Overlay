@@ -6,9 +6,13 @@ Main image: `docs/images/splash.png` (1920x1080). Gallery: `docs/images/states.p
 
 BATC Comms Pill (BeyondATC radio status)
 
+## Keywords
+
+BeyondATC, BATC, ATC, radio, comms, status, indicator, overlay, HUD, UI, toolbar, notification, COM1, COM2, frequency, MSFS 2024, utility
+
 ## Short description
 
-A small pill in the corner of the screen that shows what BeyondATC is doing on the radio.
+A small, quiet pill in a corner of the screen that shows what BeyondATC is doing on the radio: requests, ATC talking, your readbacks and radio changes.
 
 ## Description
 
@@ -41,6 +45,6 @@ Extract the `paul-batc-pill` folder into your Community folder.
 
 Source and issues: https://github.com/paul-charp/FS24-BATC-Pill
 
-## Changelog (1.0.0)
+## Changelog (1.0.1)
 
-- First release.
+- Fixed: the pill stretched across the whole screen at startup when BeyondATC wasn't running.

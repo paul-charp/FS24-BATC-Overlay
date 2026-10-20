@@ -79,8 +79,8 @@
     style = document.createElement("link");
     style.rel = "stylesheet";
     style.href = "/paul-batc-pill/pill.css";
-    // sizes are measured from computed styles, so re-measure once the sheet applies
-    style.onload = function () { resize(); };
+    // sizes are measured from computed styles: nothing renders until the sheet applies (see poll),
+    // since Coherent doesn't reliably fire onload for <link>
   }
   style.setAttribute("data-batc-pill", "");
   document.head.appendChild(style);
@@ -237,8 +237,12 @@
     if (root.style.width !== w) root.style.width = w;
   }
 
+  function cssReady() {
+    return window.getComputedStyle(root).position === "absolute";
+  }
+
   function render() {
-    if (destroyed) return;
+    if (destroyed || !cssReady()) return;
     var v = view();
     var sig = v.hidden ? "hidden" : v.cls + "|" + v.html;
     if (sig === current) return;
@@ -466,10 +470,11 @@
 
   function poll() {
     var inFlight = !!document.querySelector(CONFIG.host);
-    if (inFlight !== state.inFlight) {
-      state.inFlight = inFlight;
-      render();
-    }
+    state.inFlight = inFlight;
+    // also catches the first render once the stylesheet applies, and re-measures in case a
+    // measurement ran before layout settled
+    render();
+    resize();
   }
 
   // ---- lifecycle -------------------------------------------------------
