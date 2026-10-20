@@ -45,6 +45,12 @@ Extract the `paul-batc-pill` folder into your Community folder.
 
 Source and issues: https://github.com/paul-charp/FS24-BATC-Pill
 
-## Changelog (1.0.1)
+## Changelog
+
+1.0.1
 
 - Fixed: the pill stretched across the whole screen at startup when BeyondATC wasn't running.
+
+1.0.0
+
+- First release.

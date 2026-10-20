@@ -20,7 +20,7 @@ screen corner during flight, with a click-to-open settings card. Windows only. U
   `--push` hot-reloads the pill into mainUi (page 2). `tools/sniff_batc.py`: socket logger.
   `tools/harness.html`: desktop preview with replays.
 - `docs/render/*.html` + `docs/render_images.py`: README/flightsim.to images via headless Edge.
-  `docs/flightsim-to.md`: flightsim.to page text.
+  `docs/flightsim-to.md`: flightsim.to page text. `CHANGELOG.md`: release history.
 - `.github/workflows/check.yml`: syntax checks only (CI can't build without a sim install).
 - `.local/` (git-ignored): local config, mockups, screenshots. Put new private files there.
 
