@@ -41,6 +41,6 @@ Extract the `paul-batc-pill` folder into your Community folder.
 
 Source and issues: https://github.com/paul-charp/FS24-BATC-Pill
 
-## Changelog (0.1.0)
+## Changelog (1.0.0)
 
 - First release.
