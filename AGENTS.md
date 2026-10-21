@@ -46,7 +46,9 @@ screen corner during flight, with a click-to-open settings card. Windows only. U
   `LoadState: {stage}` (`menu` in menus); `RadioMute: {com1,com2}`; `AppError: text`.
 - No known "readback expected" signal. `pill.js` turns the `ATC:` text into short hints (`READBACKS`) and clears
   on the next `Player:` line, `processing`/`request`/`queued`, a COM1 change or `readbackMs`; `ATCTraffic:` /
-  `Traffic:` leave it. Unverified
+  `Traffic:` leave it. A later `ATC:` line is judged when ATC finishes (`atcSpoke`): same hint or a
+  nudge (`NUDGE_RE`) escalates it, "readback correct" or unrelated talk clears it, a new instruction
+  replaces it. ATC's real nudge wording is unverified. Unverified
   live: what a voice (PTT) readback sends, and whether `waiting` means "awaiting readback".
 - Nothing is sent while PTT is held, and no simvar shows it: PTT state is out of scope without a
   desktop helper.

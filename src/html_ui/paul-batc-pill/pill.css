@@ -106,6 +106,8 @@
 #batc-pill.s-you  { --c: #5fd38d; }
 #batc-pill.s-err  { --c: #ff6b6b; }
 #batc-pill.s-tune { --c: #63d3e6; }
+#batc-pill.s-insist { --c: #ff7a45; border-color: var(--c); }
+#batc-pill.s-insist .bp-lamp { animation-duration: 0.7s; }
 
 /* lamp */
 #batc-pill .bp-lamp {

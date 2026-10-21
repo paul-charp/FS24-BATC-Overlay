@@ -66,7 +66,7 @@
     tuneUntil: 0,
     com2: null,          // last Com2 label|frequency, to detect changes
     atcText: "",         // last ATC: line
-    readback: null,      // { hint, text, facility } of the instruction, shown until readbackUntil
+    readback: null,      // { hint, text, facility, calls } of the instruction, shown until readbackUntil
     readbackUntil: 0,
     seenFacility: false, // the first Facility after connecting is the snapshot, not a change
     editing: false,      // settings card open: the pill shows a sample so size/position are visible
@@ -184,10 +184,13 @@
   function readbackView() {
     var rb = state.readback;
     if (!rb || Date.now() >= state.readbackUntil) return null;
+    // ATC called again for it: louder color, faster pulse, "Read back ×2"
+    var cls = rb.calls > 1 ? "s-insist is-pulse" : "s-atc is-pulse";
+    var label = "Read back" + (rb.calls > 1 ? " ×" + rb.calls : "");
     return CONFIG.readbackText === "full" ?
-      { cls: "s-atc is-msg is-pulse", html: LAMP + facilityHtml("bp-who", rb.facility) +
-        '<span class="bp-sep">·</span><span class="bp-dim">Read back</span>', msg: rb.text } :
-      { cls: "s-atc is-pulse", html: LAMP + '<span class="bp-who">Read back</span>' +
+      { cls: cls + " is-msg", html: LAMP + facilityHtml("bp-who", rb.facility) +
+        '<span class="bp-sep">·</span><span class="bp-dim">' + label + "</span>", msg: rb.text } :
+      { cls: cls, html: LAMP + '<span class="bp-who">' + label + "</span>" +
         '<span class="bp-sep">·</span><span>' + esc(rb.hint) + "</span>" };
   }
 
@@ -371,6 +374,27 @@
     return hints.join(" · ");
   }
 
+  // ATC chasing a missing readback, and ATC accepting it
+  var NUDGE_RE = /\b(read ?back|how do you read|do you (copy|read)|did you copy|acknowledge|say again|confirm)\b/i;
+  var DONE_RE = /\b(read ?back correct|correct|roger)\b/i;
+
+  // ATC finished speaking to you: start, repeat or end the pending readback
+  function atcSpoke(text) {
+    var prev = state.readback && Date.now() < state.readbackUntil ? state.readback : null;
+    var hint = CONFIG.showReadback && readbackHint(text);
+    if (hint) {
+      state.readback = prev && prev.hint === hint ? prev :
+        { hint: hint, text: text.length > 240 ? text.slice(0, 239) + "…" : text, facility: state.facility, calls: 0 };
+    } else if (!prev || DONE_RE.test(text) || !NUDGE_RE.test(text)) {
+      clearReadback();
+      return;
+    }
+    state.readback.calls++;
+    state.readbackUntil = Date.now() + CONFIG.readbackMs;
+    clearTimeout(timers.readback);
+    timers.readback = setTimeout(render, CONFIG.readbackMs + 20);
+  }
+
   function clearReadback() {
     state.readback = null;
     clearTimeout(timers.readback);
@@ -396,15 +420,7 @@
         if (!cs) return;
         var mode = cs.mode || "ready";
         if (mode === "processing" || mode === "request" || mode === "queued") clearReadback(); // you're talking
-        var hint = mode === "ready" && state.mode === "speaking" && state.speaker === "atc" &&
-          CONFIG.showReadback && readbackHint(state.atcText);
-        if (hint) {
-          var t = state.atcText;
-          state.readback = { hint: hint, text: t.length > 240 ? t.slice(0, 239) + "…" : t, facility: state.facility };
-          state.readbackUntil = Date.now() + CONFIG.readbackMs;
-          clearTimeout(timers.readback);
-          timers.readback = setTimeout(render, CONFIG.readbackMs + 20);
-        }
+        if (mode === "ready" && state.mode === "speaking" && state.speaker === "atc") atcSpoke(state.atcText);
         if (cs.mode === "ready" && state.mode !== "ready") {
           state.lingerUntil = Date.now() + CONFIG.lingerMs;
           clearTimeout(timers.linger);
@@ -415,14 +431,11 @@
         break;
       }
       case "ATC":
-        state.speaker = "atc";
+        state.speaker = "atc"; // the pending readback is updated once ATC finishes (atcSpoke)
         state.atcText = payload;
-        clearReadback(); // a new instruction (or "readback correct") replaces the pending one
         return;
       case "ATCTraffic":
-        // ATC talking to another aircraft: your pending readback stays
-        state.speaker = "atc";
-        state.atcText = "";
+        state.speaker = "atcTraffic"; // ATC talking to another aircraft: your pending readback stays
         return;
       case "Player":
         state.speaker = "player"; // your readback (or next request) is starting
