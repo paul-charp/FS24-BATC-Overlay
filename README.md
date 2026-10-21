@@ -9,7 +9,7 @@ A small pill in a corner of the Microsoft Flight Simulator 2024 screen that show
 - **Queued / Processing / Awaiting ATC** (blue): your request is on its way.
 - **ATC talking** (amber): the controller is speaking, with the station and frequency.
 - **You talking** (green): your readback or request is being played.
-- **Read back** (amber, pulsing): after an ATC instruction, a short hint of what to read back ("Taxi 30R · Hold short 30R", "Climb FL120", "Contact 120.100") until you do (or 30 s pass).
+- **Read back** (amber, pulsing): after an ATC instruction, a short hint of what to read back ("Taxi 30R · Hold short 30R", "Climb FL120", "Contact 120.100") until you do (or 30 s pass). Can show the whole instruction instead.
 - **Radio change** (cyan): the new station when COM1 or COM2 changes.
 - **Exchange ended**: the station stays for 3 s, then the pill shrinks back to the dot.
 - **Offline**: BeyondATC isn't running (can be hidden).
@@ -37,6 +37,7 @@ Click the pill in flight to open its settings card. Changes apply immediately. W
 | Size | 60% to 250% |
 | Radio changes | show the new station when COM1 or COM2 changes |
 | Readback hints | after an ATC instruction, show what to read back until you do |
+| Full readback text | the whole instruction, wrapped on two or more lines, instead of the short hint |
 | AI traffic | show the "Traffic" pill while AI traffic talks |
 | Full station names | "Montpellier Ground" instead of "Ground" |
 | Hide when BATC is off | no pill at all while BeyondATC isn't running |

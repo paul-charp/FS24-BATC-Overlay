@@ -15,6 +15,7 @@
     errorMs: 5000,
     readbackMs: 30000,   // longest a readback hint stays up
     showReadback: true,  // after an ATC instruction, hint what to read back ("Taxi 30R") until you do
+    readbackText: "short", // "short": the hint on one line, "full": the whole instruction, wrapped
     showTuning: true,    // show the new station when COM1/COM2 changes
     hideOffline: false,  // true: no pill at all while BeyondATC isn't running
     showTraffic: true,   // show a neutral "Traffic" pill while AI traffic talks
@@ -26,8 +27,8 @@
   var FADE_MS = 140;
 
   // What the settings card changes. Saved in localStorage, which every sim UI view shares.
-  var USER_KEYS = ["corner", "x", "y", "scale", "showTuning", "showReadback", "hideOffline", "showTraffic",
-    "facility"];
+  var USER_KEYS = ["corner", "x", "y", "scale", "showTuning", "showReadback", "readbackText", "hideOffline",
+    "showTraffic", "facility"];
   var STORE_KEY = "batcpill.settings";
   var DEFAULTS = {};
   USER_KEYS.forEach(function (k) { DEFAULTS[k] = CONFIG[k]; });
@@ -65,7 +66,7 @@
     tuneUntil: 0,
     com2: null,          // last Com2 label|frequency, to detect changes
     atcText: "",         // last ATC: line
-    readback: null,      // short summary of the instruction, shown until readbackUntil
+    readback: null,      // { hint, text, facility } of the instruction, shown until readbackUntil
     readbackUntil: 0,
     seenFacility: false, // the first Facility after connecting is the snapshot, not a change
     editing: false,      // settings card open: the pill shows a sample so size/position are visible
@@ -110,7 +111,8 @@
         return '<span class="bc-btn bc-corner" data-corner="' + c + '"><i></i></span>';
       }).join("") + "</span></div>" +
     stepRow("Side offset", "x") + stepRow("Edge offset", "y") + stepRow("Size", "scale") +
-    toggleRow("Radio changes", "showTuning") + toggleRow("Readback hints", "showReadback") + toggleRow("AI traffic", "showTraffic") +
+    toggleRow("Radio changes", "showTuning") + toggleRow("Readback hints", "showReadback") +
+    toggleRow("Full readback text", "fullReadback") + toggleRow("AI traffic", "showTraffic") +
     toggleRow("Full station names", "fullNames") + toggleRow("Hide when BATC is off", "hideOffline") +
     '<div class="bc-foot"><span class="bc-btn bc-reset" data-act="reset">Reset</span></div>';
   document.body.appendChild(card);
@@ -217,8 +219,12 @@
           v = { cls: "s-tune", html: RADIO + (t.label ? '<span class="bp-sep">' + t.label + "</span>" : "") +
             facilityHtml("bp-who", t.facility, "No station") };
         } else if (state.readback && now < state.readbackUntil) {
-          v = { cls: "s-atc is-pulse", html: LAMP + '<span class="bp-who">Read back</span>' +
-            '<span class="bp-sep">·</span><span>' + esc(state.readback) + "</span>" };
+          var rb = state.readback;
+          v = CONFIG.readbackText === "full" ?
+            { cls: "s-atc is-msg is-pulse", html: LAMP + facilityHtml("bp-who", rb.facility) +
+              '<span class="bp-sep">·</span><span class="bp-dim">Read back</span>', msg: rb.text } :
+            { cls: "s-atc is-pulse", html: LAMP + '<span class="bp-who">Read back</span>' +
+              '<span class="bp-sep">·</span><span>' + esc(rb.hint) + "</span>" };
         } else if (now < state.lingerUntil) {
           v = { cls: "", html: LAMP + facilityHtml("") };
         }
@@ -229,6 +235,7 @@
     }
     if (!v) v = { cls: "is-dot", html: LAMP };
     if (state.muted && v.cls !== "is-dot") v.html += MUTE;
+    if (v.msg) v.html = '<span class="bp-head">' + v.html + '</span><span class="bp-msg">' + esc(v.msg) + "</span>";
     return v;
   }
 
@@ -240,10 +247,18 @@
     return body.offsetWidth + border;
   }
 
+  function measureH() {
+    // only the full readback text grows; the others keep the CSS height
+    if (root.className.indexOf("is-msg") < 0) return "";
+    return body.offsetHeight + root.offsetHeight - root.clientHeight + "px";
+  }
+
   function resize() {
     if (destroyed || current === "hidden") return;
     var w = measure() + "px";
     if (root.style.width !== w) root.style.width = w;
+    var h = measureH();
+    if (root.style.height !== h) root.style.height = h;
   }
 
   function cssReady() {
@@ -271,6 +286,7 @@
       root.className = v.cls;
       body.innerHTML = v.html;
       root.style.width = measure() + "px";
+      root.style.height = measureH();
       // next frame, so the fade-in starts from the faded-out state
       requestAnimationFrame(function () { body.className = "bp-body"; resize(); });
     }
@@ -281,6 +297,7 @@
       root.className = v.cls + " is-hidden";
       body.innerHTML = v.html;
       root.style.width = measure() + "px";
+      root.style.height = measureH();
       requestAnimationFrame(function () { root.className = v.cls; resize(); });
       return;
     }
@@ -375,7 +392,8 @@
         var hint = mode === "ready" && state.mode === "speaking" && state.speaker === "atc" &&
           CONFIG.showReadback && readbackHint(state.atcText);
         if (hint) {
-          state.readback = hint;
+          var t = state.atcText;
+          state.readback = { hint: hint, text: t.length > 240 ? t.slice(0, 239) + "…" : t, facility: state.facility };
           state.readbackUntil = Date.now() + CONFIG.readbackMs;
           clearTimeout(timers.readback);
           timers.readback = setTimeout(render, CONFIG.readbackMs + 20);
@@ -495,7 +513,8 @@
     var toggles = card.querySelectorAll("[data-toggle]");
     for (i = 0; i < toggles.length; i++) {
       var t = toggles[i].getAttribute("data-toggle");
-      var on = t === "fullNames" ? CONFIG.facility === "full" : !!CONFIG[t];
+      var on = t === "fullNames" ? CONFIG.facility === "full" :
+        t === "fullReadback" ? CONFIG.readbackText === "full" : !!CONFIG[t];
       toggles[i].className = "bc-row bc-btn bc-toggle" + (on ? " is-on" : "");
     }
   }
@@ -528,6 +547,7 @@
     } else if (el.hasAttribute("data-toggle")) {
       var t = el.getAttribute("data-toggle");
       if (t === "fullNames") patch.facility = CONFIG.facility === "full" ? "short" : "full";
+      else if (t === "fullReadback") patch.readbackText = CONFIG.readbackText === "full" ? "short" : "full";
       else patch[t] = !CONFIG[t];
     } else if (act === "close") {
       openCard(false);
