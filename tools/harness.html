@@ -15,6 +15,7 @@
 <div class="bar">
   <button data-seq="wind">Replay wind check</button>
   <button data-seq="voice">Replay voice request</button>
+  <button data-seq="taxi">Replay taxi clearance</button>
   <button id="err">AppError</button>
   <button id="mute">Toggle COM1 mute</button>
   <button id="flight">Toggle in flight</button>
@@ -38,6 +39,13 @@
             [3920, 'CommsState: {"mode":"awaiting","text":"Awaiting Response"}'],
             [4720, 'ATC: Unable, this is an ATC frequency.'], [4740, 'CommsState: {"mode":"speaking","text":"Speaking"}'],
             [7220, 'CommsState: {"mode":"ready","text":""}']],
+    // made up: no capture of a clearance and its readback yet
+    taxi: [[0, 'ATC: Airfrans 1234, taxi to holding point runway 30R via B, C, hold short of runway 30R.'],
+           [20, 'CommsState: {"mode":"speaking","text":"Speaking"}'],
+           [4500, 'CommsState: {"mode":"ready","text":""}'],
+           [9000, 'Player: Taxi to holding point runway 30R via B, C, hold short of runway 30R, Airfrans 1234.'],
+           [9020, 'CommsState: {"mode":"speaking","text":"Speaking"}'],
+           [13000, 'CommsState: {"mode":"ready","text":""}']],
   };
   document.querySelectorAll('[data-seq]').forEach(b => b.onclick = () => {
     batcPill.state.connected = true;

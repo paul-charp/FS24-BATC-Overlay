@@ -13,6 +13,8 @@
     lingerMs: 3000,      // label stays after an exchange ends, then shrinks to the dot
     tuneMs: 3000,        // how long a radio change is shown
     errorMs: 5000,
+    readbackMs: 30000,   // longest an ATC instruction stays up waiting for your readback
+    showReadback: true,  // keep an ATC instruction on screen until you read it back
     showTuning: true,    // show the new station when COM1/COM2 changes
     hideOffline: false,  // true: no pill at all while BeyondATC isn't running
     showTraffic: true,   // show a neutral "Traffic" pill while AI traffic talks
@@ -24,7 +26,8 @@
   var FADE_MS = 140;
 
   // What the settings card changes. Saved in localStorage, which every sim UI view shares.
-  var USER_KEYS = ["corner", "x", "y", "scale", "showTuning", "hideOffline", "showTraffic", "facility"];
+  var USER_KEYS = ["corner", "x", "y", "scale", "showTuning", "showReadback", "hideOffline", "showTraffic",
+    "facility"];
   var STORE_KEY = "batcpill.settings";
   var DEFAULTS = {};
   USER_KEYS.forEach(function (k) { DEFAULTS[k] = CONFIG[k]; });
@@ -61,11 +64,14 @@
     tune: null,          // { label, facility } shown until tuneUntil after a radio change
     tuneUntil: 0,
     com2: null,          // last Com2 label|frequency, to detect changes
+    atcText: "",         // last ATC: line
+    readback: null,      // { text, facility } shown until readbackUntil, while a readback is expected
+    readbackUntil: 0,
     seenFacility: false, // the first Facility after connecting is the snapshot, not a change
     editing: false,      // settings card open: the pill shows a sample so size/position are visible
   };
   var socket = null;
-  var timers = { reconnect: 0, linger: 0, error: 0, tune: 0, swap: 0, poll: 0 };
+  var timers = { reconnect: 0, linger: 0, error: 0, tune: 0, readback: 0, swap: 0, poll: 0 };
   var destroyed = false;
   var current = null;    // last rendered view signature
 
@@ -104,7 +110,7 @@
         return '<span class="bc-btn bc-corner" data-corner="' + c + '"><i></i></span>';
       }).join("") + "</span></div>" +
     stepRow("Side offset", "x") + stepRow("Edge offset", "y") + stepRow("Size", "scale") +
-    toggleRow("Radio changes", "showTuning") + toggleRow("AI traffic", "showTraffic") +
+    toggleRow("Radio changes", "showTuning") + toggleRow("ATC text until readback", "showReadback") + toggleRow("AI traffic", "showTraffic") +
     toggleRow("Full station names", "fullNames") + toggleRow("Hide when BATC is off", "hideOffline") +
     '<div class="bc-foot"><span class="bc-btn bc-reset" data-act="reset">Reset</span></div>';
   document.body.appendChild(card);
@@ -210,6 +216,9 @@
           var t = state.tune;
           v = { cls: "s-tune", html: RADIO + (t.label ? '<span class="bp-sep">' + t.label + "</span>" : "") +
             facilityHtml("bp-who", t.facility, "No station") };
+        } else if (state.readback && now < state.readbackUntil) {
+          v = { cls: "s-atc is-msg is-pulse", html: LAMP + facilityHtml("bp-who", state.readback.facility) +
+            '<span class="bp-sep">·</span><span class="bp-dim">Read back</span>', msg: state.readback.text };
         } else if (now < state.lingerUntil) {
           v = { cls: "", html: LAMP + facilityHtml("") };
         }
@@ -220,6 +229,7 @@
     }
     if (!v) v = { cls: "is-dot", html: LAMP };
     if (state.muted && v.cls !== "is-dot") v.html += MUTE;
+    if (v.msg) v.html = '<span class="bp-head">' + v.html + '</span><span class="bp-msg">' + esc(v.msg) + "</span>";
     return v;
   }
 
@@ -231,10 +241,18 @@
     return body.offsetWidth + border;
   }
 
+  function measureH() {
+    // only the message view grows; the others keep the CSS height
+    if (root.className.indexOf("is-msg") < 0) return "";
+    return body.offsetHeight + root.offsetHeight - root.clientHeight + "px";
+  }
+
   function resize() {
     if (destroyed || current === "hidden") return;
     var w = measure() + "px";
     if (root.style.width !== w) root.style.width = w;
+    var h = measureH();
+    if (root.style.height !== h) root.style.height = h;
   }
 
   function cssReady() {
@@ -262,6 +280,7 @@
       root.className = v.cls;
       body.innerHTML = v.html;
       root.style.width = measure() + "px";
+      root.style.height = measureH();
       // next frame, so the fade-in starts from the faded-out state
       requestAnimationFrame(function () { body.className = "bp-body"; resize(); });
     }
@@ -272,6 +291,7 @@
       root.className = v.cls + " is-hidden";
       body.innerHTML = v.html;
       root.style.width = measure() + "px";
+      root.style.height = measureH();
       requestAnimationFrame(function () { root.className = v.cls; resize(); });
       return;
     }
@@ -288,6 +308,18 @@
   function stationName(s) {
     // "Montpellier Ground (30R, 30L)" -> "Montpellier Ground"
     return String(s || "").replace(/\s*\(.*?\)/g, "").trim();
+  }
+
+  // Instructions ICAO wants read back (clearances, runway, levels, headings, speeds, squawk, QNH,
+  // frequency changes). BeyondATC sends no "readback expected" flag that we know of, so this guesses
+  // from the text; replies like "Wind 310 degrees, 8 knots." don't match.
+  var READBACK_RE = new RegExp("\\b(cleared|clear to|taxi|hold short|hold position|line up|cross|backtrack|" +
+    "climb|descend|maintain|flight level|heading|turn (left|right)|speed|squawk|contact|monitor|qnh|altimeter|" +
+    "direct|proceed|join|vectors?|expect)\\b", "i");
+
+  function clearReadback() {
+    state.readback = null;
+    clearTimeout(timers.readback);
   }
 
   function tuned(label, facility) {
@@ -308,6 +340,16 @@
       case "CommsState": {
         var cs = parseJson(payload);
         if (!cs) return;
+        var mode = cs.mode || "ready";
+        if (mode === "processing" || mode === "request" || mode === "queued") clearReadback(); // you're talking
+        if (mode === "ready" && state.mode === "speaking" && state.speaker === "atc" && CONFIG.showReadback &&
+            READBACK_RE.test(state.atcText)) {
+          var t = state.atcText;
+          state.readback = { text: t.length > 240 ? t.slice(0, 239) + "…" : t, facility: state.facility };
+          state.readbackUntil = Date.now() + CONFIG.readbackMs;
+          clearTimeout(timers.readback);
+          timers.readback = setTimeout(render, CONFIG.readbackMs + 20);
+        }
         if (cs.mode === "ready" && state.mode !== "ready") {
           state.lingerUntil = Date.now() + CONFIG.lingerMs;
           clearTimeout(timers.linger);
@@ -320,9 +362,12 @@
       case "ATC":
       case "ATCTraffic":
         state.speaker = "atc";
+        state.atcText = type === "ATC" ? payload : ""; // ATCTraffic is ATC talking to someone else
+        clearReadback();
         return;
       case "Player":
-        state.speaker = "player";
+        state.speaker = "player"; // your readback (or next request) is starting
+        clearReadback();
         return;
       case "Traffic":
         state.speaker = "traffic";
@@ -334,6 +379,7 @@
         var prev = state.facility;
         state.facility = freq ? { name: stationName(parts[0]), freq: freq } : { name: "", freq: "" };
         if (state.seenFacility && (prev.name !== state.facility.name || prev.freq !== state.facility.freq)) {
+          clearReadback();
           tuned("", state.facility);
         }
         state.seenFacility = true;
@@ -395,6 +441,7 @@
       state.mode = "ready";
       state.speaker = null;
       state.stage = "";
+      clearReadback();
       render();
       if (!destroyed) timers.reconnect = setTimeout(connect, CONFIG.reconnectMs);
     };

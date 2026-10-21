@@ -71,8 +71,25 @@
   transform: translateY(calc(4 * var(--u)));
 }
 
-#batc-pill .bp-body > * { margin-left: calc(6 * var(--u)); flex: none; }
-#batc-pill .bp-body > *:first-child { margin-left: 0; }
+#batc-pill .bp-body > *, #batc-pill .bp-head > * { margin-left: calc(6 * var(--u)); flex: none; }
+#batc-pill .bp-body > *:first-child, #batc-pill .bp-head > *:first-child { margin-left: 0; }
+
+/* ATC instruction waiting for a readback: a header row over the wrapped text (height set by pill.js) */
+#batc-pill.is-msg { align-items: flex-start; border-radius: calc(10 * var(--u)); }
+#batc-pill.is-msg .bp-body {
+  display: block;
+  padding: calc(7 * var(--u)) calc(12 * var(--u)) calc(8 * var(--u)) calc(10 * var(--u));
+}
+#batc-pill .bp-head { display: flex; align-items: center; height: calc(12 * var(--u)); }
+#batc-pill.is-msg .bp-body > .bp-msg {
+  display: block;
+  max-width: calc(300 * var(--u));
+  margin: calc(6 * var(--u)) 0 0 0;
+  white-space: normal;
+  font-weight: 500;
+  line-height: 1.35;
+}
+#batc-pill .bp-dim { color: var(--dim); font-weight: 500; }
 
 #batc-pill .bp-freq {
   font-size: calc(11 * var(--u));
