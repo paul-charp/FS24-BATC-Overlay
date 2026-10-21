@@ -2,7 +2,7 @@
 
 ## Unreleased
 
-- Added: ATC instructions stay on screen as text until you read them back ("ATC text until readback" setting).
+- Added: readback hints: after an ATC instruction, the pill shows what to read back until you do ("Readback hints" setting).
 
 ## 1.0.1 (2026-10-20)
 

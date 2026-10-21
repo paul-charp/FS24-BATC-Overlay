@@ -13,8 +13,8 @@
     lingerMs: 3000,      // label stays after an exchange ends, then shrinks to the dot
     tuneMs: 3000,        // how long a radio change is shown
     errorMs: 5000,
-    readbackMs: 30000,   // longest an ATC instruction stays up waiting for your readback
-    showReadback: true,  // keep an ATC instruction on screen until you read it back
+    readbackMs: 30000,   // longest a readback hint stays up
+    showReadback: true,  // after an ATC instruction, hint what to read back ("Taxi 30R") until you do
     showTuning: true,    // show the new station when COM1/COM2 changes
     hideOffline: false,  // true: no pill at all while BeyondATC isn't running
     showTraffic: true,   // show a neutral "Traffic" pill while AI traffic talks
@@ -65,7 +65,7 @@
     tuneUntil: 0,
     com2: null,          // last Com2 label|frequency, to detect changes
     atcText: "",         // last ATC: line
-    readback: null,      // { text, facility } shown until readbackUntil, while a readback is expected
+    readback: null,      // short summary of the instruction, shown until readbackUntil
     readbackUntil: 0,
     seenFacility: false, // the first Facility after connecting is the snapshot, not a change
     editing: false,      // settings card open: the pill shows a sample so size/position are visible
@@ -110,7 +110,7 @@
         return '<span class="bc-btn bc-corner" data-corner="' + c + '"><i></i></span>';
       }).join("") + "</span></div>" +
     stepRow("Side offset", "x") + stepRow("Edge offset", "y") + stepRow("Size", "scale") +
-    toggleRow("Radio changes", "showTuning") + toggleRow("ATC text until readback", "showReadback") + toggleRow("AI traffic", "showTraffic") +
+    toggleRow("Radio changes", "showTuning") + toggleRow("Readback hints", "showReadback") + toggleRow("AI traffic", "showTraffic") +
     toggleRow("Full station names", "fullNames") + toggleRow("Hide when BATC is off", "hideOffline") +
     '<div class="bc-foot"><span class="bc-btn bc-reset" data-act="reset">Reset</span></div>';
   document.body.appendChild(card);
@@ -217,8 +217,8 @@
           v = { cls: "s-tune", html: RADIO + (t.label ? '<span class="bp-sep">' + t.label + "</span>" : "") +
             facilityHtml("bp-who", t.facility, "No station") };
         } else if (state.readback && now < state.readbackUntil) {
-          v = { cls: "s-atc is-msg is-pulse", html: LAMP + facilityHtml("bp-who", state.readback.facility) +
-            '<span class="bp-sep">·</span><span class="bp-dim">Read back</span>', msg: state.readback.text };
+          v = { cls: "s-atc is-pulse", html: LAMP + '<span class="bp-who">Read back</span>' +
+            '<span class="bp-sep">·</span><span>' + esc(state.readback) + "</span>" };
         } else if (now < state.lingerUntil) {
           v = { cls: "", html: LAMP + facilityHtml("") };
         }
@@ -229,7 +229,6 @@
     }
     if (!v) v = { cls: "is-dot", html: LAMP };
     if (state.muted && v.cls !== "is-dot") v.html += MUTE;
-    if (v.msg) v.html = '<span class="bp-head">' + v.html + '</span><span class="bp-msg">' + esc(v.msg) + "</span>";
     return v;
   }
 
@@ -241,18 +240,10 @@
     return body.offsetWidth + border;
   }
 
-  function measureH() {
-    // only the message view grows; the others keep the CSS height
-    if (root.className.indexOf("is-msg") < 0) return "";
-    return body.offsetHeight + root.offsetHeight - root.clientHeight + "px";
-  }
-
   function resize() {
     if (destroyed || current === "hidden") return;
     var w = measure() + "px";
     if (root.style.width !== w) root.style.width = w;
-    var h = measureH();
-    if (root.style.height !== h) root.style.height = h;
   }
 
   function cssReady() {
@@ -280,7 +271,6 @@
       root.className = v.cls;
       body.innerHTML = v.html;
       root.style.width = measure() + "px";
-      root.style.height = measureH();
       // next frame, so the fade-in starts from the faded-out state
       requestAnimationFrame(function () { body.className = "bp-body"; resize(); });
     }
@@ -291,7 +281,6 @@
       root.className = v.cls + " is-hidden";
       body.innerHTML = v.html;
       root.style.width = measure() + "px";
-      root.style.height = measureH();
       requestAnimationFrame(function () { root.className = v.cls; resize(); });
       return;
     }
@@ -310,12 +299,53 @@
     return String(s || "").replace(/\s*\(.*?\)/g, "").trim();
   }
 
-  // Instructions ICAO wants read back (clearances, runway, levels, headings, speeds, squawk, QNH,
-  // frequency changes). BeyondATC sends no "readback expected" flag that we know of, so this guesses
-  // from the text; replies like "Wind 310 degrees, 8 knots." don't match.
-  var READBACK_RE = new RegExp("\\b(cleared|clear to|taxi|hold short|hold position|line up|cross|backtrack|" +
-    "climb|descend|maintain|flight level|heading|turn (left|right)|speed|squawk|contact|monitor|qnh|altimeter|" +
-    "direct|proceed|join|vectors?|expect)\\b", "i");
+  // Instructions ICAO wants read back, as short hints: [pattern, hint]. BeyondATC sends no "readback
+  // expected" flag that we know of, so this guesses from the ATC text; replies like "Wind 310 degrees,
+  // 8 knots." match nothing. $1/$2 are the pattern's groups. Each match uses up its words, so
+  // "climb and maintain FL120" is one hint; the first two hints are shown.
+  var RWY = "runway\\s+(\\d{1,2}\\s?[LRC]?)\\b";
+  var LEVEL = "(flight level\\s*\\d{2,3}|\\d{1,3},?\\d{3}\\s*(?:feet|ft))";
+  var READBACKS = [
+    [RWY + "[^.]*?cleared (?:to land|for (?:the )?(?:option|touch and go))", "Land $1"],
+    ["cleared (?:to land|for (?:the )?(?:option|touch and go))[^.]*?" + RWY, "Land $1"],
+    ["cleared (?:to land|for (?:the )?(?:option|touch and go))", "Land"],
+    [RWY + "[^.]*?cleared (?:for )?take ?off", "Takeoff $1"],
+    ["cleared (?:for )?take ?off[^.]*?" + RWY, "Takeoff $1"],
+    ["cleared (?:for )?take ?off", "Takeoff"],
+    ["line up[^.]*?" + RWY, "Line up $1"],
+    ["cleared[^.]*?approach[^.]*?" + RWY, "Approach $1"],
+    ["cleared to (?!land)\\w[^.]*?(?:via|squawk|departure|climb|route)", "IFR clearance"],
+    ["taxi[^.]*?" + RWY, "Taxi $1"],
+    ["taxi", "Taxi"],
+    ["hold short[^.]*?" + RWY, "Hold short $1"],
+    ["hold (?:short|position)", "Hold"],
+    ["cross[^.]*?" + RWY, "Cross $1"],
+    ["backtrack[^.]*?" + RWY, "Backtrack $1"],
+    ["(climb|descend)[^.]*?" + LEVEL, "$1 $2"],
+    ["maintain[^.]*?" + LEVEL, "Maintain $1"],
+    ["heading\\s+(\\d{3})", "Heading $1"],
+    ["(?:speed|reduce|increase)[^.]*?(\\d{3})\\s*knots", "Speed $1"],
+    ["squawk\\s+(\\d{4})", "Squawk $1"],
+    ["(?:contact|monitor)[^.]*?(1\\d{2}\\.\\d{1,3})", "Contact $1"],
+    ["(?:qnh|altimeter)\\s+(\\d{3,4}(?:\\.\\d{2})?)", "QNH $1"],
+    ["(?:proceed )?direct(?: to)?\\s+([A-Z]{2,5})\\b", "Direct $1"],
+  ].map(function (r) { return [new RegExp("\\b" + r[0], "i"), r[1]]; });
+
+  function readbackHint(text) {
+    var hints = [];
+    text = String(text);
+    for (var i = 0; i < READBACKS.length && hints.length < 2; i++) {
+      var m = READBACKS[i][0].exec(text);
+      if (!m) continue;
+      text = text.slice(0, m.index) + "~" + text.slice(m.index + m[0].length);
+      var h = READBACKS[i][1].replace(/\$(\d)/g, function (_, n) {
+        return String(m[n] || "").replace(/flight level\s*/i, "FL").replace(/(\d),(\d)/, "$1$2")
+          .replace(/\s*(feet|ft)$/i, " ft").replace(/\s+/g, " ");
+      });
+      hints.push(h.charAt(0).toUpperCase() + h.slice(1));
+    }
+    return hints.join(" · ");
+  }
 
   function clearReadback() {
     state.readback = null;
@@ -342,10 +372,10 @@
         if (!cs) return;
         var mode = cs.mode || "ready";
         if (mode === "processing" || mode === "request" || mode === "queued") clearReadback(); // you're talking
-        if (mode === "ready" && state.mode === "speaking" && state.speaker === "atc" && CONFIG.showReadback &&
-            READBACK_RE.test(state.atcText)) {
-          var t = state.atcText;
-          state.readback = { text: t.length > 240 ? t.slice(0, 239) + "…" : t, facility: state.facility };
+        var hint = mode === "ready" && state.mode === "speaking" && state.speaker === "atc" &&
+          CONFIG.showReadback && readbackHint(state.atcText);
+        if (hint) {
+          state.readback = hint;
           state.readbackUntil = Date.now() + CONFIG.readbackMs;
           clearTimeout(timers.readback);
           timers.readback = setTimeout(render, CONFIG.readbackMs + 20);
