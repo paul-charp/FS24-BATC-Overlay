@@ -181,6 +181,16 @@
 
   // ---- state -> view ---------------------------------------------------
 
+  function readbackView() {
+    var rb = state.readback;
+    if (!rb || Date.now() >= state.readbackUntil) return null;
+    return CONFIG.readbackText === "full" ?
+      { cls: "s-atc is-msg is-pulse", html: LAMP + facilityHtml("bp-who", rb.facility) +
+        '<span class="bp-sep">·</span><span class="bp-dim">Read back</span>', msg: rb.text } :
+      { cls: "s-atc is-pulse", html: LAMP + '<span class="bp-who">Read back</span>' +
+        '<span class="bp-sep">·</span><span>' + esc(rb.hint) + "</span>" };
+  }
+
   function view() {
     var now = Date.now();
     if (!state.inFlight || state.stage === "menu") return { hidden: true };
@@ -210,7 +220,9 @@
         break;
       case "speaking":
         if (state.speaker === "player") v = { cls: "s-you", html: BARS + '<span class="bp-who">You</span>' };
-        else if (state.speaker === "traffic") v = CONFIG.showTraffic ? { cls: "", html: BARS + "<span>Traffic</span>" } : null;
+        else if (state.speaker === "traffic") {
+          v = CONFIG.showTraffic ? { cls: "", html: BARS + "<span>Traffic</span>" } : readbackView();
+        }
         else v = { cls: "s-atc", html: BARS + facilityHtml("bp-who") };
         break;
       case "ready":
@@ -218,13 +230,8 @@
           var t = state.tune;
           v = { cls: "s-tune", html: RADIO + (t.label ? '<span class="bp-sep">' + t.label + "</span>" : "") +
             facilityHtml("bp-who", t.facility, "No station") };
-        } else if (state.readback && now < state.readbackUntil) {
-          var rb = state.readback;
-          v = CONFIG.readbackText === "full" ?
-            { cls: "s-atc is-msg is-pulse", html: LAMP + facilityHtml("bp-who", rb.facility) +
-              '<span class="bp-sep">·</span><span class="bp-dim">Read back</span>', msg: rb.text } :
-            { cls: "s-atc is-pulse", html: LAMP + '<span class="bp-who">Read back</span>' +
-              '<span class="bp-sep">·</span><span>' + esc(rb.hint) + "</span>" };
+        } else if ((v = readbackView())) {
+          // waiting for your readback
         } else if (now < state.lingerUntil) {
           v = { cls: "", html: LAMP + facilityHtml("") };
         }
@@ -408,10 +415,14 @@
         break;
       }
       case "ATC":
-      case "ATCTraffic":
         state.speaker = "atc";
-        state.atcText = type === "ATC" ? payload : ""; // ATCTraffic is ATC talking to someone else
-        clearReadback();
+        state.atcText = payload;
+        clearReadback(); // a new instruction (or "readback correct") replaces the pending one
+        return;
+      case "ATCTraffic":
+        // ATC talking to another aircraft: your pending readback stays
+        state.speaker = "atc";
+        state.atcText = "";
         return;
       case "Player":
         state.speaker = "player"; // your readback (or next request) is starting
