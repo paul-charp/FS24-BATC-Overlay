@@ -269,8 +269,12 @@
 #batc-pill-cfg .bc-btn { cursor: pointer; transition: background-color 0.15s ease, color 0.15s ease; }
 
 #batc-pill-cfg .bc-x {
-  width: calc(20 * var(--k)); height: calc(20 * var(--k)); line-height: calc(20 * var(--k));
-  text-align: center; border-radius: 50%;
+  display: flex; align-items: center; justify-content: center;
+  width: calc(20 * var(--k)); height: calc(20 * var(--k)); border-radius: 50%;
+}
+#batc-pill-cfg .bc-x svg {
+  width: calc(9 * var(--k)); height: calc(9 * var(--k));
+  fill: none; stroke: currentColor; stroke-width: 1.5; stroke-linecap: round;
 }
 #batc-pill-cfg .bc-x:hover { background-color: var(--btn-hover); color: var(--fg); }
 

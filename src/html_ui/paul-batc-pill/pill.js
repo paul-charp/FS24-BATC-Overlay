@@ -139,7 +139,9 @@
   card.id = "batc-pill-cfg";
   card.className = "is-closed";
   card.innerHTML =
-    '<div class="bc-head"><span>BATC Comms Pill</span><span class="bc-btn bc-x" data-act="close">✕</span></div>' +
+    '<div class="bc-head"><span>BATC Comms Pill</span><span class="bc-btn bc-x" data-act="close">' +
+      // drawn, not the ✕ glyph: the sim's font set it off-center
+      '<svg viewBox="0 0 10 10"><path d="M2 2l6 6M8 2l-6 6"/></svg></span></div>' +
     '<div class="bc-tabs"><span class="bc-btn bc-tab" data-tab="display">Display</span>' +
       '<span class="bc-btn bc-tab" data-tab="position">Position</span></div>' +
     '<div class="bc-pane" data-pane="display">' +
