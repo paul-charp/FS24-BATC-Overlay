@@ -887,15 +887,17 @@
 
   function listenPtt() {
     var eng = window.engine;
-    if (!CONFIG.showPtt || keyHandler || !eng || typeof eng.on !== "function") return;
+    if (!CONFIG.showPtt || !eng || typeof eng.on !== "function") return;
     // once per view and event: hot reloads (inspect_ui.py --push) keep the view, and its intercepts
     var reg = window.batcPillKeys = window.batcPillKeys || { attached: false, intercepted: {} };
     if (!reg.attached) {
       eng.trigger("ADD_VIEW_LISTENER", "JS_LISTENER_KEYEVENT", "/Global/mainUI.html");
       reg.attached = true;
     }
-    keyHandler = function (name) { onKeyEvent(name); };
-    eng.on("keyIntercepted", keyHandler);
+    if (!keyHandler) {
+      keyHandler = function (name) { onKeyEvent(name); };
+      eng.on("keyIntercepted", keyHandler);
+    }
     var id = CONFIG.pttEvent + (CONFIG.pttBlock ? ":block" : "");
     if (!reg.intercepted[id]) {
       eng.call("INTERCEPT_KEY_EVENT", CONFIG.pttEvent, CONFIG.pttBlock ? 1 : 0);
