@@ -81,5 +81,6 @@
   err.onclick = () => batcPill.feed('AppError: Speech service unavailable');
   let muted = false;
   mute.onclick = () => batcPill.feed('RadioMute: ' + JSON.stringify({ com1: (muted = !muted), com2: false }));
-  flight.onclick = () => host.isConnected ? host.remove() : document.body.prepend(host);
+  const hostEl = document.getElementById('host'); // window.host stops resolving once it's removed
+  flight.onclick = () => hostEl.isConnected ? hostEl.remove() : document.body.prepend(hostEl);
 </script>

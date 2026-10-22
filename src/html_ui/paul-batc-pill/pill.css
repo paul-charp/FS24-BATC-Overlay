@@ -67,6 +67,8 @@
   opacity: 0.8;
 }
 #batc-pill.is-ghost { opacity: 0.55; }
+/* the dot and ghost set their own opacity: hidden must still win (the dot stayed in the menus) */
+#batc-pill.is-dot.is-hidden, #batc-pill.is-ghost.is-hidden { opacity: 0; }
 
 #batc-pill .bp-body {
   position: relative;

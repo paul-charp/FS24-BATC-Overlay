@@ -9,6 +9,7 @@
 - Added: ATC calling you while COM1 is muted turns the pill red-orange ("Muted ATC calls" setting).
 - Changed: with the settings card open, the sample pill shows the effect of the last setting changed.
 - Fixed: BeyondATC errors showed as raw JSON.
+- Fixed: the idle dot stayed visible in the sim's menus after a flight.
 - Fixed: `sniff_batc.py` disconnected after BeyondATC's first ping.
 
 ## 1.0.1 (2026-10-20)

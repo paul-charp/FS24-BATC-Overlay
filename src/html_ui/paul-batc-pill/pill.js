@@ -546,9 +546,14 @@
 
   // "contact Marseille Approach on 120.100" -> { name: "Marseille Approach", freq: "120.100" };
   // "contact Tower when at runway hold point" -> { name: "Tower", freq: "" }
+  // A name is Capitalized words split by single spaces: one way to read any text, so no runaway backtracking
+  // (an earlier "[A-Z][\w-]*\s?" form hung on long runs of capitals).
+  var STATION = "((?:[A-Z][a-z]+ )*[A-Z][a-z]+)";
+  var CONTACT_FREQ = new RegExp("\\b(?:[Cc]ontact|[Mm]onitor) " + STATION + ",? (?:on )?(1\\d{2}\\.\\d{1,3})\\b");
+  var CONTACT_NAME = new RegExp("\\b[Cc]ontact " + STATION);
+
   function contactIn(text) {
-    var m = /\b(?:[Cc]ontact|[Mm]onitor)\s+((?:[A-Z][\w-]*\s?)+?)\s*(?:on\s+)?(1\d{2}\.\d{1,3})\b/.exec(text) ||
-      /\b[Cc]ontact\s+((?:[A-Z][\w-]*\s?)+)/.exec(text);
+    var m = CONTACT_FREQ.exec(text) || CONTACT_NAME.exec(text);
     return m ? { name: m[1].trim(), freq: m[2] || "" } : null;
   }
 
