@@ -14,11 +14,13 @@
     tuneMs: 3000,        // how long a radio change is shown
     errorMs: 5000,
     missedMs: 5000,
-    atisMs: 6000,        // how long a new ATIS letter is shown      // "No readback" stays this long when BeyondATC stops waiting without your reply
+    atisMs: 6000,        // how long a new ATIS letter is shown
+    demoMs: 4000,        // settings card: how long the sample shows the last change before going back      // "No readback" stays this long when BeyondATC stops waiting without your reply
     showReadback: true,  // while BeyondATC waits for your readback, hint what it is ("Taxi 30R")
     readbackDetail: "hint", // with a readback pending: "none" (status only), "hint" ("Taxi via T1"),
                             // "boxes" (the toolbar's clearance boxes: runway, SID, ...)
-    showTuning: true,    // show the new station when COM1/COM2 changes, and (Auto Tune off) whom to contact
+    showTuning: true,    // show the new station when COM1/COM2 changes
+    showContact: true,   // Auto Tune off: after "contact <station> <freq>", remind you until COM1 is on it
     showAtis: true,      // show a new ATIS letter
     warnMuted: true,     // ATC calling you while COM1 is muted: red-orange instead of amber
     hideOffline: false,  // true: no pill at all while BeyondATC isn't running
@@ -31,7 +33,7 @@
   var FADE_MS = 140;
 
   // What the settings card changes. Saved in localStorage, which every sim UI view shares.
-  var USER_KEYS = ["corner", "x", "y", "scale", "showTuning", "showAtis", "showReadback", "readbackDetail",
+  var USER_KEYS = ["corner", "x", "y", "scale", "showTuning", "showContact", "showAtis", "showReadback", "readbackDetail",
     "warnMuted", "hideOffline",
     "showTraffic", "facility"];
   var STORE_KEY = "batcpill.settings";
@@ -91,7 +93,7 @@
     seenInfo: false,     // the first InfoBoxes after connecting is the snapshot, not a change
   };
   var socket = null;
-  var timers = { reconnect: 0, linger: 0, error: 0, tune: 0, missed: 0, atis: 0, swap: 0, poll: 0 };
+  var timers = { reconnect: 0, linger: 0, error: 0, tune: 0, missed: 0, atis: 0, demo: 0, swap: 0, poll: 0 };
   var destroyed = false;
   var current = null;    // last rendered view signature
 
@@ -133,7 +135,8 @@
         return '<span class="bc-btn bc-corner" data-corner="' + c + '"><i></i></span>';
       }).join("") + "</span></div>" +
     stepRow("Side offset", "x") + stepRow("Edge offset", "y") + stepRow("Size", "scale") +
-    toggleRow("Radio changes", "showTuning") + toggleRow("ATIS changes", "showAtis") +
+    toggleRow("Radio changes", "showTuning") + toggleRow("Contact reminders", "showContact") +
+    toggleRow("ATIS changes", "showAtis") +
     toggleRow("Readback hints", "showReadback") +
     choiceRow("Detail", "readbackDetail", [["none", "None"], ["hint", "Hint"], ["boxes", "Boxes"]]) +
     toggleRow("Muted ATC calls", "warnMuted") + toggleRow("AI traffic", "showTraffic") +
@@ -263,8 +266,8 @@
   }
 
   function mutedLook() {
-    // ATC calls you but COM1 is muted: you won't hear it
-    return { cls: "s-insist", html: BARS + facilityHtml("bp-who") + '<span class="bp-sep">·</span><span>muted</span>' };
+    // ATC calls you but COM1 is muted: you won't hear it. The speaker icon takes the warning color.
+    return { cls: "s-insist is-muted", html: BARS + facilityHtml("bp-who") };
   }
 
   function atisLook(letter) {
@@ -295,6 +298,9 @@
         break;
       case "warnMuted":
         if (CONFIG.warnMuted) { var mv = mutedLook(); mv.html += MUTE; return mv; }
+        break;
+      case "showContact":
+        if (CONFIG.showContact) return contactLook({ name: "Marseille Approach", freq: "120.100" });
         break;
       case "showTraffic":
         if (CONFIG.showTraffic) return { cls: "", html: BARS + "<span>Traffic</span>" };
@@ -353,7 +359,7 @@
             (state.missed.detail && CONFIG.readbackDetail !== "none" ? '<span class="bp-sep">·</span><span>' + esc(state.missed.detail) + "</span>" : "") };
         } else if (state.atis && now < state.atisUntil) {
           v = atisLook(state.atis);
-        } else if (state.contact && !state.autoTune && CONFIG.showTuning) {
+        } else if (state.contact && !state.autoTune && CONFIG.showContact) {
           v = contactLook(state.contact);
         } else if (now < state.lingerUntil) {
           v = { cls: "", html: LAMP + facilityHtml("") };
@@ -797,8 +803,10 @@
       var n = Number(CONFIG[k]) + (act.slice(-1) === "+" ? st[0] : -st[0]);
       patch[k] = Math.round(Math.min(st[2], Math.max(st[1], n)) * 100) / 100;
     }
-    // the sample pill shows what the change does ("facility" covers Full station names)
+    // the sample pill shows what the change does ("facility" covers Full station names) for demoMs
     state.demo = act === "reset" ? "" : Object.keys(patch)[0] || "";
+    clearTimeout(timers.demo);
+    timers.demo = setTimeout(function () { state.demo = ""; render(); }, CONFIG.demoMs);
     set(patch);
   });
 

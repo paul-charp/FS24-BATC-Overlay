@@ -196,6 +196,13 @@
   color: var(--dim);
 }
 #batc-pill .bp-radio { color: var(--c); transition: color 0.3s ease; }
+/* ATC calling while COM1 is muted: the speaker icon is the message */
+#batc-pill.is-muted .bp-ico {
+  width: calc(15 * var(--u));
+  height: calc(15 * var(--u));
+  color: var(--c);
+  animation: bp-pulse 0.9s ease-in-out infinite;
+}
 
 /* The sim only routes a click to the element directly under the cursor if that element has
    data-input-group, so let clicks fall through the pill's children to the pill itself. */

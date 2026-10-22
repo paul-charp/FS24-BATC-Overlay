@@ -37,7 +37,8 @@ Click the pill in flight to open its settings card. Changes apply immediately. W
 | Corner | any of the four screen corners |
 | Side offset / Edge offset | distance from the corner, in 1080p pixels (scales with resolution) |
 | Size | 60% to 250% |
-| Radio changes | show the new station when COM1 or COM2 changes, and whom to contact when Auto Tune is off |
+| Radio changes | show the new station when COM1 or COM2 changes |
+| Contact reminders | with Auto Tune off, show whom to contact until COM1 is on it |
 | ATIS changes | show a new ATIS letter |
 | Readback hints | show when BeyondATC waits for your readback or acknowledgement |
 | Detail (under Readback hints) | None (status only), Hint (a short hint, e.g. "Taxi via T1 · Hold short 12L") or Boxes (the toolbar's clearance boxes) |
