@@ -11,10 +11,12 @@ A small pill in a corner of the Microsoft Flight Simulator 2024 screen that show
 - **You talking** (green): your readback or request is being played.
 - **Awaiting readback / Awaiting response** (amber, pulsing): ATC waits for your readback, acknowledgement or answer (the toolbar offers "Say Again"), with a short hint ("IFR clearance · Climb FL060", "Taxi 30R", the answers to a question: "Runway 12L / Runway 12R"), or the toolbar's clearance boxes (runway, SID, altitude, squawk). If ATC calls you again before you reply, the pill turns red-orange ("Awaiting response ×2"). If BeyondATC stops waiting without a reply (it drops taxi and acknowledge replies after about 18 s), "No readback" shows for 5 s.
 - **Radio change** (cyan): the new station when COM1 or COM2 changes.
+- **Contact** (cyan): with BeyondATC's Auto Tune off, after "contact Marseille Approach on 120.100", until COM1 is on it.
+- **ATIS** (purple): a new ATIS letter ("Information Z"), for 6 s.
 - **Exchange ended**: the station stays for 3 s, then the pill shrinks back to the dot.
 - **Offline**: BeyondATC isn't running (can be hidden).
 
-A muted COM1 adds a speaker icon. AI traffic talking shows a neutral "Traffic" pill.
+A muted COM1 adds a speaker icon; ATC calling you while it's muted turns the pill red-orange. AI traffic talking shows a neutral "Traffic" pill.
 
 ## Install
 
@@ -35,9 +37,11 @@ Click the pill in flight to open its settings card. Changes apply immediately. W
 | Corner | any of the four screen corners |
 | Side offset / Edge offset | distance from the corner, in 1080p pixels (scales with resolution) |
 | Size | 60% to 250% |
-| Radio changes | show the new station when COM1 or COM2 changes |
+| Radio changes | show the new station when COM1 or COM2 changes, and whom to contact when Auto Tune is off |
+| ATIS changes | show a new ATIS letter |
 | Readback hints | show when BeyondATC waits for your readback or acknowledgement |
 | Detail (under Readback hints) | None (status only), Hint (a short hint, e.g. "Taxi via T1 · Hold short 12L") or Boxes (the toolbar's clearance boxes) |
+| Muted ATC calls | red-orange pill when ATC calls you while COM1 is muted |
 | AI traffic | show the "Traffic" pill while AI traffic talks |
 | Full station names | "Montpellier Ground" instead of "Ground" |
 | Hide when BATC is off | no pill at all while BeyondATC isn't running |

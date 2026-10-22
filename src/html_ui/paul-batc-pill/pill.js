@@ -13,11 +13,14 @@
     lingerMs: 3000,      // label stays after an exchange ends, then shrinks to the dot
     tuneMs: 3000,        // how long a radio change is shown
     errorMs: 5000,
-    missedMs: 5000,      // "No readback" stays this long when BeyondATC stops waiting without your reply
+    missedMs: 5000,
+    atisMs: 6000,        // how long a new ATIS letter is shown      // "No readback" stays this long when BeyondATC stops waiting without your reply
     showReadback: true,  // while BeyondATC waits for your readback, hint what it is ("Taxi 30R")
     readbackDetail: "hint", // with a readback pending: "none" (status only), "hint" ("Taxi via T1"),
                             // "boxes" (the toolbar's clearance boxes: runway, SID, ...)
-    showTuning: true,    // show the new station when COM1/COM2 changes
+    showTuning: true,    // show the new station when COM1/COM2 changes, and (Auto Tune off) whom to contact
+    showAtis: true,      // show a new ATIS letter
+    warnMuted: true,     // ATC calling you while COM1 is muted: red-orange instead of amber
     hideOffline: false,  // true: no pill at all while BeyondATC isn't running
     showTraffic: true,   // show a neutral "Traffic" pill while AI traffic talks
     facility: "short",   // "short": "Ground", "full": "Montpellier Ground"
@@ -28,7 +31,8 @@
   var FADE_MS = 140;
 
   // What the settings card changes. Saved in localStorage, which every sim UI view shares.
-  var USER_KEYS = ["corner", "x", "y", "scale", "showTuning", "showReadback", "readbackDetail", "hideOffline",
+  var USER_KEYS = ["corner", "x", "y", "scale", "showTuning", "showAtis", "showReadback", "readbackDetail",
+    "warnMuted", "hideOffline",
     "showTraffic", "facility"];
   var STORE_KEY = "batcpill.settings";
   var DEFAULTS = {};
@@ -79,9 +83,15 @@
     seenFacility: false, // the first Facility after connecting is the snapshot, not a change
     editing: false,      // settings card open: the pill shows a sample so size/position are visible
     demo: "",            // the setting changed last in the card; the sample shows its effect
+    autoTune: true,      // BeyondATC tunes the radios itself ("AutoTune: true")
+    contact: null,       // { name, freq } ATC told you to contact, until COM1 is on it (Auto Tune off)
+    atis: "",            // new ATIS letter, shown until atisUntil
+    atisUntil: 0,
+    atisLetter: "",      // last "ATIS Current" box seen
+    seenInfo: false,     // the first InfoBoxes after connecting is the snapshot, not a change
   };
   var socket = null;
-  var timers = { reconnect: 0, linger: 0, error: 0, tune: 0, missed: 0, swap: 0, poll: 0 };
+  var timers = { reconnect: 0, linger: 0, error: 0, tune: 0, missed: 0, atis: 0, swap: 0, poll: 0 };
   var destroyed = false;
   var current = null;    // last rendered view signature
 
@@ -123,9 +133,10 @@
         return '<span class="bc-btn bc-corner" data-corner="' + c + '"><i></i></span>';
       }).join("") + "</span></div>" +
     stepRow("Side offset", "x") + stepRow("Edge offset", "y") + stepRow("Size", "scale") +
-    toggleRow("Radio changes", "showTuning") + toggleRow("Readback hints", "showReadback") +
+    toggleRow("Radio changes", "showTuning") + toggleRow("ATIS changes", "showAtis") +
+    toggleRow("Readback hints", "showReadback") +
     choiceRow("Detail", "readbackDetail", [["none", "None"], ["hint", "Hint"], ["boxes", "Boxes"]]) +
-    toggleRow("AI traffic", "showTraffic") +
+    toggleRow("Muted ATC calls", "warnMuted") + toggleRow("AI traffic", "showTraffic") +
     toggleRow("Full station names", "fullNames") + toggleRow("Hide when BATC is off", "hideOffline") +
     '<div class="bc-foot"><span class="bc-btn bc-reset" data-act="reset">Reset</span></div>';
   document.body.appendChild(card);
@@ -251,6 +262,21 @@
       facilityHtml("bp-who", t.facility, "No station") };
   }
 
+  function mutedLook() {
+    // ATC calls you but COM1 is muted: you won't hear it
+    return { cls: "s-insist", html: BARS + facilityHtml("bp-who") + '<span class="bp-sep">·</span><span>muted</span>' };
+  }
+
+  function atisLook(letter) {
+    return { cls: "s-atis", html: LAMP + '<span class="bp-who">ATIS</span><span class="bp-sep">·</span><span>Information ' +
+      esc(letter) + "</span>" };
+  }
+
+  function contactLook(c) {
+    return { cls: "s-tune", html: RADIO + '<span class="bp-who">Contact</span>' +
+      facilityHtml("", { name: c.name, freq: c.freq }) };
+  }
+
   // Settings card open: a sample of what the setting changed last does (the ATC pill otherwise)
   var DEMO_BOXES = [{ title: "Taxi to Runway", info: "12L" }, { title: "Taxi Via 1", info: "T1" },
     { title: "Hold Short", info: "12L" }];
@@ -263,6 +289,12 @@
       case "showReadback":
       case "readbackDetail":
         if (CONFIG.showReadback) return readbackLook(true, 1, "Taxi via T1 · Hold short 12L", DEMO_BOXES);
+        break;
+      case "showAtis":
+        if (CONFIG.showAtis) return atisLook("Z");
+        break;
+      case "warnMuted":
+        if (CONFIG.warnMuted) { var mv = mutedLook(); mv.html += MUTE; return mv; }
         break;
       case "showTraffic":
         if (CONFIG.showTraffic) return { cls: "", html: BARS + "<span>Traffic</span>" };
@@ -304,6 +336,7 @@
         else if (state.speaker === "traffic") {
           v = CONFIG.showTraffic ? { cls: "", html: BARS + "<span>Traffic</span>" } : readbackView();
         }
+        else if (state.speaker === "atc" && state.muted && CONFIG.warnMuted) v = mutedLook();
         else v = { cls: "s-atc", html: BARS + facilityHtml("bp-who") };
         break;
       case "traffic":
@@ -318,6 +351,10 @@
         } else if (state.missed && now < state.missedUntil) {
           v = { cls: "s-insist", html: LAMP + '<span class="bp-who">' + state.missed.label + "</span>" +
             (state.missed.detail && CONFIG.readbackDetail !== "none" ? '<span class="bp-sep">·</span><span>' + esc(state.missed.detail) + "</span>" : "") };
+        } else if (state.atis && now < state.atisUntil) {
+          v = atisLook(state.atis);
+        } else if (state.contact && !state.autoTune && CONFIG.showTuning) {
+          v = contactLook(state.contact);
         } else if (now < state.lingerUntil) {
           v = { cls: "", html: LAMP + facilityHtml("") };
         }
@@ -501,6 +538,22 @@
     state.menuFresh = true;
   }
 
+  // "contact Marseille Approach on 120.100" -> { name: "Marseille Approach", freq: "120.100" };
+  // "contact Tower when at runway hold point" -> { name: "Tower", freq: "" }
+  function contactIn(text) {
+    var m = /\b(?:[Cc]ontact|[Mm]onitor)\s+((?:[A-Z][\w-]*\s?)+?)\s*(?:on\s+)?(1\d{2}\.\d{1,3})\b/.exec(text) ||
+      /\b[Cc]ontact\s+((?:[A-Z][\w-]*\s?)+)/.exec(text);
+    return m ? { name: m[1].trim(), freq: m[2] || "" } : null;
+  }
+
+  function onContact(c) {
+    // COM1 is on it: by frequency, or by station name when ATC gave none
+    var f = state.facility;
+    if (c.freq) return f.freq && Number(f.freq).toFixed(3) === Number(c.freq).toFixed(3);
+    var word = c.name.split(" ").pop().toLowerCase();
+    return f.name.toLowerCase().split(" ").indexOf(word) >= 0;
+  }
+
   function tuned(label, facility) {
     if (!CONFIG.showTuning) return;
     state.tune = { label: label, facility: facility };
@@ -534,6 +587,8 @@
       case "ATC":
         state.speaker = "atc";
         state.atcText = payload;
+        var c = contactIn(payload);
+        if (c && !state.autoTune && !onContact(c)) state.contact = c;
         state.menuFresh = false; // ATC may close the exchange: wait for the menu sent after it
         state.missed = null;
         if (state.readback) {
@@ -565,6 +620,7 @@
         if (state.seenFacility && (prev.name !== state.facility.name || prev.freq !== state.facility.freq)) {
           tuned("", state.facility);
         }
+        if (state.contact && onContact(state.contact)) state.contact = null;
         state.seenFacility = true;
         break;
       }
@@ -594,8 +650,24 @@
         state.infoBoxes = (ib && ib.length ? ib : []).map(function (b) {
           return { title: String(b.title || ""), info: String(b.info || "").replace(/<br\s*\/?>/gi, " ") };
         });
+        // {"title":"ATIS Current","info":"Z"} appears or changes after "information Z now current"
+        state.infoBoxes.forEach(function (b) {
+          if (!/^atis/i.test(b.title) || !b.info || b.info === state.atisLetter) return;
+          if (state.seenInfo && CONFIG.showAtis) {
+            state.atis = b.info;
+            state.atisUntil = Date.now() + CONFIG.atisMs;
+            clearTimeout(timers.atis);
+            timers.atis = setTimeout(render, CONFIG.atisMs + 20);
+          }
+          state.atisLetter = b.info;
+        });
+        state.seenInfo = true;
         break;
       }
+      case "AutoTune":
+        state.autoTune = payload !== "false";
+        if (state.autoTune) state.contact = null;
+        break;
       case "Actions":
         onActions(payload);
         break;
@@ -627,6 +699,8 @@
     socket.onopen = function () {
       state.connected = true;
       state.seenFacility = false;
+      state.seenInfo = false;
+      state.contact = null;
       state.com2 = null;
       render();
     };

@@ -127,6 +127,7 @@
 #batc-pill.s-err  { --c: #ff6b6b; }
 #batc-pill.s-tune { --c: #63d3e6; }
 #batc-pill.s-insist { --c: #ff7a45; }
+#batc-pill.s-atis  { --c: #b48cff; }
 #batc-pill.s-insist .bp-bg { border-color: var(--c); }
 #batc-pill.s-insist .bp-lamp { animation-duration: 0.7s; }
 

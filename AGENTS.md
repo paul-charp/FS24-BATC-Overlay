@@ -64,6 +64,10 @@ screen corner during flight, with a click-to-open settings card. Windows only. U
 - `InfoBoxes: [{"title":"Taxi to Runway","info":"12L"},{"title":"SID","info":"KELA8L"},
   {"title":"Altitude Clearance","info":"FL060"},{"title":"Squawk","info":"1000"}]`: the toolbar's
   clearance boxes (`info` may hold `<br>`); `[]` at load, a CTAF box on UNICOM.
+- `AutoTune: true|false`, `AutoRespond: true|false` (the toolbar switches). With Auto Tune off,
+  `pill.js` keeps a "Contact" reminder from "contact <Station> [on] <freq>" until COM1 (`Facility`)
+  matches. An `ATIS Current` box with a new letter shows "ATIS"; the snapshot's box doesn't.
+  `CPDLCCode:` and other CPDLC traffic: the pill stays silent (CPDLC is fully handled in the sim).
 - `AppError: {"text","fatal","kicked"}` (text may span lines; empty clears). `Callsign: {full,shortForm}`.
 - The server pings (an empty frame); `sniff_batc.py` lost the connection after each one until it
   answered with a pong. Browsers pong on their own.
