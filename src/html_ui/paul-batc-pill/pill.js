@@ -90,6 +90,7 @@
     infoBoxes: [],       // the toolbar's clearance boxes: [{ title: "SID", info: "KELA8L" }, ...]
     seenFacility: false, // the first Facility after connecting is the snapshot, not a change
     editing: false,      // settings card open: the pill shows a sample so size/position are visible
+    cardTab: "display",  // settings card tab: "display" | "position"
     ptt: false,          // PTT held (its key event keeps repeating)
     pttShown: false,     // held for pttDelayMs: "Transmitting" shows
     pttRepeating: false,
@@ -139,19 +140,25 @@
   card.className = "is-closed";
   card.innerHTML =
     '<div class="bc-head"><span>BATC Comms Pill</span><span class="bc-btn bc-x" data-act="close">✕</span></div>' +
-    '<div class="bc-row"><span class="bc-label">Corner</span><span class="bc-corners">' +
-      ["top-left", "top-right", "bottom-left", "bottom-right"].map(function (c) {
-        return '<span class="bc-btn bc-corner" data-corner="' + c + '"><i></i></span>';
-      }).join("") + "</span></div>" +
-    stepRow("Side offset", "x") + stepRow("Edge offset", "y") + stepRow("Size", "scale") +
-    toggleRow("Radio changes", "showTuning") + toggleRow("Contact reminders", "showContact") +
-    toggleRow("ATIS changes", "showAtis") +
-    toggleRow("Readback hints", "showReadback") +
-    choiceRow("readbackDetail", [["none", "None"], ["short", "Short"], ["hint", "Hint"],
-      ["boxes", "Boxes"]]) +
-    toggleRow("Muted ATC calls", "warnMuted") + toggleRow("PTT (bind Toggle Speaker)", "showPtt") +
-    toggleRow("AI traffic", "showTraffic") +
-    toggleRow("Full station names", "fullNames") + toggleRow("Hide when BATC is off", "hideOffline") +
+    '<div class="bc-tabs"><span class="bc-btn bc-tab" data-tab="display">Display</span>' +
+      '<span class="bc-btn bc-tab" data-tab="position">Position</span></div>' +
+    '<div class="bc-pane" data-pane="display">' +
+      toggleRow("Readback hints", "showReadback") +
+      choiceRow("readbackDetail", [["none", "None"], ["short", "Short"], ["hint", "Hint"], ["boxes", "Boxes"]]) +
+      toggleRow("Radio changes", "showTuning") + toggleRow("Contact reminders", "showContact") +
+      toggleRow("ATIS changes", "showAtis") + toggleRow("Warn when COM1 muted", "warnMuted") +
+      toggleRow("PTT indicator", "showPtt") +
+      '<div class="bc-note">Also bind your PTT button to Toggle Speaker (Controls › Communications)</div>' +
+      toggleRow("AI traffic", "showTraffic") + toggleRow("Full station names", "fullNames") +
+      toggleRow("Hide when BATC is off", "hideOffline") +
+    "</div>" +
+    '<div class="bc-pane" data-pane="position">' +
+      '<div class="bc-row"><span class="bc-label">Corner</span><span class="bc-corners">' +
+        ["top-left", "top-right", "bottom-left", "bottom-right"].map(function (c) {
+          return '<span class="bc-btn bc-corner" data-corner="' + c + '"><i></i></span>';
+        }).join("") + "</span></div>" +
+      stepRow("Side offset", "x") + stepRow("Edge offset", "y") + stepRow("Size", "scale") +
+    "</div>" +
     '<div class="bc-foot"><span class="bc-btn bc-reset" data-act="reset">Reset</span></div>';
   document.body.appendChild(card);
   var cardEls = card.querySelectorAll("*");
@@ -788,6 +795,14 @@
   var STEPS = { x: [8, 0, 1600], y: [8, 0, 1000], scale: [0.1, 0.6, 2.5] };
 
   function updateCard() {
+    var tabs = card.querySelectorAll("[data-tab]");
+    for (var t = 0; t < tabs.length; t++) {
+      tabs[t].className = "bc-btn bc-tab" + (tabs[t].getAttribute("data-tab") === state.cardTab ? " is-on" : "");
+    }
+    var panes = card.querySelectorAll("[data-pane]");
+    for (t = 0; t < panes.length; t++) {
+      panes[t].className = "bc-pane" + (panes[t].getAttribute("data-pane") === state.cardTab ? "" : " is-away");
+    }
     var vals = card.querySelectorAll("[data-val]");
     for (var i = 0; i < vals.length; i++) {
       var k = vals[i].getAttribute("data-val");
@@ -832,8 +847,15 @@
   card.addEventListener("click", function (e) {
     var el = e.target;
     while (el && el !== card && !el.hasAttribute("data-act") && !el.hasAttribute("data-corner") &&
-           !el.hasAttribute("data-toggle") && !el.hasAttribute("data-choice")) el = el.parentNode;
+           !el.hasAttribute("data-toggle") && !el.hasAttribute("data-choice") && !el.hasAttribute("data-tab")) {
+      el = el.parentNode;
+    }
     if (!el || el === card) return;
+    if (el.hasAttribute("data-tab")) {
+      state.cardTab = el.getAttribute("data-tab");
+      updateCard();
+      return;
+    }
 
     var act = el.getAttribute("data-act");
     var patch = {};

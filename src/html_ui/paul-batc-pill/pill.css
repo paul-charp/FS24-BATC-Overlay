@@ -340,6 +340,29 @@
 #batc-pill-cfg .bc-toggle.is-on .bc-sw { background-color: var(--on); }
 #batc-pill-cfg .bc-toggle.is-on .bc-sw i { transform: translateX(calc(12 * var(--k))); background-color: #0e1218; }
 
+#batc-pill-cfg .bc-tabs { display: flex; margin: calc(2 * var(--k)) 0 calc(6 * var(--k)); }
+#batc-pill-cfg .bc-tab {
+  flex: 1 1 0;
+  margin-left: calc(2 * var(--k));
+  padding: calc(5 * var(--k)) 0;
+  border-radius: calc(5 * var(--k));
+  background-color: var(--btn);
+  color: var(--dim);
+  text-align: center;
+}
+#batc-pill-cfg .bc-tab:first-child { margin-left: 0; }
+#batc-pill-cfg .bc-tab:hover { background-color: var(--btn-hover); color: var(--fg); }
+#batc-pill-cfg .bc-tab.is-on { background-color: var(--on); color: #0e1218; }
+#batc-pill-cfg .bc-pane.is-away { display: none; }
+#batc-pill-cfg .bc-note {
+  margin: calc(-3 * var(--k)) 0 calc(3 * var(--k));
+  padding-left: calc(12 * var(--k));
+  color: var(--dim);
+  font-size: calc(10 * var(--k));
+  font-weight: 500;
+  line-height: 1.3;
+}
+
 #batc-pill-cfg .bc-foot {
   display: flex; justify-content: flex-end;
   margin-top: calc(6 * var(--k)); padding-top: calc(8 * var(--k));

@@ -28,31 +28,38 @@ Requires BeyondATC 3.x. The BeyondATC toolbar panel doesn't need to be open.
 
 ## Settings
 
-Click the pill in flight to open its settings card. Changes apply immediately. While the card is open, the pill shows a sample so you can see its size and position; after a change, the sample shows what that setting does (a radio change, a readback hint, the traffic pill, ...).
+Click the pill in flight to open its settings card (two tabs: Display and Position). Changes apply immediately. While the card is open, the pill shows a sample so you can see its size and position; after a change, the sample shows what that setting does (a radio change, a readback hint, the traffic pill, ...).
 
 <img src="docs/images/settings.png" alt="Settings card" width="340">
+
+**Display**
+
+| Setting | |
+|---|---|
+| Readback hints | show when ATC waits for your readback, acknowledgement or answer |
+| None / Short / Hint / Boxes | how much of it: status only, the clearance boxes' values ("30R · T1 · T1"), a short hint ("Taxi via T1 · Hold short 12L") or the toolbar's clearance boxes |
+| Radio changes | show the new station when COM1 or COM2 changes |
+| Contact reminders | with Auto Tune off, show whom to contact until COM1 is on it |
+| ATIS changes | show a new ATIS letter |
+| Warn when COM1 muted | red-orange pill when ATC calls you while COM1 is muted |
+| PTT indicator | show "Transmitting" while your PTT button is held (see below) |
+| AI traffic | show the "Traffic" pill while AI traffic talks |
+| Full station names | "Montpellier Ground" instead of "Ground" |
+| Hide when BATC is off | no pill at all while BeyondATC isn't running |
+
+**Position**
 
 | Setting | |
 |---|---|
 | Corner | any of the four screen corners |
 | Side offset / Edge offset | distance from the corner, in 1080p pixels (scales with resolution) |
 | Size | 60% to 250% |
-| Radio changes | show the new station when COM1 or COM2 changes |
-| Contact reminders | with Auto Tune off, show whom to contact until COM1 is on it |
-| ATIS changes | show a new ATIS letter |
-| Readback hints | show when BeyondATC waits for your readback or acknowledgement |
-| None / Short / Hint / Boxes (under Readback hints) | None (status only), Short (the clearance boxes' values, e.g. "30R · T1 · T1"), Hint (a short hint, e.g. "Taxi via T1 · Hold short 12L") or Boxes (the toolbar's clearance boxes) |
-| Muted ATC calls | red-orange pill when ATC calls you while COM1 is muted |
-| PTT (bind Toggle Speaker) | show "Transmitting" while your PTT button is held (see below) |
-| AI traffic | show the "Traffic" pill while AI traffic talks |
-| Full station names | "Montpellier Ground" instead of "Ground" |
-| Hide when BATC is off | no pill at all while BeyondATC isn't running |
 
 Settings are kept in the sim's UI storage.
 
 ### PTT indicator (optional, experimental)
 
-BeyondATC reads your PTT button itself and doesn't tell other add-ons when it's held. To let the pill show it, bind the same button a second time in the sim: **Controls > Communications > TOGGLE SPEAKER**. Keep BeyondATC's PTT binding as it is. Then turn on **PTT** in the pill's settings. The pill shows "Transmitting" once the button has been held for a quarter of a second, and goes back about a tenth of a second after you let go.
+BeyondATC reads your PTT button itself and doesn't tell other add-ons when it's held. To let the pill show it, bind the same button a second time in the sim: **Controls > Communications > TOGGLE SPEAKER**. Keep BeyondATC's PTT binding as it is. Then turn on **PTT indicator** in the pill's settings. The pill shows "Transmitting" once the button has been held for a quarter of a second, and goes back about a tenth of a second after you let go.
 
 ## Compatibility
 
