@@ -21,7 +21,7 @@ var BP = (function () {
   function pill(key, unit) {
     for (var i = 0; i < STATES.length; i++) {
       if (STATES[i][0] === key) {
-        return '<div id="batc-pill" class="' + STATES[i][1] + '" style="--u:' + unit + 'px"><div class="bp-body">' +
+        return '<div id="batc-pill" class="' + STATES[i][1] + '" style="--u:' + unit + 'px"><div class="bp-bg"></div><div class="bp-body">' +
           STATES[i][2] + "</div></div>";
       }
     }

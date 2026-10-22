@@ -105,6 +105,9 @@
   root.className = "is-hidden";
   var body = document.createElement("div");
   body.className = "bp-body";
+  var bg = document.createElement("div");
+  bg.className = "bp-bg";
+  root.appendChild(bg);
   root.appendChild(body);
   document.body.appendChild(root);
 

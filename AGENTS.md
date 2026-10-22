@@ -35,6 +35,8 @@ screen corner during flight, with a click-to-open settings card. Windows only. U
 - mainUi has no `SimVar`, `GetStoredData` or `Coherent`; VCockpit views (e.g. VLogic) have `SimVar`.
 - mainUi fonts: only `Roboto-Regular` / `RobotoMono-Regular`; weights are synthesized.
 - Avoid `gap`, `color-mix`, `backdrop-filter` in pill.css (Gameface).
+- Rounded `overflow: hidden` boxes had jagged corners in the sim while the unclipped settings card was
+  smooth; the pill now clips square and draws its rounded background on `.bp-bg` (fix unverified live).
 
 ## BeyondATC protocol
 

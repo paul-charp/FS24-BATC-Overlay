@@ -16,12 +16,12 @@
   display: flex;
   align-items: center;
   justify-content: flex-end;
+  /* Gameface clips rounded overflow without antialiasing, so the pill clips square and the rounded
+     background + border live on .bp-bg, which isn't clipped */
   overflow: hidden;
   box-sizing: border-box;
   height: calc(26 * var(--u));
-  border-radius: calc(13 * var(--u));
-  background-color: var(--bg);
-  border: calc(1 * var(--u)) solid var(--edge);
+  --r: calc(13 * var(--u)); /* corner radius, drawn by .bp-bg */
 
   color: var(--fg);
   font-size: calc(12 * var(--u));
@@ -35,9 +35,21 @@
   transition:
     width 0.38s var(--ease),
     height 0.38s var(--ease),
-    border-radius 0.38s var(--ease),
     opacity 0.3s ease,
     transform 0.38s var(--ease);
+}
+
+#batc-pill .bp-bg {
+  position: absolute;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  left: 0;
+  box-sizing: border-box;
+  border-radius: var(--r);
+  background-color: var(--bg);
+  border: calc(1 * var(--u)) solid var(--edge);
+  transition: border-radius 0.38s var(--ease), background-color 0.2s ease, border-color 0.3s ease;
 }
 
 #batc-pill.is-hidden {
@@ -51,21 +63,22 @@
 /* idle: collapsed to a dot */
 #batc-pill.is-dot {
   height: calc(14 * var(--u));
-  border-radius: calc(7 * var(--u));
+  --r: calc(7 * var(--u));
   opacity: 0.8;
 }
 #batc-pill.is-ghost { opacity: 0.55; }
 
 #batc-pill .bp-body {
+  position: relative;
   display: flex;
   align-items: center;
   flex: none;
-  padding: 0 calc(11 * var(--u)) 0 calc(9 * var(--u));
+  padding: 0 calc(12 * var(--u)) 0 calc(10 * var(--u)); /* includes .bp-bg's 1-unit border */
   opacity: 1;
   transform: translateY(0);
   transition: opacity 0.18s ease, transform 0.22s var(--ease);
 }
-#batc-pill.is-dot .bp-body { padding: 0 calc(3 * var(--u)); }
+#batc-pill.is-dot .bp-body { padding: 0 calc(4 * var(--u)); }
 #batc-pill .bp-body.is-out {
   opacity: 0;
   transform: translateY(calc(4 * var(--u)));
@@ -75,10 +88,10 @@
 #batc-pill .bp-body > *:first-child, #batc-pill .bp-head > *:first-child { margin-left: 0; }
 
 /* readback pending with clearance boxes: a header row over the boxes (height set by pill.js) */
-#batc-pill.is-msg { align-items: flex-start; border-radius: calc(10 * var(--u)); }
+#batc-pill.is-msg { align-items: flex-start; --r: calc(10 * var(--u)); }
 #batc-pill.is-msg .bp-body {
   display: block;
-  padding: calc(7 * var(--u)) calc(12 * var(--u)) calc(8 * var(--u)) calc(10 * var(--u));
+  padding: calc(8 * var(--u)) calc(13 * var(--u)) calc(9 * var(--u)) calc(11 * var(--u));
 }
 #batc-pill .bp-head { display: flex; align-items: center; height: calc(12 * var(--u)); }
 #batc-pill .bp-boxes { display: flex; margin-top: calc(7 * var(--u)); }
@@ -113,7 +126,8 @@
 #batc-pill.s-you  { --c: #5fd38d; }
 #batc-pill.s-err  { --c: #ff6b6b; }
 #batc-pill.s-tune { --c: #63d3e6; }
-#batc-pill.s-insist { --c: #ff7a45; border-color: var(--c); }
+#batc-pill.s-insist { --c: #ff7a45; }
+#batc-pill.s-insist .bp-bg { border-color: var(--c); }
 #batc-pill.s-insist .bp-lamp { animation-duration: 0.7s; }
 
 /* lamp */
@@ -185,7 +199,7 @@
 /* The sim only routes a click to the element directly under the cursor if that element has
    data-input-group, so let clicks fall through the pill's children to the pill itself. */
 #batc-pill * { pointer-events: none; }
-#batc-pill[data-input-group]:hover { background-color: rgba(14, 18, 24, 0.78); }
+#batc-pill[data-input-group]:hover .bp-bg { background-color: rgba(14, 18, 24, 0.78); }
 #batc-pill.is-dot[data-input-group]:hover { opacity: 1; }
 
 /* ---- settings card (opens on pill click) ---- */
