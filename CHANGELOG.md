@@ -16,7 +16,6 @@
 - Fixed: ATC broadcasts to all stations showed "ATC Generating" / "ATC Transmitting".
 - Fixed: an ATIS on COM1 showed as "Traffic" or "Service".
 - Fixed: radio changes showed while a flight was loading.
-- Fixed: `sniff_batc.py` disconnected after BeyondATC's first ping.
 
 ## 1.0.1 (2026-10-20)
 
