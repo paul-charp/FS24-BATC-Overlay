@@ -65,7 +65,8 @@ BeyondATC reads your PTT button itself and doesn't tell other add-ons when it's 
 
 - The package overrides one stock UI component, `MasterPage_InGame` (the in-flight root of the sim's UI), to load its script. Another mod that overrides the same component will conflict with it; //42 Flow and the BeyondATC toolbar don't.
 - After a sim update that changes that component, use an updated release.
-- PTT state isn't shown: BeyondATC reads your PTT button directly, and nothing in the sim exposes it.
+- BeyondATC doesn't share your PTT state; the optional PTT indicator reads a second sim binding of the same button instead (see above).
+- CPDLC messages are left to the sim's own datalink pages: the pill stays silent for them.
 
 ## Development
 
@@ -98,27 +99,33 @@ python tools/sniff_batc.py --quiet-snapshot
 
 Logs every BeyondATC socket message with timestamps to `logs/`. Use it when BeyondATC changes its protocol.
 
-`tools/harness.html` previews the pill in a desktop browser against the live socket, with replay buttons for two captured exchanges: run `python -m http.server 8765` in the repo root and open `http://localhost:8765/tools/harness.html`.
+`tools/harness.html` previews the pill in a desktop browser against the live socket, with replay buttons for captured exchanges (wind check, voice request, IFR clearance and readback, runway question) and a "Hold PTT" button: run `python -m http.server 8765` in the repo root and open `http://localhost:8765/tools/harness.html`.
+
+```bash
+python tools/batc_timeline.py
+```
+
+Prints the latest sniff log as a timeline, with the toolbar's reply menu (`Actions`) and clearance boxes (`InfoBoxes`) as +/- changes.
 
 ```bash
 python docs/render_images.py
 ```
 
-Renders the images in `docs/images/` with headless Edge (needs Pillow).
+Renders the images in `docs/images/` with headless Edge, or Chrome/Chromium when Edge isn't installed (needs Pillow).
 
 ### Release
 
 ```bash
-python tools/build.py release 0.2.0
+python tools/build.py release 1.1.0
 ```
 
-Builds and zips the package as `dist/paul-batc-pill-0.2.0.zip`. Bump `version` in `config.json`, commit, then publish:
+Builds and zips the package as `dist/paul-batc-pill-1.1.0.zip`. Set `version` in `config.json` and the date in `CHANGELOG.md`, commit, then publish with that version's changelog section as the notes:
 
 ```bash
-gh release create v0.2.0 dist/paul-batc-pill-0.2.0.zip --title v0.2.0 --notes "- what changed"
+gh release create v1.1.0 dist/paul-batc-pill-1.1.0.zip --title v1.1.0 --notes-file notes.md
 ```
 
-CI (`.github/workflows/check.yml`) checks the JS, Python and JSON on every push. It can't build the package, which needs a sim install.
+CI (`.github/workflows/check.yml`) checks the JS, Python and JSON on every push, and runs `tools/check_pill.js` (the pill's text patterns on real BeyondATC lines, and their speed on hostile input). It can't build the package, which needs a sim install.
 
 ### After each sim update
 
@@ -126,7 +133,9 @@ CI (`.github/workflows/check.yml`) checks the JS, Python and JSON on every push.
 
 ## How it works
 
-- The BeyondATC desktop app serves its in-sim toolbar over `ws://127.0.0.1:41716`, in lines like `Type: payload`. `CommsState: {"mode","text"}` carries the state (`ready`, `queued`, `processing`, `request`, `awaiting`, `speaking`). The `ATC:` / `Player:` / `Traffic:` line before `speaking` says whose voice it is. `Facility:` (COM1) and `Com2:` changes trigger the radio-change pill. The pill only reads; it never sends.
+- The BeyondATC desktop app serves its in-sim toolbar over `ws://127.0.0.1:41716`, in lines like `Type: payload`. `CommsState: {"mode","text"}` carries the state (`ready`, `queued`, `processing`, `request`, `awaiting`, `speaking`, `traffic`). The `ATC:` / `Player:` / `Traffic:` line before `speaking` says whose voice it is. `Facility:` (COM1) and `Com2:` changes trigger the radio-change pill. The pill only reads; it never sends.
+- Readback hints come from the toolbar's own reply menu (`Actions`): while ATC waits for you it offers "Say Again" next to the replies ("Readback Taxi Instruction", "Acknowledge Takeoff Clearance", "Runway 12L"). The clearance boxes (`InfoBoxes`) give Short and Boxes; the hint text is read from ATC's words.
+- The PTT indicator asks the sim to report the `TOGGLE_SPEAKER` key event to the pill's view (the way the sim's own instruments listen to key events). A held button repeats it; the pill shows "Transmitting" while the repeats keep coming.
 - `injections.json`: the build appends a hidden `<img onerror>` to the stock `MasterPage_InGame` cooked component, which loads `pill.js` once (the same hook //42 Flow uses). `MasterPage_InGame` only mounts in flight; the pill also hides when BeyondATC reports `LoadState.stage` `menu`.
 - Clicks in flight: the sim only routes a click to the element directly under the cursor, if it has `data-input-group` and `pointer-events` isn't `none`. The pill's children ignore pointer events; every element of the settings card carries the attribute while it's open.
 - `src/html_ui/paul-batc-pill/pill.js`: socket client, state machine, transitions, settings card, defaults in `CONFIG`. `pill.css`: the look; `--u` is one screen pixel at 1080p, times the size setting.

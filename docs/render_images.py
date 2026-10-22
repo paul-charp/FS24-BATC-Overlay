@@ -1,4 +1,5 @@
-"""Render the README and flightsim.to images from docs/render/*.html with headless Edge. Needs Pillow.
+"""Render the README and flightsim.to images from docs/render/*.html with headless Edge (or Chrome/Chromium).
+Needs Pillow.
 
     python docs/render_images.py
 
@@ -26,35 +27,40 @@ def edge():
     for p in EDGE:
         if p.exists():
             return str(p)
-    found = shutil.which("msedge")
-    if not found:
-        sys.exit("render: Microsoft Edge not found")
-    return found
+    for name in ("msedge", "chrome", "google-chrome", "chromium", "chromium-browser"):
+        found = shutil.which(name)
+        if found:
+            return found
+    sys.exit("render: no Edge, Chrome or Chromium found")
 
 
 def shoot(page, size, scale, query=""):
-    """Screenshot page at size (CSS px) and device scale; returns a PIL image."""
+    """Screenshot page at size (CSS px) and device scale; returns a PIL image.
+
+    The window is made taller than needed, then cropped: headless Chromium keeps part of the window
+    height for itself, so a window of exactly `size` cuts the bottom off."""
     with tempfile.TemporaryDirectory() as tmp:
         png = Path(tmp) / "shot.png"
         url = (RENDER / page).as_uri() + query
         subprocess.run([
             edge(), "--headless=new", "--disable-gpu", "--hide-scrollbars", "--allow-file-access-from-files",
+            *(["--no-sandbox"] if sys.platform != "win32" else []),  # containers run as root
             f"--user-data-dir={Path(tmp) / 'profile'}",  # fresh profile: no saved pill settings
-            f"--window-size={size[0]},{size[1]}", f"--force-device-scale-factor={scale}",
+            f"--window-size={size[0]},{size[1] + 200}", f"--force-device-scale-factor={scale}",
             "--virtual-time-budget=4000", f"--screenshot={png}", url,
         ], check=True, capture_output=True)
-        return Image.open(png).copy()
+        return Image.open(png).crop((0, 0, size[0] * scale, size[1] * scale))
 
 
 def main():
     OUT.mkdir(parents=True, exist_ok=True)
 
-    img = shoot("states.html", (1200, 456), 2)
+    img = shoot("states.html", (1200, 758), 2)  # 5 rows of 150 px tiles
     img.save(OUT / "states.png", optimize=True)
     print(f"render: states.png {img.size}")
 
     # pill + open card in the top-right corner of a 1080p screen
-    img = shoot("settings.html", (1920, 1080), 2).crop((1580 * 2, 50 * 2, 1920 * 2, 520 * 2))
+    img = shoot("settings.html", (1920, 1080), 2).crop((1600 * 2, 50 * 2, 1920 * 2, 580 * 2))
     img.save(OUT / "settings.png", optimize=True)
     print(f"render: settings.png {img.size}")
 

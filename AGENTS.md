@@ -18,12 +18,15 @@ screen corner during flight, with a click-to-open settings card. Windows only. U
   `.local/config.json`, which overrides it.
 - `tools/inspect_ui.py`: Coherent inspector client (Devmode, `localhost:19999`); `--list`, `--page N`,
   `--push` hot-reloads the pill into mainUi (page 2). If it times out, a dead sim's child process may hold
-  the port (seen: WinWing's SimAppPro2.exe): `netstat -ano | findstr 19999` shows a second LISTENING PID. `tools/sniff_batc.py`: socket logger;
-  `tools/batc_timeline.py` prints a log as a timeline with `Actions`/`InfoBoxes` changes as diffs.
-  `tools/harness.html`: desktop preview with replays.
-- `docs/render/*.html` + `docs/render_images.py`: README/flightsim.to images via headless Edge.
+  the port (seen: WinWing's SimAppPro2.exe): `netstat -ano | findstr 19999` shows a second LISTENING PID.
+  `tools/sniff_batc.py`: socket logger; `tools/batc_timeline.py` prints a log as a timeline with
+  `Actions`/`InfoBoxes` changes as diffs. `tools/harness.html`: desktop preview with replays, a fake
+  `engine` and a "Hold PTT" button.
+- `docs/render/*.html` + `docs/render_images.py`: README/flightsim.to images via headless Edge (or
+  Chrome/Chromium); `docs/render/pills.js` mirrors `view()`'s markup for the state sheet.
   `docs/flightsim-to.md`: flightsim.to page text. `CHANGELOG.md`: release history.
-- `.github/workflows/check.yml`: syntax checks only (CI can't build without a sim install).
+- `.github/workflows/check.yml`: syntax checks, plus `tools/check_pill.js` (readback hints and contact parsing
+  on real lines; pattern speed on hostile input). CI can't build without a sim install.
 - `.local/` (git-ignored): local config, mockups, screenshots. Put new private files there.
 
 ## Sim facts (verified live)
@@ -48,7 +51,8 @@ screen corner during flight, with a click-to-open settings card. Windows only. U
 - No gamepads in mainUi (`navigator.getGamepads()` is `[]` even after presses). A package can't add new
   actions to the Controls menu (MSFS 2024 SDK: presets of existing actions only).
 - Rounded `overflow: hidden` boxes had jagged corners in the sim while the unclipped settings card was
-  smooth; the pill now clips square and draws its rounded background on `.bp-bg` (fix unverified live).
+  smooth; the pill now clips square and draws its rounded background on `.bp-bg`. Corners still look
+  jagged on light backgrounds (parked).
 
 ## BeyondATC protocol
 
