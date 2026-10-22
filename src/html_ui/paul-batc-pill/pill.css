@@ -90,12 +90,14 @@
 #batc-pill .bp-body > *:first-child, #batc-pill .bp-head > *:first-child { margin-left: 0; }
 
 /* readback pending with clearance boxes: a header row over the boxes (height set by pill.js) */
-#batc-pill.is-msg { align-items: flex-start; --r: calc(10 * var(--u)); }
+/* even padding on all sides; corner radius = box radius (5) + padding (8), like the 13 of the pill */
+#batc-pill.is-msg { align-items: flex-start; --r: calc(13 * var(--u)); }
 #batc-pill.is-msg .bp-body {
   display: block;
-  padding: calc(8 * var(--u)) calc(13 * var(--u)) calc(9 * var(--u)) calc(11 * var(--u));
+  padding: calc(8 * var(--u));
 }
-#batc-pill .bp-head { display: flex; align-items: center; height: calc(12 * var(--u)); }
+#batc-pill .bp-head { display: flex; align-items: center; height: calc(12 * var(--u)); padding-left: calc(3 * var(--u)); }
+#batc-pill .bp-body > .bp-boxes { margin-left: 0; } /* not the row spacing of .bp-body > * */
 #batc-pill .bp-boxes { display: flex; margin-top: calc(7 * var(--u)); }
 #batc-pill .bp-box {
   display: flex;
