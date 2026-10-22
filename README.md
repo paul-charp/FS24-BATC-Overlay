@@ -9,7 +9,7 @@ A small pill in a corner of the Microsoft Flight Simulator 2024 screen that show
 - **Queued / Processing / Awaiting ATC** (blue): your request is on its way.
 - **ATC talking** (amber): the controller is speaking, with the station and frequency.
 - **You talking** (green): your readback or request is being played.
-- **Awaiting readback / Awaiting response** (amber, pulsing): ATC waits for your readback, acknowledgement or answer (the toolbar offers "Say Again"), with a short hint ("IFR clearance · Climb FL060", "Taxi 30R", the answers to a question: "Runway 12L / Runway 12R"), or the toolbar's clearance boxes (runway, SID, altitude, squawk). If ATC calls you again before you reply, the pill turns red-orange ("Awaiting response ×2").
+- **Awaiting readback / Awaiting response** (amber, pulsing): ATC waits for your readback, acknowledgement or answer (the toolbar offers "Say Again"), with a short hint ("IFR clearance · Climb FL060", "Taxi 30R", the answers to a question: "Runway 12L / Runway 12R"), or the toolbar's clearance boxes (runway, SID, altitude, squawk). If ATC calls you again before you reply, the pill turns red-orange ("Awaiting response ×2"). If BeyondATC stops waiting without a reply (it drops taxi and acknowledge replies after about 18 s), "No readback" shows for 5 s.
 - **Radio change** (cyan): the new station when COM1 or COM2 changes.
 - **Exchange ended**: the station stays for 3 s, then the pill shrinks back to the dot.
 - **Offline**: BeyondATC isn't running (can be hidden).

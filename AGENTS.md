@@ -41,6 +41,8 @@ screen corner during flight, with a click-to-open settings card. Windows only. U
 - Snapshot pushed on connect; several clients are fine. `CommsState: {"mode","text"}` modes seen:
   `ready`, `queued`, `processing`, `request`, `awaiting`, `speaking` (binary also has `waiting`,
   `controller`, `loading`, `download`, `turnaround`, `menu`).
+- `traffic` (`ATC Generating`, then `ATC Transmitting`) carries `ATCTraffic:` broadcasts ("All aircraft
+  be advised information Z now current").
 - `speaking` is used for ATC and for the pilot TTS; the preceding `ATC:`/`ATCTraffic:`, `Player:` or
   `Traffic:` line says who.
 - `Facility: Name (runways)|freq` or `Nothing Tuned`; `Com2: {label,frequency,monitor}`;
@@ -53,14 +55,17 @@ screen corner during flight, with a click-to-open settings card. Windows only. U
   shows the hint only with a menu newer than the last speech (`menuFresh`) and not `answered` (a
   `Player:` line or `processing`/`request`/`queued` since ATC spoke). `QueuedAction` labels can be stale
   ("Say Again" while the pilot answers "Runway 12L"). Toolbar "Say Again" gives `Player: Say again, ...`.
-  ATC chasing a missing reply: "Airfrans 1234, Montpellier Ground?". `READBACKS` only shapes the hint.
+  ATC chasing a missing reply: "Airfrans 1234, Montpellier Ground?", or the instruction again
+  (`awaiting` with no queued request). BeyondATC drops taxi and acknowledge replies after ~18 s with no
+  answer (menu back to requests, `pill.js` shows "No readback"); it keeps takeoff clearance and chases.
+  A voice (PTT) reply is `processing` then `ready`, with no `Player:` line. `READBACKS` only shapes the hint.
 - `InfoBoxes: [{"title":"Taxi to Runway","info":"12L"},{"title":"SID","info":"KELA8L"},
   {"title":"Altitude Clearance","info":"FL060"},{"title":"Squawk","info":"1000"}]`: the toolbar's
   clearance boxes (`info` may hold `<br>`); `[]` at load, a CTAF box on UNICOM.
 - `AppError: {"text","fatal","kicked"}` (text may span lines; empty clears). `Callsign: {full,shortForm}`.
 - The server pings (an empty frame); `sniff_batc.py` lost the connection after each one until it
   answered with a pong. Browsers pong on their own.
-- Unverified live: what a voice (PTT) readback sends, and whether `waiting` means "awaiting readback".
+- Unverified live: what `waiting` means.
 - BeyondATC's own logs (`%userprofile%\AppData\LocalLow\Skirmish Mode Games, Inc\BeyondATC`):
   `Player.log` has every exchange as `[Instruction]` lines (ATC and pilot alike) and the script
   that handled it (`[ControllerScript] ...WindCheckScript`, `...IFR.IfrEvaluatorScript`), but no

@@ -86,12 +86,14 @@
   display: flex;
   flex-direction: column;
   align-items: center;
+  flex: 1 1 auto;
   margin-left: calc(4 * var(--u));
   padding: calc(4 * var(--u)) calc(8 * var(--u)) calc(5 * var(--u));
   border-radius: calc(5 * var(--u));
   background-color: rgba(255, 255, 255, 0.08);
 }
 #batc-pill .bp-box:first-child { margin-left: 0; }
+#batc-pill .bp-box-t, #batc-pill .bp-box-v { text-align: center; }
 #batc-pill .bp-box-t { font-size: calc(9 * var(--u)); font-weight: 500; color: var(--dim); }
 #batc-pill .bp-box-v { margin-top: calc(3 * var(--u)); font-size: calc(13 * var(--u)); }
 #batc-pill .bp-dim { color: var(--dim); font-weight: 500; }

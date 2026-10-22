@@ -13,6 +13,7 @@
     lingerMs: 3000,      // label stays after an exchange ends, then shrinks to the dot
     tuneMs: 3000,        // how long a radio change is shown
     errorMs: 5000,
+    missedMs: 5000,      // "No readback" stays this long when BeyondATC stops waiting without your reply
     showReadback: true,  // while BeyondATC waits for your readback, hint what it is ("Taxi 30R")
     clearanceBoxes: false, // with a readback pending, show the toolbar's clearance boxes (runway, SID, ...)
     showTuning: true,    // show the new station when COM1/COM2 changes
@@ -70,12 +71,15 @@
     menuFresh: false,    // the toolbar re-sent its menu since the last transmission (it always does)
     readback: null,      // { text, facility, calls }: the instruction it replies to, and how often ATC said it
     answered: false,     // you spoke since ATC last did (the toolbar keeps the reply until ATC confirms)
+    replied: false,      // you spoke at all since the reply was asked for
+    missed: null,        // { label, detail } after BeyondATC stopped waiting without a reply, until missedUntil
+    missedUntil: 0,
     infoBoxes: [],       // the toolbar's clearance boxes: [{ title: "SID", info: "KELA8L" }, ...]
     seenFacility: false, // the first Facility after connecting is the snapshot, not a change
     editing: false,      // settings card open: the pill shows a sample so size/position are visible
   };
   var socket = null;
-  var timers = { reconnect: 0, linger: 0, error: 0, tune: 0, swap: 0, poll: 0 };
+  var timers = { reconnect: 0, linger: 0, error: 0, tune: 0, missed: 0, swap: 0, poll: 0 };
   var destroyed = false;
   var current = null;    // last rendered view signature
 
@@ -189,14 +193,10 @@
     if (!CONFIG.showReadback || !rb || state.answered || !state.menuFresh) return null;
     // what ATC waits for: "Readback IFR Clearance" -> "Awaiting readback" + "IFR Clearance";
     // "Acknowledge Instruction" -> "Awaiting response"; a question -> its answers ("Runway 12L / Runway 12R")
-    var kind = null, choices = [];
-    state.replies.forEach(function (r) {
-      var m = /^read ?back\s*(.*)$/i.exec(r);
-      if (m) kind = m[1];
-      else if (!/^acknowledge\b/i.test(r)) choices.push(r);
-    });
-    var label = kind !== null ? "Awaiting readback" : "Awaiting response";
-    var detail = readbackHint(rb.text) || choices.slice(0, 3).join(" / ") || kind || "";
+    var w = waitingFor();
+    var label = w.readback ? "Awaiting readback" : "Awaiting response";
+    var detail = readbackHint(rb.text) || w.choices.slice(0, 3).join(" / ") || w.kind;
+    var kind = w.kind, choices = w.choices;
     // ATC called again for it: louder color, faster pulse, "Awaiting readback ×2"
     var cls = rb.calls > 1 ? "s-insist is-pulse" : "s-atc is-pulse";
     if (rb.calls > 1) label += " ×" + rb.calls;
@@ -211,6 +211,19 @@
     }
     return { cls: cls, html: LAMP + '<span class="bp-who">' + label + "</span>" +
       (detail ? '<span class="bp-sep">·</span><span>' + esc(detail) + "</span>" : "") };
+  }
+
+  // "Readback Taxi Instruction" -> readback, kind "Taxi Instruction"; "Acknowledge Takeoff Clearance" ->
+  // kind "Takeoff Clearance" ("Instruction" alone says nothing); "Runway 12L", "Runway 12R" -> choices
+  function waitingFor() {
+    var w = { readback: false, kind: "", choices: [] };
+    state.replies.forEach(function (r) {
+      var m = /^(read ?back|acknowledge)\s*(.*)$/i.exec(r);
+      if (!m) { w.choices.push(r); return; }
+      if (/^read/i.test(m[1])) w.readback = true;
+      if (!/^instruction$/i.test(m[2])) w.kind = m[2];
+    });
+    return w;
   }
 
   function view() {
@@ -247,6 +260,10 @@
         }
         else v = { cls: "s-atc", html: BARS + facilityHtml("bp-who") };
         break;
+      case "traffic":
+        // ATC to other aircraft or all stations ("ATC Generating", then "ATC Transmitting")
+        v = CONFIG.showTraffic ? { cls: "", html: BARS + "<span>Traffic</span>" } : readbackView();
+        break;
       case "ready":
         if (state.tune && now < state.tuneUntil) {
           var t = state.tune;
@@ -254,6 +271,9 @@
             facilityHtml("bp-who", t.facility, "No station") };
         } else if ((v = readbackView())) {
           // waiting for your readback
+        } else if (state.missed && now < state.missedUntil) {
+          v = { cls: "s-insist", html: LAMP + '<span class="bp-who">' + state.missed.label + "</span>" +
+            (state.missed.detail ? '<span class="bp-sep">·</span><span>' + esc(state.missed.detail) + "</span>" : "") };
         } else if (now < state.lingerUntil) {
           v = { cls: "", html: LAMP + facilityHtml("") };
         }
@@ -360,7 +380,10 @@
     ["line up[^.]*?" + RWY, "Line up $1"],
     ["cleared[^.]*?approach[^.]*?" + RWY, "Approach $1"],
     ["cleared to (?!land)\\w[^.]*?(?:via|squawk|departure|climb|route)", "IFR clearance"],
-    ["taxi[^.]*?" + RWY, "Taxi $1"],
+    ["push(?:back)?(?: and start(?:up)?)? approved", "Pushback"],
+    ["face\\s+(north|south|east|west)\\b", "Face $1"],
+    ["taxi(?:(?!hold (?:short|position))[^.])*?" + RWY, "Taxi $1"],
+    ["taxi\\s+via\\s+([A-Z]{1,2}\\d{0,2})\\b", "Taxi via $1"],
     ["taxi", "Taxi"],
     ["hold short[^.]*?" + RWY, "Hold short $1"],
     ["hold (?:short|position)", "Hold"],
@@ -407,8 +430,18 @@
     if (waiting && key !== state.repliesKey) {
       // the instruction or question is the last ATC line (empty when we connected mid-exchange)
       state.readback = { text: clip(state.atcText), facility: state.facility, calls: 1 };
-      state.answered = false;
+      state.answered = state.replied = false;
+      state.missed = null;
     } else if (!waiting) {
+      if (state.readback && !state.replied) {
+        // BeyondATC stopped waiting on its own (after ~18 s for taxi or acknowledge replies)
+        var w = waitingFor();
+        state.missed = { label: w.readback ? "No readback" : "No response",
+          detail: readbackHint(state.readback.text) || w.kind };
+        state.missedUntil = Date.now() + CONFIG.missedMs;
+        clearTimeout(timers.missed);
+        timers.missed = setTimeout(render, CONFIG.missedMs + 20);
+      }
       state.readback = null;
     }
     state.replies = replies;
@@ -435,7 +468,8 @@
         var cs = parseJson(payload);
         if (!cs) return;
         var mode = cs.mode || "ready";
-        if (mode === "processing" || mode === "request" || mode === "queued") state.answered = true; // you're talking
+        // you're talking (a voice reply gives processing then ready, with no Player: line)
+        if (mode === "processing" || mode === "request" || mode === "queued") state.answered = state.replied = true;
         if (cs.mode === "ready" && state.mode !== "ready") {
           state.lingerUntil = Date.now() + CONFIG.lingerMs;
           clearTimeout(timers.linger);
@@ -449,11 +483,12 @@
         state.speaker = "atc";
         state.atcText = payload;
         state.menuFresh = false; // ATC may close the exchange: wait for the menu sent after it
+        state.missed = null;
         if (state.readback) {
-          // ATC calls you again before you replied ("Airfrans 1234, Montpellier Ground?"). The instruction
-          // itself again is usually the toolbar's "Say Again", which sends no Player: line.
+          // ATC calls you again before you replied: "Airfrans 1234, Montpellier Tower?" or the clearance
+          // again (the toolbar's "Say Again" would have sent a Player: line first)
+          if (!state.answered) state.readback.calls++;
           if (readbackHint(payload)) state.readback.text = clip(payload);
-          else if (!state.answered) state.readback.calls++;
           state.answered = false;
         }
         return;
@@ -462,7 +497,8 @@
         return;
       case "Player":
         state.speaker = "player"; // your readback (or "say again") is starting
-        state.answered = true;
+        state.answered = state.replied = true;
+        state.missed = null;
         state.menuFresh = false;
         return;
       case "Traffic":
