@@ -148,7 +148,7 @@
       toggleRow("Radio changes", "showTuning") + toggleRow("Contact reminders", "showContact") +
       toggleRow("ATIS changes", "showAtis") + toggleRow("Warn when COM1 muted", "warnMuted") +
       toggleRow("PTT indicator", "showPtt") +
-      '<div class="bc-note">Also bind your PTT button to Toggle Speaker (Controls › Communications)</div>' +
+      '<div class="bc-note">Also bind your PTT button to "Toggle Speaker"</div>' +
       toggleRow("AI traffic", "showTraffic") + toggleRow("Full station names", "fullNames") +
       toggleRow("Hide when BATC is off", "hideOffline") +
     "</div>" +
