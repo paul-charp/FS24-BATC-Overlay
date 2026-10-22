@@ -196,14 +196,13 @@
     var w = waitingFor();
     var label = w.readback ? "Awaiting readback" : "Awaiting response";
     var detail = readbackHint(rb.text) || w.choices.slice(0, 3).join(" / ") || w.kind;
-    var kind = w.kind, choices = w.choices;
+    var choices = w.choices;
     // ATC called again for it: louder color, faster pulse, "Awaiting readback ×2"
     var cls = rb.calls > 1 ? "s-insist is-pulse" : "s-atc is-pulse";
     if (rb.calls > 1) label += " ×" + rb.calls;
     if (CONFIG.clearanceBoxes && state.infoBoxes.length && !choices.length) {
-      // "Awaiting readback · IFR Clearance" over the boxes, as in the toolbar
-      return { cls: cls + " is-msg", html: LAMP + '<span class="bp-who">' + label + "</span>" +
-        (kind ? '<span class="bp-sep">·</span><span class="bp-dim">' + esc(kind) + "</span>" : ""),
+      // "Awaiting readback" over the boxes, as in the toolbar; their titles say what it's about
+      return { cls: cls + " is-msg", html: LAMP + '<span class="bp-who">' + label + "</span>",
         extra: '<span class="bp-boxes">' + state.infoBoxes.map(function (b) {
           return '<span class="bp-box"><span class="bp-box-t">' + esc(b.title) + '</span><span class="bp-box-v">' +
             esc(b.info) + "</span></span>";
