@@ -52,7 +52,7 @@ Settings are kept in the sim's UI storage.
 
 ### PTT indicator (optional, experimental)
 
-BeyondATC reads your PTT button itself and doesn't tell other add-ons when it's held. To let the pill show it, bind the same button a second time in the sim: **Controls > Communications > TOGGLE SPEAKER**. Keep BeyondATC's PTT binding as it is. Then turn on **PTT** in the pill's settings. The pill shows "Transmitting" once the button has been held for half a second (a short click shows nothing), and goes back about a tenth of a second after you let go.
+BeyondATC reads your PTT button itself and doesn't tell other add-ons when it's held. To let the pill show it, bind the same button a second time in the sim: **Controls > Communications > TOGGLE SPEAKER**. Keep BeyondATC's PTT binding as it is. Then turn on **PTT** in the pill's settings. The pill shows "Transmitting" once the button has been held for a quarter of a second, and goes back about a tenth of a second after you let go.
 
 ## Compatibility
 

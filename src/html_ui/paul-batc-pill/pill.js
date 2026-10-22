@@ -27,7 +27,8 @@
                          // the sim's Communications > TOGGLE SPEAKER (BeyondATC's own PTT stays as it is)
     pttEvent: "TOGGLE_SPEAKER", // the sim event that binding sends
     pttBlock: false,     // also stop the sim acting on it
-    pttDelayMs: 500,     // PTT held this long before "Transmitting" shows (a click shows nothing)
+    pttDelayMs: 250,     // PTT held this long before "Transmitting" shows. Under ~450 ms a click still shows briefly:
+                         // the sim's first repeat comes at ~0.4 s, so a click looks held until then
     hideOffline: false,  // true: no pill at all while BeyondATC isn't running
     showTraffic: true,   // show a neutral "Traffic" pill while AI traffic talks
     facility: "short",   // "short": "Ground", "full": "Montpellier Ground"
