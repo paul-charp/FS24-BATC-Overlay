@@ -17,8 +17,8 @@
     atisMs: 6000,        // how long a new ATIS letter is shown
     demoMs: 4000,        // settings card: how long the sample shows the last change before going back      // "No readback" stays this long when BeyondATC stops waiting without your reply
     showReadback: true,  // while BeyondATC waits for your readback, hint what it is ("Taxi 30R")
-    readbackDetail: "hint", // with a readback pending: "none" (status only), "hint" ("Taxi via T1"),
-                            // "boxes" (the toolbar's clearance boxes: runway, SID, ...)
+    readbackDetail: "hint", // with a readback pending: "none" (status only), "short" (the boxes' values:
+                            // "30R · T1"), "hint" ("Taxi via T1"), "boxes" (the toolbar's clearance boxes)
     showTuning: true,    // show the new station when COM1/COM2 changes
     showContact: true,   // Auto Tune off: after "contact <station> <freq>", remind you until COM1 is on it
     showAtis: true,      // show a new ATIS letter
@@ -138,7 +138,8 @@
     toggleRow("Radio changes", "showTuning") + toggleRow("Contact reminders", "showContact") +
     toggleRow("ATIS changes", "showAtis") +
     toggleRow("Readback hints", "showReadback") +
-    choiceRow("Detail", "readbackDetail", [["none", "None"], ["hint", "Hint"], ["boxes", "Boxes"]]) +
+    choiceRow("readbackDetail", [["none", "None"], ["short", "Short"], ["hint", "Hint"],
+      ["boxes", "Boxes"]]) +
     toggleRow("Muted ATC calls", "warnMuted") + toggleRow("AI traffic", "showTraffic") +
     toggleRow("Full station names", "fullNames") + toggleRow("Hide when BATC is off", "hideOffline") +
     '<div class="bc-foot"><span class="bc-btn bc-reset" data-act="reset">Reset</span></div>';
@@ -151,9 +152,9 @@
       '<span class="bc-btn" data-act="' + key + '+">+</span></span></div>';
   }
 
-  function choiceRow(label, key, options) {
-    return '<div class="bc-row bc-choice" data-for="' + key + '"><span class="bc-label">' + label +
-      '</span><span class="bc-seg">' + options.map(function (o) {
+  // a sub-setting of the row above it: its choices fill the row, no label
+  function choiceRow(key, options) {
+    return '<div class="bc-row bc-choice" data-for="' + key + '"><span class="bc-seg">' + options.map(function (o) {
         return '<span class="bc-btn" data-choice="' + key + ":" + o[0] + '">' + o[1] + "</span>";
       }).join("") + "</span></div>";
   }
@@ -234,7 +235,7 @@
     // ATC called again for it: louder color, faster pulse, "Awaiting readback ×2"
     var cls = calls > 1 ? "s-insist is-pulse" : "s-atc is-pulse";
     if (calls > 1) label += " ×" + calls;
-    if (CONFIG.readbackDetail === "none") detail = "";
+    detail = detailFor(detail, boxes);
     if (CONFIG.readbackDetail === "boxes" && boxes.length) {
       // "Awaiting readback" over the boxes, as in the toolbar; their titles say what it's about
       return { cls: cls + " is-msg", html: LAMP + '<span class="bp-who">' + label + "</span>",
@@ -245,6 +246,15 @@
     }
     return { cls: cls, html: LAMP + '<span class="bp-who">' + label + "</span>" +
       (detail ? '<span class="bp-sep">·</span><span>' + esc(detail) + "</span>" : "") };
+  }
+
+  // the one-line detail for the chosen mode: the hint, or just the boxes' values ("30R · T1 · T1")
+  function detailFor(hint, boxes) {
+    if (CONFIG.readbackDetail === "none") return "";
+    if (CONFIG.readbackDetail === "short" && boxes.length) {
+      return boxes.map(function (b) { return b.info; }).join(" · ");
+    }
+    return hint;
   }
 
   // "Readback Taxi Instruction" -> readback, kind "Taxi Instruction"; "Acknowledge Takeoff Clearance" ->
@@ -271,7 +281,7 @@
   }
 
   function atisLook(letter) {
-    return { cls: "s-atis", html: LAMP + '<span class="bp-who">ATIS</span><span class="bp-sep">·</span><span>Information ' +
+    return { cls: "s-atis", html: LAMP + '<span class="bp-who">ATIS</span><span class="bp-sep">·</span><span>' +
       esc(letter) + "</span>" };
   }
 
@@ -346,8 +356,13 @@
         else v = { cls: "s-atc", html: BARS + facilityHtml("bp-who") };
         break;
       case "traffic":
-        // ATC to other aircraft or all stations ("ATC Generating", then "ATC Transmitting")
-        v = CONFIG.showTraffic ? { cls: "", html: BARS + "<span>Traffic</span>" } : readbackView();
+        if (/^atis/i.test(state.text)) {
+          // COM1 on an ATIS frequency: "ATIS Generating", then "ATIS Transmitting" while it plays
+          v = { cls: "s-atis", html: (/generat/i.test(state.text) ? DOTS : BARS) + facilityHtml("bp-who") };
+        } else {
+          // ATC to other aircraft or all stations ("ATC Generating", then "ATC Transmitting")
+          v = CONFIG.showTraffic ? { cls: "", html: BARS + "<span>Traffic</span>" } : readbackView();
+        }
         break;
       case "ready":
         if (state.tune && now < state.tuneUntil) {
@@ -355,8 +370,9 @@
         } else if ((v = readbackView())) {
           // waiting for your readback
         } else if (state.missed && now < state.missedUntil) {
+          var md = detailFor(state.missed.detail, state.missed.boxes);
           v = { cls: "s-insist", html: LAMP + '<span class="bp-who">' + state.missed.label + "</span>" +
-            (state.missed.detail && CONFIG.readbackDetail !== "none" ? '<span class="bp-sep">·</span><span>' + esc(state.missed.detail) + "</span>" : "") };
+            (md ? '<span class="bp-sep">·</span><span>' + esc(md) + "</span>" : "") };
         } else if (state.atis && now < state.atisUntil) {
           v = atisLook(state.atis);
         } else if (state.contact && !state.autoTune && CONFIG.showContact) {
@@ -456,8 +472,9 @@
   }
 
   function stationName(s) {
-    // "Montpellier Ground (30R, 30L)" -> "Montpellier Ground"
-    return String(s || "").replace(/\s*\(.*?\)/g, "").trim();
+    // "Montpellier Ground (30R, 30L)" -> "Montpellier Ground";
+    // "Montpellier Mediterranee Automated Terminal Information Service" -> "Montpellier Mediterranee ATIS"
+    return String(s || "").replace(/\s*\(.*?\)/g, "").replace(/automated terminal information service/i, "ATIS").trim();
   }
 
   // Short hints from the instruction's text: [pattern, hint]. Only the label depends on wording; whether
@@ -532,7 +549,7 @@
         // BeyondATC stopped waiting on its own (after ~18 s for taxi or acknowledge replies)
         var w = waitingFor();
         state.missed = { label: w.readback ? "No readback" : "No response",
-          detail: readbackHint(state.readback.text) || w.kind };
+          detail: readbackHint(state.readback.text) || w.kind, boxes: w.choices.length ? [] : state.infoBoxes };
         state.missedUntil = Date.now() + CONFIG.missedMs;
         clearTimeout(timers.missed);
         timers.missed = setTimeout(render, CONFIG.missedMs + 20);
@@ -566,7 +583,8 @@
   }
 
   function tuned(label, facility) {
-    if (!CONFIG.showTuning) return;
+    // flight loading tunes the radios too (UNICOM, COM2 off): only show changes once loaded
+    if (!CONFIG.showTuning || (state.stage && state.stage !== "ready")) return;
     state.tune = { label: label, facility: facility };
     state.tuneUntil = Date.now() + CONFIG.tuneMs;
     clearTimeout(timers.tune);
@@ -638,6 +656,7 @@
       case "Com2": {
         // {"label":"Marseille Approach","frequency":"120.100","monitor":true}, {"label":"Radio Off",...}, or empty
         var c2 = parseJson(payload) || {};
+        if (/^\(/.test(c2.label || "")) break; // "(Generating LFMT ATIS)": wait for the final label
         var key = (c2.label || "") + "|" + (c2.frequency || "");
         if (state.com2 !== null && key !== state.com2) {
           tuned("COM2", c2.frequency ? { name: stationName(c2.label), freq: c2.frequency } : { name: "", freq: "" });

@@ -12,7 +12,7 @@ A small pill in a corner of the Microsoft Flight Simulator 2024 screen that show
 - **Awaiting readback / Awaiting response** (amber, pulsing): ATC waits for your readback, acknowledgement or answer (the toolbar offers "Say Again"), with a short hint ("IFR clearance · Climb FL060", "Taxi 30R", the answers to a question: "Runway 12L / Runway 12R"), or the toolbar's clearance boxes (runway, SID, altitude, squawk). If ATC calls you again before you reply, the pill turns red-orange ("Awaiting response ×2"). If BeyondATC stops waiting without a reply (it drops taxi and acknowledge replies after about 18 s), "No readback" shows for 5 s.
 - **Radio change** (cyan): the new station when COM1 or COM2 changes.
 - **Contact** (cyan): with BeyondATC's Auto Tune off, after "contact Marseille Approach on 120.100", until COM1 is on it.
-- **ATIS** (purple): a new ATIS letter ("Information Z"), for 6 s.
+- **ATIS** (purple): a new ATIS letter ("ATIS · Z"), for 6 s; and "ATIS" while COM1 plays an ATIS.
 - **Exchange ended**: the station stays for 3 s, then the pill shrinks back to the dot.
 - **Offline**: BeyondATC isn't running (can be hidden).
 
@@ -41,7 +41,7 @@ Click the pill in flight to open its settings card. Changes apply immediately. W
 | Contact reminders | with Auto Tune off, show whom to contact until COM1 is on it |
 | ATIS changes | show a new ATIS letter |
 | Readback hints | show when BeyondATC waits for your readback or acknowledgement |
-| Detail (under Readback hints) | None (status only), Hint (a short hint, e.g. "Taxi via T1 · Hold short 12L") or Boxes (the toolbar's clearance boxes) |
+| None / Short / Hint / Boxes (under Readback hints) | None (status only), Short (the clearance boxes' values, e.g. "30R · T1 · T1"), Hint (a short hint, e.g. "Taxi via T1 · Hold short 12L") or Boxes (the toolbar's clearance boxes) |
 | Muted ATC calls | red-orange pill when ATC calls you while COM1 is muted |
 | AI traffic | show the "Traffic" pill while AI traffic talks |
 | Full station names | "Montpellier Ground" instead of "Ground" |

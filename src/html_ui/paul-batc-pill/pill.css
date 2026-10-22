@@ -309,9 +309,10 @@
 
 #batc-pill-cfg .bc-choice { transition: opacity 0.2s ease; }
 #batc-pill-cfg .bc-choice.is-off { opacity: 0.4; }
-#batc-pill-cfg .bc-choice .bc-label { padding-left: calc(12 * var(--k)); color: var(--dim); } /* under Readback hints */
-#batc-pill-cfg .bc-seg { display: flex; }
+#batc-pill-cfg .bc-seg { display: flex; width: 100%; padding-left: calc(12 * var(--k)); } /* under Readback hints */
 #batc-pill-cfg .bc-seg .bc-btn {
+  flex: 1 1 0;
+  text-align: center;
   margin-left: calc(2 * var(--k));
   padding: calc(4 * var(--k)) calc(7 * var(--k));
   border-radius: calc(5 * var(--k));
