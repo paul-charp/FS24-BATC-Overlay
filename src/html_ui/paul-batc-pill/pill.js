@@ -65,7 +65,9 @@
     tuneUntil: 0,
     com2: null,          // last Com2 label|frequency, to detect changes
     atcText: "",         // last ATC: line
-    respond: "",         // the toolbar's pending reply ("Readback IFR Clearance", "Acknowledge Instruction")
+    replies: [],         // the toolbar's replies while ATC waits for you ("Readback IFR Clearance", "Runway 12L")
+    repliesKey: "",
+    menuFresh: false,    // the toolbar re-sent its menu since the last transmission (it always does)
     readback: null,      // { text, facility, calls }: the instruction it replies to, and how often ATC said it
     answered: false,     // you spoke since ATC last did (the toolbar keeps the reply until ATC confirms)
     infoBoxes: [],       // the toolbar's clearance boxes: [{ title: "SID", info: "KELA8L" }, ...]
@@ -184,18 +186,22 @@
 
   function readbackView() {
     var rb = state.readback;
-    if (!CONFIG.showReadback || !rb || state.answered) return null;
-    // what ATC waits for: "Readback IFR Clearance" -> "Awaiting readback" + "IFR Clearance",
-    // "Acknowledge Instruction" -> "Awaiting response"
-    var m = /^(read ?back|acknowledge)\s*(.*)$/i.exec(state.respond) || [];
-    var label = /^read/i.test(m[1] || "") ? "Awaiting readback" : "Awaiting response";
-    var detail = readbackHint(rb.text) || (/^instruction$/i.test(m[2] || "") ? "" : m[2] || "");
+    if (!CONFIG.showReadback || !rb || state.answered || !state.menuFresh) return null;
+    // what ATC waits for: "Readback IFR Clearance" -> "Awaiting readback" + "IFR Clearance";
+    // "Acknowledge Instruction" -> "Awaiting response"; a question -> its answers ("Runway 12L / Runway 12R")
+    var kind = null, choices = [];
+    state.replies.forEach(function (r) {
+      var m = /^read ?back\s*(.*)$/i.exec(r);
+      if (m) kind = m[1];
+      else if (!/^acknowledge\b/i.test(r)) choices.push(r);
+    });
+    var label = kind !== null ? "Awaiting readback" : "Awaiting response";
+    var detail = readbackHint(rb.text) || choices.slice(0, 3).join(" / ") || kind || "";
     // ATC called again for it: louder color, faster pulse, "Awaiting readback ×2"
     var cls = rb.calls > 1 ? "s-insist is-pulse" : "s-atc is-pulse";
     if (rb.calls > 1) label += " ×" + rb.calls;
-    if (CONFIG.clearanceBoxes && state.infoBoxes.length) {
+    if (CONFIG.clearanceBoxes && state.infoBoxes.length && !choices.length) {
       // "Awaiting readback · IFR Clearance" over the boxes, as in the toolbar
-      var kind = m[2] && !/^instruction$/i.test(m[2]) ? m[2] : "";
       return { cls: cls + " is-msg", html: LAMP + '<span class="bp-who">' + label + "</span>" +
         (kind ? '<span class="bp-sep">·</span><span class="bp-dim">' + esc(kind) + "</span>" : ""),
         extra: '<span class="bp-boxes">' + state.infoBoxes.map(function (b) {
@@ -390,22 +396,24 @@
     return t.length > 240 ? t.slice(0, 239) + "…" : t;
   }
 
-  // "Actions: [Readback IFR Clearance¬Say Again¬]": the replies the toolbar offers. A readback or
-  // acknowledgement among them means BeyondATC waits for you; it stays until ATC confirms or moves on.
+  // "Actions: [Readback IFR Clearance¬Say Again¬]": the toolbar's menu. It offers "Say Again" only while
+  // ATC waits for you (a readback, an acknowledgement, an answer like "Runway 12L"), and keeps it until
+  // ATC confirms or moves on; the request menu ("Request Push and Start¬Wind Check¬...") never has it.
   function onActions(payload) {
-    var list = payload.replace(/^\[|\]$/g, "").split("¬");
-    var respond = "";
-    for (var i = 0; i < list.length; i++) {
-      if (/^(read ?back|acknowledge)\b/i.test(list[i].trim())) { respond = list[i].trim(); break; }
-    }
-    if (respond && respond !== state.respond) {
-      // the instruction is the last ATC line (empty when we connected mid-exchange)
+    var list = payload.replace(/^\[|\]$/g, "").split("¬").map(function (s) { return s.trim(); });
+    var waiting = list.some(function (s) { return /^say again$/i.test(s); });
+    var replies = waiting ? list.filter(function (s) { return s && !/^(say again|cancel\b)/i.test(s); }) : [];
+    var key = "¬" + replies.join("¬"); // never "", which means not waiting
+    if (waiting && key !== state.repliesKey) {
+      // the instruction or question is the last ATC line (empty when we connected mid-exchange)
       state.readback = { text: clip(state.atcText), facility: state.facility, calls: 1 };
       state.answered = false;
-    } else if (!respond) {
+    } else if (!waiting) {
       state.readback = null;
     }
-    state.respond = respond;
+    state.replies = replies;
+    state.repliesKey = waiting ? key : "";
+    state.menuFresh = true;
   }
 
   function tuned(label, facility) {
@@ -440,6 +448,7 @@
       case "ATC":
         state.speaker = "atc";
         state.atcText = payload;
+        state.menuFresh = false; // ATC may close the exchange: wait for the menu sent after it
         if (state.readback) {
           // ATC calls you again before you replied ("Airfrans 1234, Montpellier Ground?"). The instruction
           // itself again is usually the toolbar's "Say Again", which sends no Player: line.
@@ -454,6 +463,7 @@
       case "Player":
         state.speaker = "player"; // your readback (or "say again") is starting
         state.answered = true;
+        state.menuFresh = false;
         return;
       case "Traffic":
         state.speaker = "traffic";
@@ -541,7 +551,8 @@
       state.mode = "ready";
       state.speaker = null;
       state.stage = "";
-      state.respond = "";
+      state.replies = [];
+      state.repliesKey = "";
       state.infoBoxes = [];
       state.readback = null;
       render();

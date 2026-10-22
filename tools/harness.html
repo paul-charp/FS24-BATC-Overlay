@@ -16,6 +16,7 @@
   <button data-seq="wind">Replay wind check</button>
   <button data-seq="voice">Replay voice request</button>
   <button data-seq="ifr">Replay IFR clearance + readback</button>
+  <button data-seq="rwy">Replay runway question</button>
   <button id="err">AppError</button>
   <button id="mute">Toggle COM1 mute</button>
   <button id="flight">Toggle in flight</button>
@@ -49,14 +50,29 @@
           [10001, 'CommsState: {"mode":"ready","text":""}'], [10001, 'CommsState: {"mode":"awaiting","text":"Awaiting Response"}'],
           [10470, 'Player: Cleared to Marseille Provence via KELA8L departure, runway 12L, climb to FL060, squawk 1000, Airfrans 1234.'],
           [10500, 'CommsState: {"mode":"speaking","text":"Speaking"}'], [16000, 'CommsState: {"mode":"ready","text":""}'],
-          [16030, 'CommsState: {"mode":"awaiting","text":"Awaiting Response"}'],
+          [16002, 'Actions: [Readback IFR Clearance¬Say Again¬]'], [16030, 'CommsState: {"mode":"awaiting","text":"Awaiting Response"}'],
           [17100, 'ATC: Airfrans 1234, readback correct. Call me back when ready for pushback or engine start.'],
           [17120, 'CommsState: {"mode":"speaking","text":"Speaking"}'], [21000, 'CommsState: {"mode":"ready","text":""}'],
           [21003, 'Actions: [Acknowledge Instruction¬Say Again¬]'],
           [28000, 'CommsState: {"mode":"awaiting","text":"Awaiting Response"}'],
           [28800, 'ATC: Airfrans 1234, Montpellier Ground?'],
           [28820, 'CommsState: {"mode":"speaking","text":"Speaking"}'], [32400, 'CommsState: {"mode":"ready","text":""}'],
+          [32403, 'Actions: [Acknowledge Instruction¬Say Again¬]'],
           [40000, 'Actions: [Request IFR Clearance¬Request Push and Start¬Request Startup Only¬Request Departure Runway Change¬Wind Check¬Radio Check¬]'], [40001, 'Actions: []'], [40004, 'Actions: [Request Push and Start¬Request Startup Only¬Request Departure Runway Change¬Wind Check¬Radio Check¬]']],
+    // from the 2026-10-22 capture, waits shortened: a question ("say runway"), "say again", the answer
+    rwy: [[0, 'Player: Airfrans 1234, request departure runway change.'], [20, 'CommsState: {"mode":"speaking","text":"Speaking"}'],
+          [3500, 'CommsState: {"mode":"request","text":"Request Departure Runway Change"}'], [4700, 'CommsState: {"mode":"ready","text":""}'],
+          [4710, 'CommsState: {"mode":"awaiting","text":"Awaiting Response"}'],
+          [5400, 'ATC: Airfrans 1234, roger, say runway.'], [5420, 'CommsState: {"mode":"speaking","text":"Speaking"}'],
+          [8400, 'CommsState: {"mode":"ready","text":""}'], [8403, 'Actions: [Cancel Runway Change¬Runway 12L¬Runway 12R¬Say Again¬]'],
+          [13000, 'CommsState: {"mode":"queued","text":"Say Again"}'], [13001, 'CommsState: {"mode":"ready","text":""}'],
+          [13001, 'CommsState: {"mode":"awaiting","text":"Awaiting Response"}'],
+          [13300, 'Player: Request Runway 12L, Airfrans 1234.'], [13320, 'CommsState: {"mode":"speaking","text":"Speaking"}'],
+          [16600, 'CommsState: {"mode":"ready","text":""}'], [16602, 'Actions: [Cancel Runway Change¬Runway 12L¬Runway 12R¬Say Again¬]'],
+          [16660, 'CommsState: {"mode":"awaiting","text":"Awaiting Response"}'],
+          [17700, "ATC: Airfrans 1234, 12L is the runway you're already assigned for departure. Unable runway change."],
+          [17720, 'CommsState: {"mode":"speaking","text":"Speaking"}'], [25100, 'CommsState: {"mode":"ready","text":""}'],
+          [25102, 'Actions: [Request Push and Start¬Request Startup Only¬Request Departure Runway Change¬Wind Check¬Radio Check¬]']],
   };
   document.querySelectorAll('[data-seq]').forEach(b => b.onclick = () => {
     batcPill.state.connected = true;

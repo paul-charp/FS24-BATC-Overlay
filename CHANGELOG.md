@@ -2,7 +2,7 @@
 
 ## Unreleased
 
-- Added: readback hints: while BeyondATC waits for your readback or acknowledgement, the pill shows a short hint ("Readback hints" setting) or the toolbar's clearance boxes ("Clearance boxes" setting). The pill turns red-orange when ATC calls you again before you reply.
+- Added: readback hints: while ATC waits for your readback, acknowledgement or answer, the pill shows a short hint ("Readback hints" setting) or the toolbar's clearance boxes ("Clearance boxes" setting). The pill turns red-orange when ATC calls you again before you reply.
 - Fixed: BeyondATC errors showed as raw JSON.
 - Fixed: `sniff_batc.py` disconnected after BeyondATC's first ping.
 

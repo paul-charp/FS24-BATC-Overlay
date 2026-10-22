@@ -45,11 +45,14 @@ screen corner during flight, with a click-to-open settings card. Windows only. U
   `Traffic:` line says who.
 - `Facility: Name (runways)|freq` or `Nothing Tuned`; `Com2: {label,frequency,monitor}`;
   `LoadState: {stage}` (`menu` in menus); `RadioMute: {com1,com2}`.
-- `Actions: [Request IFR Clearance¬Wind Check¬...]`: the toolbar's reply menu, `¬`-separated. While
-  BeyondATC waits for you it holds `Readback IFR Clearance¬Say Again¬` or `Acknowledge Instruction¬Say
-  Again¬` (after "readback correct, call me back when ready"); it keeps them until ATC confirms or moves
-  on, so `pill.js` also tracks `answered` (a `Player:` line or `processing`/`request`/`queued` since ATC
-  spoke). The toolbar's "Say Again" sends no `Player:` line; ATC then repeats the instruction.
+- `Actions: [Request IFR Clearance¬Wind Check¬...]`: the toolbar's menu, `¬`-separated. While ATC
+  waits for you it offers `Say Again` (never in the request menu) with the replies: `Readback IFR
+  Clearance¬Say Again¬`, `Acknowledge Instruction¬Say Again¬` (after "readback correct, call me back
+  when ready"), `Cancel Runway Change¬Runway 12L¬Runway 12R¬Say Again¬` (after "say runway"). It keeps
+  them until ATC confirms or moves on, and re-sends the menu after every transmission, so `pill.js`
+  shows the hint only with a menu newer than the last speech (`menuFresh`) and not `answered` (a
+  `Player:` line or `processing`/`request`/`queued` since ATC spoke). `QueuedAction` labels can be stale
+  ("Say Again" while the pilot answers "Runway 12L"). Toolbar "Say Again" gives `Player: Say again, ...`.
   ATC chasing a missing reply: "Airfrans 1234, Montpellier Ground?". `READBACKS` only shapes the hint.
 - `InfoBoxes: [{"title":"Taxi to Runway","info":"12L"},{"title":"SID","info":"KELA8L"},
   {"title":"Altitude Clearance","info":"FL060"},{"title":"Squawk","info":"1000"}]`: the toolbar's
