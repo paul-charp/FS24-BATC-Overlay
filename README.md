@@ -9,7 +9,7 @@ A small pill in a corner of the Microsoft Flight Simulator 2024 screen that show
 - **Queued / Processing / Awaiting ATC** (blue): your request is on its way.
 - **ATC talking** (amber): the controller is speaking, with the station and frequency.
 - **You talking** (green): your readback or request is being played.
-- **Read back** (amber, pulsing): after an ATC instruction, a short hint of what to read back ("Taxi 30R · Hold short 30R", "Climb FL120", "Contact 120.100") until you do (or 30 s pass). Can show the whole instruction instead. If ATC calls again for it, the pill turns red-orange ("Read back ×2").
+- **Read back / Acknowledge** (amber, pulsing): while BeyondATC waits for your readback or acknowledgement (the toolbar offers "Readback …" or "Acknowledge …"), with a short hint ("IFR clearance · Climb FL060", "Taxi 30R", "Contact 120.100"), or the toolbar's clearance boxes (runway, SID, altitude, squawk). If ATC calls you again before you reply, the pill turns red-orange ("Acknowledge ×2").
 - **Radio change** (cyan): the new station when COM1 or COM2 changes.
 - **Exchange ended**: the station stays for 3 s, then the pill shrinks back to the dot.
 - **Offline**: BeyondATC isn't running (can be hidden).
@@ -36,8 +36,8 @@ Click the pill in flight to open its settings card. Changes apply immediately. W
 | Side offset / Edge offset | distance from the corner, in 1080p pixels (scales with resolution) |
 | Size | 60% to 250% |
 | Radio changes | show the new station when COM1 or COM2 changes |
-| Readback hints | after an ATC instruction, show what to read back until you do |
-| Full readback text | the whole instruction, wrapped on two or more lines, instead of the short hint |
+| Readback hints | show when BeyondATC waits for your readback or acknowledgement |
+| Clearance boxes | with a readback pending, show the toolbar's clearance boxes instead of the short hint |
 | AI traffic | show the "Traffic" pill while AI traffic talks |
 | Full station names | "Montpellier Ground" instead of "Ground" |
 | Hide when BATC is off | no pill at all while BeyondATC isn't running |

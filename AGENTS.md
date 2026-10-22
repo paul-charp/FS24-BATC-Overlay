@@ -44,13 +44,20 @@ screen corner during flight, with a click-to-open settings card. Windows only. U
 - `speaking` is used for ATC and for the pilot TTS; the preceding `ATC:`/`ATCTraffic:`, `Player:` or
   `Traffic:` line says who.
 - `Facility: Name (runways)|freq` or `Nothing Tuned`; `Com2: {label,frequency,monitor}`;
-  `LoadState: {stage}` (`menu` in menus); `RadioMute: {com1,com2}`; `AppError: text`.
-- No known "readback expected" signal. `pill.js` turns the `ATC:` text into short hints (`READBACKS`) and clears
-  on the next `Player:` line, `processing`/`request`/`queued`, a COM1 change or `readbackMs`; `ATCTraffic:` /
-  `Traffic:` leave it. A later `ATC:` line is judged when ATC finishes (`atcSpoke`): same hint or a
-  nudge (`NUDGE_RE`) escalates it, "readback correct" or unrelated talk clears it, a new instruction
-  replaces it. ATC's real nudge wording is unverified. Unverified
-  live: what a voice (PTT) readback sends, and whether `waiting` means "awaiting readback".
+  `LoadState: {stage}` (`menu` in menus); `RadioMute: {com1,com2}`.
+- `Actions: [Request IFR Clearance¬Wind Check¬...]`: the toolbar's reply menu, `¬`-separated. While
+  BeyondATC waits for you it holds `Readback IFR Clearance¬Say Again¬` or `Acknowledge Instruction¬Say
+  Again¬` (after "readback correct, call me back when ready"); it keeps them until ATC confirms or moves
+  on, so `pill.js` also tracks `answered` (a `Player:` line or `processing`/`request`/`queued` since ATC
+  spoke). The toolbar's "Say Again" sends no `Player:` line; ATC then repeats the instruction.
+  ATC chasing a missing reply: "Airfrans 1234, Montpellier Ground?". `READBACKS` only shapes the hint.
+- `InfoBoxes: [{"title":"Taxi to Runway","info":"12L"},{"title":"SID","info":"KELA8L"},
+  {"title":"Altitude Clearance","info":"FL060"},{"title":"Squawk","info":"1000"}]`: the toolbar's
+  clearance boxes (`info` may hold `<br>`); `[]` at load, a CTAF box on UNICOM.
+- `AppError: {"text","fatal","kicked"}` (text may span lines; empty clears). `Callsign: {full,shortForm}`.
+- The server pings (an empty frame); `sniff_batc.py` lost the connection after each one until it
+  answered with a pong. Browsers pong on their own.
+- Unverified live: what a voice (PTT) readback sends, and whether `waiting` means "awaiting readback".
 - BeyondATC's own logs (`%userprofile%\AppData\LocalLow\Skirmish Mode Games, Inc\BeyondATC`):
   `Player.log` has every exchange as `[Instruction]` lines (ATC and pilot alike) and the script
   that handled it (`[ControllerScript] ...WindCheckScript`, `...IFR.IfrEvaluatorScript`), but no
@@ -65,5 +72,5 @@ screen corner during flight, with a click-to-open settings card. Windows only. U
 ## Rules
 
 - Never commit Asobo files (cooked components, vanilla UI); the build copies them from the local install.
-- Never send anything on the BeyondATC socket.
+- Never send anything on the BeyondATC socket (WebSocket pongs aside).
 - Changelogs and release notes list what changed, not why.

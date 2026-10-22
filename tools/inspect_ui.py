@@ -38,11 +38,11 @@ class WS:
             raise ConnectionError(head.split(b"\r\n", 1)[0].decode(errors="replace"))
         self.buf = head.split(b"\r\n\r\n", 1)[1]
 
-    def send(self, text):
-        data = text.encode()
+    def send(self, text, opcode=0x1):
+        data = text.encode() if isinstance(text, str) else text
         mask = os.urandom(4)
         n = len(data)
-        hdr = struct.pack("!B", 0x81) + (struct.pack("!B", 0x80 | n) if n < 126 else
+        hdr = struct.pack("!B", 0x80 | opcode) + (struct.pack("!B", 0x80 | n) if n < 126 else
                                           struct.pack("!BH", 0x80 | 126, n) if n < 65536 else
                                           struct.pack("!BQ", 0x80 | 127, n))
         self.sock.sendall(hdr + mask + bytes(b ^ mask[i % 4] for i, b in enumerate(data)))
@@ -66,6 +66,14 @@ class WS:
             elif n == 127:
                 n = struct.unpack("!Q", self._read(8))[0]
             payload = self._read(n)
+            opcode = b0 & 0x0F
+            if opcode == 0x9:  # ping: answer it, or the server drops the connection
+                self.send(payload, 0xA)
+                continue
+            if opcode == 0xA:  # pong
+                continue
+            if opcode == 0x8:
+                raise ConnectionError("closed by server")
             msg += payload
             if b0 & 0x80:
                 return msg.decode(errors="replace")

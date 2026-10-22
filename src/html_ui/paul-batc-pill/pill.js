@@ -13,9 +13,8 @@
     lingerMs: 3000,      // label stays after an exchange ends, then shrinks to the dot
     tuneMs: 3000,        // how long a radio change is shown
     errorMs: 5000,
-    readbackMs: 30000,   // longest a readback hint stays up
-    showReadback: true,  // after an ATC instruction, hint what to read back ("Taxi 30R") until you do
-    readbackText: "short", // "short": the hint on one line, "full": the whole instruction, wrapped
+    showReadback: true,  // while BeyondATC waits for your readback, hint what it is ("Taxi 30R")
+    clearanceBoxes: false, // with a readback pending, show the toolbar's clearance boxes (runway, SID, ...)
     showTuning: true,    // show the new station when COM1/COM2 changes
     hideOffline: false,  // true: no pill at all while BeyondATC isn't running
     showTraffic: true,   // show a neutral "Traffic" pill while AI traffic talks
@@ -27,7 +26,7 @@
   var FADE_MS = 140;
 
   // What the settings card changes. Saved in localStorage, which every sim UI view shares.
-  var USER_KEYS = ["corner", "x", "y", "scale", "showTuning", "showReadback", "readbackText", "hideOffline",
+  var USER_KEYS = ["corner", "x", "y", "scale", "showTuning", "showReadback", "clearanceBoxes", "hideOffline",
     "showTraffic", "facility"];
   var STORE_KEY = "batcpill.settings";
   var DEFAULTS = {};
@@ -66,13 +65,15 @@
     tuneUntil: 0,
     com2: null,          // last Com2 label|frequency, to detect changes
     atcText: "",         // last ATC: line
-    readback: null,      // { hint, text, facility, calls } of the instruction, shown until readbackUntil
-    readbackUntil: 0,
+    respond: "",         // the toolbar's pending reply ("Readback IFR Clearance", "Acknowledge Instruction")
+    readback: null,      // { text, facility, calls }: the instruction it replies to, and how often ATC said it
+    answered: false,     // you spoke since ATC last did (the toolbar keeps the reply until ATC confirms)
+    infoBoxes: [],       // the toolbar's clearance boxes: [{ title: "SID", info: "KELA8L" }, ...]
     seenFacility: false, // the first Facility after connecting is the snapshot, not a change
     editing: false,      // settings card open: the pill shows a sample so size/position are visible
   };
   var socket = null;
-  var timers = { reconnect: 0, linger: 0, error: 0, tune: 0, readback: 0, swap: 0, poll: 0 };
+  var timers = { reconnect: 0, linger: 0, error: 0, tune: 0, swap: 0, poll: 0 };
   var destroyed = false;
   var current = null;    // last rendered view signature
 
@@ -112,7 +113,7 @@
       }).join("") + "</span></div>" +
     stepRow("Side offset", "x") + stepRow("Edge offset", "y") + stepRow("Size", "scale") +
     toggleRow("Radio changes", "showTuning") + toggleRow("Readback hints", "showReadback") +
-    toggleRow("Full readback text", "fullReadback") + toggleRow("AI traffic", "showTraffic") +
+    toggleRow("Clearance boxes", "clearanceBoxes") + toggleRow("AI traffic", "showTraffic") +
     toggleRow("Full station names", "fullNames") + toggleRow("Hide when BATC is off", "hideOffline") +
     '<div class="bc-foot"><span class="bc-btn bc-reset" data-act="reset">Reset</span></div>';
   document.body.appendChild(card);
@@ -183,15 +184,26 @@
 
   function readbackView() {
     var rb = state.readback;
-    if (!rb || Date.now() >= state.readbackUntil) return null;
+    if (!CONFIG.showReadback || !rb || state.answered) return null;
+    // "Readback IFR Clearance" -> "Read back" + "IFR Clearance"; "Acknowledge Instruction" -> "Acknowledge"
+    var m = /^(read ?back|acknowledge)\s*(.*)$/i.exec(state.respond) || [];
+    var label = /^ack/i.test(m[1] || "") ? "Acknowledge" : "Read back";
+    var detail = readbackHint(rb.text) || (/^instruction$/i.test(m[2] || "") ? "" : m[2] || "");
     // ATC called again for it: louder color, faster pulse, "Read back ×2"
     var cls = rb.calls > 1 ? "s-insist is-pulse" : "s-atc is-pulse";
-    var label = "Read back" + (rb.calls > 1 ? " ×" + rb.calls : "");
-    return CONFIG.readbackText === "full" ?
-      { cls: cls + " is-msg", html: LAMP + facilityHtml("bp-who", rb.facility) +
-        '<span class="bp-sep">·</span><span class="bp-dim">' + label + "</span>", msg: rb.text } :
-      { cls: cls, html: LAMP + '<span class="bp-who">' + label + "</span>" +
-        '<span class="bp-sep">·</span><span>' + esc(rb.hint) + "</span>" };
+    if (rb.calls > 1) label += " ×" + rb.calls;
+    if (CONFIG.clearanceBoxes && state.infoBoxes.length) {
+      // "Read back · IFR Clearance" over the boxes, as in the toolbar
+      var kind = m[2] && !/^instruction$/i.test(m[2]) ? m[2] : "";
+      return { cls: cls + " is-msg", html: LAMP + '<span class="bp-who">' + label + "</span>" +
+        (kind ? '<span class="bp-sep">·</span><span class="bp-dim">' + esc(kind) + "</span>" : ""),
+        extra: '<span class="bp-boxes">' + state.infoBoxes.map(function (b) {
+          return '<span class="bp-box"><span class="bp-box-t">' + esc(b.title) + '</span><span class="bp-box-v">' +
+            esc(b.info) + "</span></span>";
+        }).join("") + "</span>" };
+    }
+    return { cls: cls, html: LAMP + '<span class="bp-who">' + label + "</span>" +
+      (detail ? '<span class="bp-sep">·</span><span>' + esc(detail) + "</span>" : "") };
   }
 
   function view() {
@@ -245,7 +257,7 @@
     }
     if (!v) v = { cls: "is-dot", html: LAMP };
     if (state.muted && v.cls !== "is-dot") v.html += MUTE;
-    if (v.msg) v.html = '<span class="bp-head">' + v.html + '</span><span class="bp-msg">' + esc(v.msg) + "</span>";
+    if (v.extra) v.html = '<span class="bp-head">' + v.html + "</span>" + v.extra;
     return v;
   }
 
@@ -258,7 +270,7 @@
   }
 
   function measureH() {
-    // only the full readback text grows; the others keep the CSS height
+    // only the clearance boxes grow; the others keep the CSS height
     if (root.className.indexOf("is-msg") < 0) return "";
     return body.offsetHeight + root.offsetHeight - root.clientHeight + "px";
   }
@@ -326,12 +338,11 @@
     return String(s || "").replace(/\s*\(.*?\)/g, "").trim();
   }
 
-  // Instructions ICAO wants read back, as short hints: [pattern, hint]. BeyondATC sends no "readback
-  // expected" flag that we know of, so this guesses from the ATC text; replies like "Wind 310 degrees,
-  // 8 knots." match nothing. $1/$2 are the pattern's groups. Each match uses up its words, so
-  // "climb and maintain FL120" is one hint; the first two hints are shown.
+  // Short hints from the instruction's text: [pattern, hint]. Only the label depends on wording; whether
+  // a readback is pending comes from the toolbar's Actions. $1/$2 are the pattern's groups. Each match
+  // uses up its words, so "climb and maintain FL120" is one hint; the first two hints are shown.
   var RWY = "runway\\s+(\\d{1,2}\\s?[LRC]?)\\b";
-  var LEVEL = "(flight level\\s*\\d{2,3}|\\d{1,3},?\\d{3}\\s*(?:feet|ft))";
+  var LEVEL = "(flight level\\s*\\d{2,3}|FL\\s?\\d{2,3}|\\d{1,3},?\\d{3}\\s*(?:feet|ft))";
   var READBACKS = [
     [RWY + "[^.]*?cleared (?:to land|for (?:the )?(?:option|touch and go))", "Land $1"],
     ["cleared (?:to land|for (?:the )?(?:option|touch and go))[^.]*?" + RWY, "Land $1"],
@@ -366,7 +377,7 @@
       if (!m) continue;
       text = text.slice(0, m.index) + "~" + text.slice(m.index + m[0].length);
       var h = READBACKS[i][1].replace(/\$(\d)/g, function (_, n) {
-        return String(m[n] || "").replace(/flight level\s*/i, "FL").replace(/(\d),(\d)/, "$1$2")
+        return String(m[n] || "").replace(/(flight level|FL)\s*/i, "FL").replace(/(\d),(\d)/, "$1$2")
           .replace(/\s*(feet|ft)$/i, " ft").replace(/\s+/g, " ");
       });
       hints.push(h.charAt(0).toUpperCase() + h.slice(1));
@@ -374,30 +385,26 @@
     return hints.join(" · ");
   }
 
-  // ATC chasing a missing readback, and ATC accepting it
-  var NUDGE_RE = /\b(read ?back|how do you read|do you (copy|read)|did you copy|acknowledge|say again|confirm)\b/i;
-  var DONE_RE = /\b(read ?back correct|correct|roger)\b/i;
-
-  // ATC finished speaking to you: start, repeat or end the pending readback
-  function atcSpoke(text) {
-    var prev = state.readback && Date.now() < state.readbackUntil ? state.readback : null;
-    var hint = CONFIG.showReadback && readbackHint(text);
-    if (hint) {
-      state.readback = prev && prev.hint === hint ? prev :
-        { hint: hint, text: text.length > 240 ? text.slice(0, 239) + "…" : text, facility: state.facility, calls: 0 };
-    } else if (!prev || DONE_RE.test(text) || !NUDGE_RE.test(text)) {
-      clearReadback();
-      return;
-    }
-    state.readback.calls++;
-    state.readbackUntil = Date.now() + CONFIG.readbackMs;
-    clearTimeout(timers.readback);
-    timers.readback = setTimeout(render, CONFIG.readbackMs + 20);
+  function clip(t) {
+    return t.length > 240 ? t.slice(0, 239) + "…" : t;
   }
 
-  function clearReadback() {
-    state.readback = null;
-    clearTimeout(timers.readback);
+  // "Actions: [Readback IFR Clearance¬Say Again¬]": the replies the toolbar offers. A readback or
+  // acknowledgement among them means BeyondATC waits for you; it stays until ATC confirms or moves on.
+  function onActions(payload) {
+    var list = payload.replace(/^\[|\]$/g, "").split("¬");
+    var respond = "";
+    for (var i = 0; i < list.length; i++) {
+      if (/^(read ?back|acknowledge)\b/i.test(list[i].trim())) { respond = list[i].trim(); break; }
+    }
+    if (respond && respond !== state.respond) {
+      // the instruction is the last ATC line (empty when we connected mid-exchange)
+      state.readback = { text: clip(state.atcText), facility: state.facility, calls: 1 };
+      state.answered = false;
+    } else if (!respond) {
+      state.readback = null;
+    }
+    state.respond = respond;
   }
 
   function tuned(label, facility) {
@@ -419,8 +426,7 @@
         var cs = parseJson(payload);
         if (!cs) return;
         var mode = cs.mode || "ready";
-        if (mode === "processing" || mode === "request" || mode === "queued") clearReadback(); // you're talking
-        if (mode === "ready" && state.mode === "speaking" && state.speaker === "atc") atcSpoke(state.atcText);
+        if (mode === "processing" || mode === "request" || mode === "queued") state.answered = true; // you're talking
         if (cs.mode === "ready" && state.mode !== "ready") {
           state.lingerUntil = Date.now() + CONFIG.lingerMs;
           clearTimeout(timers.linger);
@@ -431,15 +437,22 @@
         break;
       }
       case "ATC":
-        state.speaker = "atc"; // the pending readback is updated once ATC finishes (atcSpoke)
+        state.speaker = "atc";
         state.atcText = payload;
+        if (state.readback) {
+          // ATC calls you again before you replied ("Airfrans 1234, Montpellier Ground?"). The instruction
+          // itself again is usually the toolbar's "Say Again", which sends no Player: line.
+          if (readbackHint(payload)) state.readback.text = clip(payload);
+          else if (!state.answered) state.readback.calls++;
+          state.answered = false;
+        }
         return;
       case "ATCTraffic":
         state.speaker = "atcTraffic"; // ATC talking to another aircraft: your pending readback stays
         return;
       case "Player":
-        state.speaker = "player"; // your readback (or next request) is starting
-        clearReadback();
+        state.speaker = "player"; // your readback (or "say again") is starting
+        state.answered = true;
         return;
       case "Traffic":
         state.speaker = "traffic";
@@ -451,7 +464,6 @@
         var prev = state.facility;
         state.facility = freq ? { name: stationName(parts[0]), freq: freq } : { name: "", freq: "" };
         if (state.seenFacility && (prev.name !== state.facility.name || prev.freq !== state.facility.freq)) {
-          clearReadback();
           tuned("", state.facility);
         }
         state.seenFacility = true;
@@ -477,13 +489,28 @@
         if (rm) state.muted = !!rm.com1;
         break;
       }
-      case "AppError":
-        if (!payload) return;
-        state.error = payload.length > 48 ? payload.slice(0, 47) + "…" : payload;
+      case "InfoBoxes": {
+        // [{"title":"Taxi to Runway","info":"12L"},{"title":"SID","info":"KELA8L"},...]
+        var ib = parseJson(payload);
+        state.infoBoxes = (ib && ib.length ? ib : []).map(function (b) {
+          return { title: String(b.title || ""), info: String(b.info || "").replace(/<br\s*\/?>/gi, " ") };
+        });
+        break;
+      }
+      case "Actions":
+        onActions(payload);
+        break;
+      case "AppError": {
+        // {"text":"No traffic liveries found, ...\nYou must ...","fatal":false,"kicked":false}, or plain text
+        var ae = parseJson(payload);
+        var et = String(ae && typeof ae === "object" ? ae.text || "" : payload).split("\n")[0].trim();
+        if (!et) return;
+        state.error = et.length > 48 ? et.slice(0, 47) + "…" : et;
         state.errorUntil = Date.now() + CONFIG.errorMs;
         clearTimeout(timers.error);
         timers.error = setTimeout(render, CONFIG.errorMs + 20);
         break;
+      }
       default:
         return;
     }
@@ -513,7 +540,9 @@
       state.mode = "ready";
       state.speaker = null;
       state.stage = "";
-      clearReadback();
+      state.respond = "";
+      state.infoBoxes = [];
+      state.readback = null;
       render();
       if (!destroyed) timers.reconnect = setTimeout(connect, CONFIG.reconnectMs);
     };
@@ -537,8 +566,7 @@
     var toggles = card.querySelectorAll("[data-toggle]");
     for (i = 0; i < toggles.length; i++) {
       var t = toggles[i].getAttribute("data-toggle");
-      var on = t === "fullNames" ? CONFIG.facility === "full" :
-        t === "fullReadback" ? CONFIG.readbackText === "full" : !!CONFIG[t];
+      var on = t === "fullNames" ? CONFIG.facility === "full" : !!CONFIG[t];
       toggles[i].className = "bc-row bc-btn bc-toggle" + (on ? " is-on" : "");
     }
   }
@@ -571,7 +599,6 @@
     } else if (el.hasAttribute("data-toggle")) {
       var t = el.getAttribute("data-toggle");
       if (t === "fullNames") patch.facility = CONFIG.facility === "full" ? "short" : "full";
-      else if (t === "fullReadback") patch.readbackText = CONFIG.readbackText === "full" ? "short" : "full";
       else patch[t] = !CONFIG[t];
     } else if (act === "close") {
       openCard(false);

@@ -74,21 +74,26 @@
 #batc-pill .bp-body > *, #batc-pill .bp-head > * { margin-left: calc(6 * var(--u)); flex: none; }
 #batc-pill .bp-body > *:first-child, #batc-pill .bp-head > *:first-child { margin-left: 0; }
 
-/* ATC instruction waiting for a readback: a header row over the wrapped text (height set by pill.js) */
+/* readback pending with clearance boxes: a header row over the boxes (height set by pill.js) */
 #batc-pill.is-msg { align-items: flex-start; border-radius: calc(10 * var(--u)); }
 #batc-pill.is-msg .bp-body {
   display: block;
   padding: calc(7 * var(--u)) calc(12 * var(--u)) calc(8 * var(--u)) calc(10 * var(--u));
 }
 #batc-pill .bp-head { display: flex; align-items: center; height: calc(12 * var(--u)); }
-#batc-pill.is-msg .bp-body > .bp-msg {
-  display: block;
-  max-width: calc(300 * var(--u));
-  margin: calc(6 * var(--u)) 0 0 0;
-  white-space: normal;
-  font-weight: 500;
-  line-height: 1.35;
+#batc-pill .bp-boxes { display: flex; margin-top: calc(7 * var(--u)); }
+#batc-pill .bp-box {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  margin-left: calc(4 * var(--u));
+  padding: calc(4 * var(--u)) calc(8 * var(--u)) calc(5 * var(--u));
+  border-radius: calc(5 * var(--u));
+  background-color: rgba(255, 255, 255, 0.08);
 }
+#batc-pill .bp-box:first-child { margin-left: 0; }
+#batc-pill .bp-box-t { font-size: calc(9 * var(--u)); font-weight: 500; color: var(--dim); }
+#batc-pill .bp-box-v { margin-top: calc(3 * var(--u)); font-size: calc(13 * var(--u)); }
 #batc-pill .bp-dim { color: var(--dim); font-weight: 500; }
 
 #batc-pill .bp-freq {

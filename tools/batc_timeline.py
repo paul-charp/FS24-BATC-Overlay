@@ -30,6 +30,8 @@ def flatten(value, path=""):
 
 
 def items(payload):
+    if payload.startswith("[") and "\u00ac" in payload:  # Actions: [Readback IFR Clearance¬Say Again¬]
+        return set(s for s in payload[1:-1].split("\u00ac") if s)
     try:
         return set(flatten(json.loads(payload)))
     except ValueError:

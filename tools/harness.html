@@ -15,8 +15,7 @@
 <div class="bar">
   <button data-seq="wind">Replay wind check</button>
   <button data-seq="voice">Replay voice request</button>
-  <button data-seq="taxi">Replay taxi clearance</button>
-  <button data-seq="nudge">Replay ATC chasing a readback</button>
+  <button data-seq="ifr">Replay IFR clearance + readback</button>
   <button id="err">AppError</button>
   <button id="mute">Toggle COM1 mute</button>
   <button id="flight">Toggle in flight</button>
@@ -40,22 +39,24 @@
             [3920, 'CommsState: {"mode":"awaiting","text":"Awaiting Response"}'],
             [4720, 'ATC: Unable, this is an ATC frequency.'], [4740, 'CommsState: {"mode":"speaking","text":"Speaking"}'],
             [7220, 'CommsState: {"mode":"ready","text":""}']],
-    // made up: no capture of a clearance and its readback yet
-    taxi: [[0, 'ATC: Airfrans 1234, taxi to holding point runway 30R via B, C, hold short of runway 30R.'],
-           [20, 'CommsState: {"mode":"speaking","text":"Speaking"}'],
-           [4500, 'CommsState: {"mode":"ready","text":""}'],
-           [9000, 'Player: Taxi to holding point runway 30R via B, C, hold short of runway 30R, Airfrans 1234.'],
-           [9020, 'CommsState: {"mode":"speaking","text":"Speaking"}'],
-           [13000, 'CommsState: {"mode":"ready","text":""}']],
-    // made up: ATC asks again, then repeats the clearance, then the readback comes
-    nudge: [[0, 'ATC: Airfrans 1234, taxi to holding point runway 30R via B, C.'],
-            [20, 'CommsState: {"mode":"speaking","text":"Speaking"}'], [3500, 'CommsState: {"mode":"ready","text":""}'],
-            [8000, 'ATC: Airfrans 1234, read back.'],
-            [8020, 'CommsState: {"mode":"speaking","text":"Speaking"}'], [9500, 'CommsState: {"mode":"ready","text":""}'],
-            [14000, 'ATC: Airfrans 1234, taxi to holding point runway 30R via B, C.'],
-            [14020, 'CommsState: {"mode":"speaking","text":"Speaking"}'], [17500, 'CommsState: {"mode":"ready","text":""}'],
-            [22000, 'Player: Taxi to holding point runway 30R via B, C, Airfrans 1234.'],
-            [22020, 'CommsState: {"mode":"speaking","text":"Speaking"}'], [26000, 'CommsState: {"mode":"ready","text":""}']],
+    // from the 2026-10-22 captures, waits shortened: clearance, toolbar readback, "readback correct",
+    // Acknowledge pending, ATC calls again, then the toolbar moves on
+    ifr: [[0, 'ATC: Airfrans 1234, Montpellier Ground, cleared to Marseille Provence via KELA8L departure, runway 12L, climb to FL060, squawk 1000.'],
+          [20, 'CommsState: {"mode":"speaking","text":"Speaking"}'], [5000, 'CommsState: {"mode":"ready","text":""}'],
+          [5003, 'InfoBoxes: [{"title":"Taxi to Runway","info":"12L"},{"title":"SID","info":"KELA8L"},{"title":"Altitude Clearance","info":"FL060"},{"title":"Squawk","info":"1000"}]'],
+          [5005, 'Actions: [Readback IFR Clearance¬Say Again¬]'],
+          [10000, 'QueuedAction: Request IFR Clearance'], [10000, 'CommsState: {"mode":"queued","text":"Request IFR Clearance"}'],
+          [10001, 'CommsState: {"mode":"ready","text":""}'], [10001, 'CommsState: {"mode":"awaiting","text":"Awaiting Response"}'],
+          [10470, 'Player: Cleared to Marseille Provence via KELA8L departure, runway 12L, climb to FL060, squawk 1000, Airfrans 1234.'],
+          [10500, 'CommsState: {"mode":"speaking","text":"Speaking"}'], [16000, 'CommsState: {"mode":"ready","text":""}'],
+          [16030, 'CommsState: {"mode":"awaiting","text":"Awaiting Response"}'],
+          [17100, 'ATC: Airfrans 1234, readback correct. Call me back when ready for pushback or engine start.'],
+          [17120, 'CommsState: {"mode":"speaking","text":"Speaking"}'], [21000, 'CommsState: {"mode":"ready","text":""}'],
+          [21003, 'Actions: [Acknowledge Instruction¬Say Again¬]'],
+          [28000, 'CommsState: {"mode":"awaiting","text":"Awaiting Response"}'],
+          [28800, 'ATC: Airfrans 1234, Montpellier Ground?'],
+          [28820, 'CommsState: {"mode":"speaking","text":"Speaking"}'], [32400, 'CommsState: {"mode":"ready","text":""}'],
+          [40000, 'Actions: [Request IFR Clearance¬Request Push and Start¬Request Startup Only¬Request Departure Runway Change¬Wind Check¬Radio Check¬]'], [40001, 'Actions: []'], [40004, 'Actions: [Request Push and Start¬Request Startup Only¬Request Departure Runway Change¬Wind Check¬Radio Check¬]']],
   };
   document.querySelectorAll('[data-seq]').forEach(b => b.onclick = () => {
     batcPill.state.connected = true;
