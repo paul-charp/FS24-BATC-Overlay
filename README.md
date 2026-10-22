@@ -43,11 +43,16 @@ Click the pill in flight to open its settings card. Changes apply immediately. W
 | Readback hints | show when BeyondATC waits for your readback or acknowledgement |
 | None / Short / Hint / Boxes (under Readback hints) | None (status only), Short (the clearance boxes' values, e.g. "30R · T1 · T1"), Hint (a short hint, e.g. "Taxi via T1 · Hold short 12L") or Boxes (the toolbar's clearance boxes) |
 | Muted ATC calls | red-orange pill when ATC calls you while COM1 is muted |
+| PTT (bind Quick Reply) | show "Transmitting" while your PTT button is held (see below) |
 | AI traffic | show the "Traffic" pill while AI traffic talks |
 | Full station names | "Montpellier Ground" instead of "Ground" |
 | Hide when BATC is off | no pill at all while BeyondATC isn't running |
 
 Settings are kept in the sim's UI storage.
+
+### PTT indicator (optional, experimental)
+
+BeyondATC reads your PTT button itself and doesn't tell other add-ons when it's held. To let the pill show it, bind the same button a second time in the sim: **Controls > Communications > QUICK REPLY** (the sim's own ATC, unused with BeyondATC). Keep BeyondATC's PTT binding as it is. Then turn on **PTT** in the pill's settings. The pill shows "Transmitting" while the button is held, and goes back about a tenth of a second after you let go (half a second after a short tap).
 
 ## Compatibility
 

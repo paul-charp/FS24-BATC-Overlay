@@ -35,6 +35,17 @@ screen corner during flight, with a click-to-open settings card. Windows only. U
 - mainUi has no `SimVar`, `GetStoredData` or `Coherent`; VCockpit views (e.g. VLogic) have `SimVar`.
 - mainUi fonts: only `Roboto-Regular` / `RobotoMono-Regular`; weights are synthesized.
 - Avoid `gap`, `color-mix`, `backdrop-filter` in pill.css (Gameface).
+- mainUi has `engine` (`on`/`off`/`trigger`/`call`) and can receive sim key events:
+  `engine.trigger("ADD_VIEW_LISTENER", "JS_LISTENER_KEYEVENT", "/Global/mainUI.html")`, then
+  `engine.call("INTERCEPT_KEY_EVENT", "<EVENT>", 0|1)` (1 also stops the sim acting on it; verified with
+  `BAROMETRIC`) and `engine.on("keyIntercepted", (name, v0, v1, v2) => ...)`. Each event arrives twice in
+  the same ms. A held key sends once, then every ~33 ms after ~0.4 s; release sends nothing. //42 Flow's
+  mainUi hook uses the same `ADD_VIEW_LISTENER` route (for `JS_LISTENER_DATASTORAGE`).
+- Controls > Communications > QUICK REPLY is `KEY_SR_COM_QUICK_REPLY` (`fs-input-profiles`), event
+  `SR_COM_QUICK_REPLY`. Intercepting it with block=1 (plus a second `ADD_VIEW_LISTENER` in the same session)
+  froze the sim once; the PTT indicator observes it with 0. Not yet tested live in pill.js.
+- No gamepads in mainUi (`navigator.getGamepads()` is `[]` even after presses). A package can't add new
+  actions to the Controls menu (MSFS 2024 SDK: presets of existing actions only).
 - Rounded `overflow: hidden` boxes had jagged corners in the sim while the unclipped settings card was
   smooth; the pill now clips square and draws its rounded background on `.bp-bg` (fix unverified live).
 
@@ -80,8 +91,7 @@ screen corner during flight, with a click-to-open settings card. Windows only. U
   1000.", toolbar readback, then "Airfrans 1234, readback correct. Call me back when ready for ...",
   then the pilot's "Wilco, Airfrans 1234.". `beyondATC.log` (CPDLC bridge) holds the Hoppie logon
   code: keep it private.
-- Nothing is sent while PTT is held, and no simvar shows it: PTT state is out of scope without a
-  desktop helper.
+- Nothing is sent while PTT is held. The PTT indicator instead listens to a sim binding (below).
 
 ## Rules
 

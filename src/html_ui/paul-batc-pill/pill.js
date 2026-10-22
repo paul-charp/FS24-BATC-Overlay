@@ -23,6 +23,10 @@
     showContact: true,   // Auto Tune off: after "contact <station> <freq>", remind you until COM1 is on it
     showAtis: true,      // show a new ATIS letter
     warnMuted: true,     // ATC calling you while COM1 is muted: red-orange instead of amber
+    showPtt: false,      // show "Transmitting" while your PTT button is held. Needs that button also bound to
+                         // the sim's Communications > QUICK REPLY (BeyondATC's own PTT stays as it is)
+    pttEvent: "SR_COM_QUICK_REPLY", // the sim event that binding sends (input profiles: KEY_SR_COM_QUICK_REPLY)
+    pttBlock: false,     // also stop the sim acting on it. Off: blocking this event once froze the sim (unconfirmed)
     hideOffline: false,  // true: no pill at all while BeyondATC isn't running
     showTraffic: true,   // show a neutral "Traffic" pill while AI traffic talks
     facility: "short",   // "short": "Ground", "full": "Montpellier Ground"
@@ -34,7 +38,7 @@
 
   // What the settings card changes. Saved in localStorage, which every sim UI view shares.
   var USER_KEYS = ["corner", "x", "y", "scale", "showTuning", "showContact", "showAtis", "showReadback", "readbackDetail",
-    "warnMuted", "hideOffline",
+    "warnMuted", "showPtt", "hideOffline",
     "showTraffic", "facility"];
   var STORE_KEY = "batcpill.settings";
   var DEFAULTS = {};
@@ -84,6 +88,8 @@
     infoBoxes: [],       // the toolbar's clearance boxes: [{ title: "SID", info: "KELA8L" }, ...]
     seenFacility: false, // the first Facility after connecting is the snapshot, not a change
     editing: false,      // settings card open: the pill shows a sample so size/position are visible
+    ptt: false,          // PTT held (its key event keeps repeating)
+    pttRepeating: false,
     demo: "",            // the setting changed last in the card; the sample shows its effect
     autoTune: true,      // BeyondATC tunes the radios itself ("AutoTune: true")
     contact: null,       // { name, freq } ATC told you to contact, until COM1 is on it (Auto Tune off)
@@ -93,7 +99,7 @@
     seenInfo: false,     // the first InfoBoxes after connecting is the snapshot, not a change
   };
   var socket = null;
-  var timers = { reconnect: 0, linger: 0, error: 0, tune: 0, missed: 0, atis: 0, demo: 0, swap: 0, poll: 0 };
+  var timers = { reconnect: 0, linger: 0, error: 0, tune: 0, missed: 0, atis: 0, demo: 0, ptt: 0, swap: 0, poll: 0 };
   var destroyed = false;
   var current = null;    // last rendered view signature
 
@@ -140,7 +146,8 @@
     toggleRow("Readback hints", "showReadback") +
     choiceRow("readbackDetail", [["none", "None"], ["short", "Short"], ["hint", "Hint"],
       ["boxes", "Boxes"]]) +
-    toggleRow("Muted ATC calls", "warnMuted") + toggleRow("AI traffic", "showTraffic") +
+    toggleRow("Muted ATC calls", "warnMuted") + toggleRow("PTT (bind Quick Reply)", "showPtt") +
+    toggleRow("AI traffic", "showTraffic") +
     toggleRow("Full station names", "fullNames") + toggleRow("Hide when BATC is off", "hideOffline") +
     '<div class="bc-foot"><span class="bc-btn bc-reset" data-act="reset">Reset</span></div>';
   document.body.appendChild(card);
@@ -201,6 +208,9 @@
   var RADIO = '<svg class="bp-ico bp-radio" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" ' +
     'stroke-linecap="round"><circle cx="8" cy="8" r="1.6" fill="currentColor" stroke="none"/>' +
     '<path d="M5.2 5.2a4 4 0 0 0 0 5.6M10.8 5.2a4 4 0 0 1 0 5.6M3.1 3.1a7 7 0 0 0 0 9.8M12.9 3.1a7 7 0 0 1 0 9.8"/></svg>';
+  var MIC = '<svg class="bp-ico bp-mic" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" ' +
+    'stroke-linecap="round"><rect x="5.5" y="1.5" width="5" height="8.5" rx="2.5" fill="currentColor" stroke="none"/>' +
+    '<path d="M3 8a5 5 0 0 0 10 0M8 13v2"/></svg>';
   var MUTE = '<svg class="bp-ico" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" ' +
     'stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h2l3-2.5v9L5 10H3z"/><path d="M11 6l3.5 4M14.5 6L11 10"/></svg>';
 
@@ -275,6 +285,10 @@
       facilityHtml("bp-who", t.facility, "No station") };
   }
 
+  function pttLook() {
+    return { cls: "s-you", html: MIC + '<span class="bp-who">Transmitting</span>' };
+  }
+
   function mutedLook() {
     // ATC calls you but COM1 is muted: you won't hear it. The speaker icon takes the warning color.
     return { cls: "s-insist is-muted", html: BARS + facilityHtml("bp-who") };
@@ -306,6 +320,9 @@
       case "showAtis":
         if (CONFIG.showAtis) return atisLook("Z");
         break;
+      case "showPtt":
+        if (CONFIG.showPtt) return pttLook();
+        break;
       case "warnMuted":
         if (CONFIG.warnMuted) { var mv = mutedLook(); mv.html += MUTE; return mv; }
         break;
@@ -333,6 +350,7 @@
     if (state.error && now < state.errorUntil) {
       return { cls: "s-err", html: LAMP + '<span class="bp-who">' + esc(state.error) + "</span>" };
     }
+    if (state.ptt && CONFIG.showPtt) return pttLook();
 
     var v;
     switch (state.mode) {
@@ -847,12 +865,50 @@
     resize();
   }
 
+  // ---- PTT ----------------------------------------------------------------
+  // The sim reports key events to any view that asks (the way its own instruments do). A binding sends its
+  // event once on press, then again every ~33 ms after ~0.4 s while held, and nothing on release; so PTT is
+  // "held" until the repeats stop. mainUi has no Coherent/SimVar, but its `engine` handles the listener.
+
+  var PTT_FIRST_MS = 450, PTT_REPEAT_MS = 120;
+  var keyHandler = null;
+
+  function onKeyEvent(name) {
+    if (name !== CONFIG.pttEvent || !CONFIG.showPtt) return;
+    var held = state.ptt;
+    state.pttRepeating = held;
+    state.ptt = true;
+    clearTimeout(timers.ptt);
+    timers.ptt = setTimeout(function () { state.ptt = state.pttRepeating = false; render(); },
+      state.pttRepeating ? PTT_REPEAT_MS : PTT_FIRST_MS);
+    if (!held) render();
+  }
+
+  function listenPtt() {
+    var eng = window.engine;
+    if (!CONFIG.showPtt || keyHandler || !eng || typeof eng.on !== "function") return;
+    // once per view and event: hot reloads (inspect_ui.py --push) keep the view, and its intercepts
+    var reg = window.batcPillKeys = window.batcPillKeys || { attached: false, intercepted: {} };
+    if (!reg.attached) {
+      eng.trigger("ADD_VIEW_LISTENER", "JS_LISTENER_KEYEVENT", "/Global/mainUI.html");
+      reg.attached = true;
+    }
+    keyHandler = function (name) { onKeyEvent(name); };
+    eng.on("keyIntercepted", keyHandler);
+    var id = CONFIG.pttEvent + (CONFIG.pttBlock ? ":block" : "");
+    if (!reg.intercepted[id]) {
+      eng.call("INTERCEPT_KEY_EVENT", CONFIG.pttEvent, CONFIG.pttBlock ? 1 : 0);
+      reg.intercepted[id] = true;
+    }
+  }
+
   // ---- lifecycle -------------------------------------------------------
 
   function destroy() {
     destroyed = true;
     for (var k in timers) { clearTimeout(timers[k]); clearInterval(timers[k]); }
     if (socket) { socket.onclose = null; socket.close(); socket = null; }
+    if (keyHandler && window.engine && typeof window.engine.off === "function") window.engine.off("keyIntercepted", keyHandler);
     if (root.parentNode) root.parentNode.removeChild(root);
     if (card.parentNode) card.parentNode.removeChild(card);
     if (style.parentNode) style.parentNode.removeChild(style);
@@ -864,6 +920,7 @@
     var moved = "corner" in patch;
     for (var k in patch) CONFIG[k] = patch[k];
     saveSettings();
+    listenPtt(); // turning PTT on starts listening (off just ignores the events)
     place();
     updateCard();
     if (moved) current = null; // re-enter from the new side
@@ -883,4 +940,5 @@
   poll();
   timers.poll = setInterval(poll, 1000);
   connect();
+  try { listenPtt(); } catch (e) { /* no key events in this view: no PTT */ }
 })();

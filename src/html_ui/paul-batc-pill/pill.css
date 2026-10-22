@@ -199,7 +199,7 @@
   height: calc(12 * var(--u));
   color: var(--dim);
 }
-#batc-pill .bp-radio { color: var(--c); transition: color 0.3s ease; }
+#batc-pill .bp-radio, #batc-pill .bp-mic { color: var(--c); transition: color 0.3s ease; }
 /* ATC calling while COM1 is muted: the speaker icon is the message */
 #batc-pill.is-muted .bp-ico {
   width: calc(15 * var(--u));

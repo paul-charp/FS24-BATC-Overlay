@@ -20,9 +20,19 @@
   <button id="err">AppError</button>
   <button id="mute">Toggle COM1 mute</button>
   <button id="flight">Toggle in flight</button>
+  <button id="ptt">Hold PTT</button>
 </div>
 <script>
   window.batcPillInlineCss = null;
+  // Stand-in for the sim's `engine` key events: a held binding sends its event once, then every ~33 ms
+  // after ~0.4 s (measured live with BAROMETRIC). Only what pill.js uses.
+  window.engine = {
+    handlers: {},
+    on(name, fn) { (this.handlers[name] = this.handlers[name] || []).push(fn); },
+    off(name, fn) { this.handlers[name] = (this.handlers[name] || []).filter(f => f !== fn); },
+    trigger() {}, call() {},
+    emit(name, ...args) { (this.handlers[name] || []).forEach(f => f(...args)); },
+  };
   // pill.js would add its own <link>; the harness already has one with a path that resolves here
 </script>
 <script src="../src/html_ui/paul-batc-pill/pill.js"></script>
@@ -82,5 +92,12 @@
   let muted = false;
   mute.onclick = () => batcPill.feed('RadioMute: ' + JSON.stringify({ com1: (muted = !muted), com2: false }));
   const hostEl = document.getElementById('host'); // window.host stops resolving once it's removed
+  let pttTimers = [];
+  ptt.onmousedown = () => {
+    const send = () => engine.emit('keyIntercepted', batcPill.config.pttEvent, 0, 0, 0);
+    send();
+    pttTimers.push(setTimeout(() => pttTimers.push(setInterval(send, 33)), 400));
+  };
+  ptt.onmouseup = ptt.onmouseleave = () => { pttTimers.forEach(t => { clearTimeout(t); clearInterval(t); }); pttTimers = []; };
   flight.onclick = () => hostEl.isConnected ? hostEl.remove() : document.body.prepend(hostEl);
 </script>
