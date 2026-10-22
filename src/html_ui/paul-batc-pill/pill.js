@@ -15,7 +15,8 @@
     errorMs: 5000,
     missedMs: 5000,      // "No readback" stays this long when BeyondATC stops waiting without your reply
     showReadback: true,  // while BeyondATC waits for your readback, hint what it is ("Taxi 30R")
-    clearanceBoxes: false, // with a readback pending, show the toolbar's clearance boxes (runway, SID, ...)
+    readbackDetail: "hint", // with a readback pending: "none" (status only), "hint" ("Taxi via T1"),
+                            // "boxes" (the toolbar's clearance boxes: runway, SID, ...)
     showTuning: true,    // show the new station when COM1/COM2 changes
     hideOffline: false,  // true: no pill at all while BeyondATC isn't running
     showTraffic: true,   // show a neutral "Traffic" pill while AI traffic talks
@@ -27,7 +28,7 @@
   var FADE_MS = 140;
 
   // What the settings card changes. Saved in localStorage, which every sim UI view shares.
-  var USER_KEYS = ["corner", "x", "y", "scale", "showTuning", "showReadback", "clearanceBoxes", "hideOffline",
+  var USER_KEYS = ["corner", "x", "y", "scale", "showTuning", "showReadback", "readbackDetail", "hideOffline",
     "showTraffic", "facility"];
   var STORE_KEY = "batcpill.settings";
   var DEFAULTS = {};
@@ -119,7 +120,8 @@
       }).join("") + "</span></div>" +
     stepRow("Side offset", "x") + stepRow("Edge offset", "y") + stepRow("Size", "scale") +
     toggleRow("Radio changes", "showTuning") + toggleRow("Readback hints", "showReadback") +
-    toggleRow("Clearance boxes", "clearanceBoxes") + toggleRow("AI traffic", "showTraffic") +
+    choiceRow("Detail", "readbackDetail", [["none", "None"], ["hint", "Hint"], ["boxes", "Boxes"]]) +
+    toggleRow("AI traffic", "showTraffic") +
     toggleRow("Full station names", "fullNames") + toggleRow("Hide when BATC is off", "hideOffline") +
     '<div class="bc-foot"><span class="bc-btn bc-reset" data-act="reset">Reset</span></div>';
   document.body.appendChild(card);
@@ -129,6 +131,13 @@
     return '<div class="bc-row"><span class="bc-label">' + label + '</span><span class="bc-step">' +
       '<span class="bc-btn" data-act="' + key + '-">−</span><span class="bc-val" data-val="' + key + '"></span>' +
       '<span class="bc-btn" data-act="' + key + '+">+</span></span></div>';
+  }
+
+  function choiceRow(label, key, options) {
+    return '<div class="bc-row bc-choice" data-for="' + key + '"><span class="bc-label">' + label +
+      '</span><span class="bc-seg">' + options.map(function (o) {
+        return '<span class="bc-btn" data-choice="' + key + ":" + o[0] + '">' + o[1] + "</span>";
+      }).join("") + "</span></div>";
   }
 
   function toggleRow(label, key) {
@@ -200,7 +209,8 @@
     // ATC called again for it: louder color, faster pulse, "Awaiting readback ×2"
     var cls = rb.calls > 1 ? "s-insist is-pulse" : "s-atc is-pulse";
     if (rb.calls > 1) label += " ×" + rb.calls;
-    if (CONFIG.clearanceBoxes && state.infoBoxes.length && !choices.length) {
+    if (CONFIG.readbackDetail === "none") detail = "";
+    if (CONFIG.readbackDetail === "boxes" && state.infoBoxes.length && !choices.length) {
       // "Awaiting readback" over the boxes, as in the toolbar; their titles say what it's about
       return { cls: cls + " is-msg", html: LAMP + '<span class="bp-who">' + label + "</span>",
         extra: '<span class="bp-boxes">' + state.infoBoxes.map(function (b) {
@@ -272,7 +282,7 @@
           // waiting for your readback
         } else if (state.missed && now < state.missedUntil) {
           v = { cls: "s-insist", html: LAMP + '<span class="bp-who">' + state.missed.label + "</span>" +
-            (state.missed.detail ? '<span class="bp-sep">·</span><span>' + esc(state.missed.detail) + "</span>" : "") };
+            (state.missed.detail && CONFIG.readbackDetail !== "none" ? '<span class="bp-sep">·</span><span>' + esc(state.missed.detail) + "</span>" : "") };
         } else if (now < state.lingerUntil) {
           v = { cls: "", html: LAMP + facilityHtml("") };
         }
@@ -616,6 +626,14 @@
       var on = t === "fullNames" ? CONFIG.facility === "full" : !!CONFIG[t];
       toggles[i].className = "bc-row bc-btn bc-toggle" + (on ? " is-on" : "");
     }
+    var choices = card.querySelectorAll("[data-choice]");
+    for (i = 0; i < choices.length; i++) {
+      var c = choices[i].getAttribute("data-choice").split(":");
+      choices[i].className = "bc-btn" + (String(CONFIG[c[0]]) === c[1] ? " is-on" : "");
+    }
+    // the detail only matters with readback hints on
+    var detailRow = card.querySelector('[data-for="readbackDetail"]');
+    detailRow.className = "bc-row bc-choice" + (CONFIG.showReadback ? "" : " is-off");
   }
 
   function openCard(open) {
@@ -636,13 +654,16 @@
   card.addEventListener("click", function (e) {
     var el = e.target;
     while (el && el !== card && !el.hasAttribute("data-act") && !el.hasAttribute("data-corner") &&
-           !el.hasAttribute("data-toggle")) el = el.parentNode;
+           !el.hasAttribute("data-toggle") && !el.hasAttribute("data-choice")) el = el.parentNode;
     if (!el || el === card) return;
 
     var act = el.getAttribute("data-act");
     var patch = {};
     if (el.hasAttribute("data-corner")) {
       patch.corner = el.getAttribute("data-corner");
+    } else if (el.hasAttribute("data-choice")) {
+      var ch = el.getAttribute("data-choice").split(":");
+      patch[ch[0]] = ch[1];
     } else if (el.hasAttribute("data-toggle")) {
       var t = el.getAttribute("data-toggle");
       if (t === "fullNames") patch.facility = CONFIG.facility === "full" ? "short" : "full";

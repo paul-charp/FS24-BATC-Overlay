@@ -280,6 +280,22 @@
 }
 
 #batc-pill-cfg .bc-toggle:hover .bc-label { color: #ffffff; }
+
+#batc-pill-cfg .bc-choice { transition: opacity 0.2s ease; }
+#batc-pill-cfg .bc-choice.is-off { opacity: 0.4; }
+#batc-pill-cfg .bc-choice .bc-label { padding-left: calc(12 * var(--k)); color: var(--dim); } /* under Readback hints */
+#batc-pill-cfg .bc-seg { display: flex; }
+#batc-pill-cfg .bc-seg .bc-btn {
+  margin-left: calc(2 * var(--k));
+  padding: calc(4 * var(--k)) calc(7 * var(--k));
+  border-radius: calc(5 * var(--k));
+  background-color: var(--btn);
+  color: var(--dim);
+  font-size: calc(11 * var(--k));
+}
+#batc-pill-cfg .bc-seg .bc-btn:first-child { margin-left: 0; }
+#batc-pill-cfg .bc-seg .bc-btn:hover { background-color: var(--btn-hover); color: var(--fg); }
+#batc-pill-cfg .bc-seg .bc-btn.is-on { background-color: var(--on); color: #0e1218; }
 #batc-pill-cfg .bc-sw {
   position: relative; box-sizing: border-box;
   width: calc(28 * var(--k)); height: calc(16 * var(--k));

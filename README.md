@@ -37,7 +37,7 @@ Click the pill in flight to open its settings card. Changes apply immediately. W
 | Size | 60% to 250% |
 | Radio changes | show the new station when COM1 or COM2 changes |
 | Readback hints | show when BeyondATC waits for your readback or acknowledgement |
-| Clearance boxes | with a readback pending, show the toolbar's clearance boxes instead of the short hint |
+| Detail (under Readback hints) | None (status only), Hint (a short hint, e.g. "Taxi via T1 · Hold short 12L") or Boxes (the toolbar's clearance boxes) |
 | AI traffic | show the "Traffic" pill while AI traffic talks |
 | Full station names | "Montpellier Ground" instead of "Ground" |
 | Hide when BATC is off | no pill at all while BeyondATC isn't running |
