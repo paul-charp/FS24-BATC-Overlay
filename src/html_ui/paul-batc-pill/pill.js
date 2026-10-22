@@ -185,15 +185,16 @@
   function readbackView() {
     var rb = state.readback;
     if (!CONFIG.showReadback || !rb || state.answered) return null;
-    // "Readback IFR Clearance" -> "Read back" + "IFR Clearance"; "Acknowledge Instruction" -> "Acknowledge"
+    // what ATC waits for: "Readback IFR Clearance" -> "Awaiting readback" + "IFR Clearance",
+    // "Acknowledge Instruction" -> "Awaiting response"
     var m = /^(read ?back|acknowledge)\s*(.*)$/i.exec(state.respond) || [];
-    var label = /^ack/i.test(m[1] || "") ? "Acknowledge" : "Read back";
+    var label = /^read/i.test(m[1] || "") ? "Awaiting readback" : "Awaiting response";
     var detail = readbackHint(rb.text) || (/^instruction$/i.test(m[2] || "") ? "" : m[2] || "");
-    // ATC called again for it: louder color, faster pulse, "Read back ×2"
+    // ATC called again for it: louder color, faster pulse, "Awaiting readback ×2"
     var cls = rb.calls > 1 ? "s-insist is-pulse" : "s-atc is-pulse";
     if (rb.calls > 1) label += " ×" + rb.calls;
     if (CONFIG.clearanceBoxes && state.infoBoxes.length) {
-      // "Read back · IFR Clearance" over the boxes, as in the toolbar
+      // "Awaiting readback · IFR Clearance" over the boxes, as in the toolbar
       var kind = m[2] && !/^instruction$/i.test(m[2]) ? m[2] : "";
       return { cls: cls + " is-msg", html: LAMP + '<span class="bp-who">' + label + "</span>" +
         (kind ? '<span class="bp-sep">·</span><span class="bp-dim">' + esc(kind) + "</span>" : ""),
