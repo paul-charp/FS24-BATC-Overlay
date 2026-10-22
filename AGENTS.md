@@ -17,7 +17,8 @@ screen corner during flight, with a click-to-open settings card. Windows only. U
 - `config.json`: package metadata. Local paths (`sim_packages`, `community`) go in
   `.local/config.json`, which overrides it.
 - `tools/inspect_ui.py`: Coherent inspector client (Devmode, `localhost:19999`); `--list`, `--page N`,
-  `--push` hot-reloads the pill into mainUi (page 2). `tools/sniff_batc.py`: socket logger;
+  `--push` hot-reloads the pill into mainUi (page 2). If it times out, a dead sim's child process may hold
+  the port (seen: WinWing's SimAppPro2.exe): `netstat -ano | findstr 19999` shows a second LISTENING PID. `tools/sniff_batc.py`: socket logger;
   `tools/batc_timeline.py` prints a log as a timeline with `Actions`/`InfoBoxes` changes as diffs.
   `tools/harness.html`: desktop preview with replays.
 - `docs/render/*.html` + `docs/render_images.py`: README/flightsim.to images via headless Edge.
@@ -42,8 +43,8 @@ screen corner during flight, with a click-to-open settings card. Windows only. U
   the same ms. A held key sends once, then every ~33 ms after ~0.4 s; release sends nothing. //42 Flow's
   mainUi hook uses the same `ADD_VIEW_LISTENER` route (for `JS_LISTENER_DATASTORAGE`).
 - Controls > Communications > QUICK REPLY is `KEY_SR_COM_QUICK_REPLY` (`fs-input-profiles`), event
-  `SR_COM_QUICK_REPLY`. Intercepting it froze the sim (block=1 by hand; then, apparently, observing with 0
-  from pill.js): `pill.js` refuses `SR_` events. The PTT indicator now defaults to `TOGGLE_SPEAKER`, untested.
+  `SR_COM_QUICK_REPLY`. Blocking it (1) by hand froze the sim; observing it (0) from pill.js ran a session
+  without freezing. `pill.js` still refuses `SR_` events and defaults to `TOGGLE_SPEAKER` (untested).
 - No gamepads in mainUi (`navigator.getGamepads()` is `[]` even after presses). A package can't add new
   actions to the Controls menu (MSFS 2024 SDK: presets of existing actions only).
 - Rounded `overflow: hidden` boxes had jagged corners in the sim while the unclipped settings card was

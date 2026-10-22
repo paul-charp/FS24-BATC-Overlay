@@ -12,6 +12,7 @@ import os
 import socket
 import struct
 import sys
+import urllib.error
 import urllib.request
 
 HOST, PORT = "localhost", 19999
@@ -24,7 +25,7 @@ def pages():
 
 class WS:
     def __init__(self, path):
-        self.sock = socket.create_connection((HOST, PORT), timeout=20)
+        self.sock = socket.create_connection((HOST, PORT), timeout=5)
         key = base64.b64encode(os.urandom(16)).decode()
         self.sock.sendall((f"GET {path} HTTP/1.1\r\nHost: {HOST}:{PORT}\r\nUpgrade: websocket\r\n"
                            f"Connection: Upgrade\r\nSec-WebSocket-Key: {key}\r\nSec-WebSocket-Version: 13\r\n\r\n").encode())
@@ -37,6 +38,7 @@ class WS:
         if b" 101 " not in head.split(b"\r\n", 1)[0]:
             raise ConnectionError(head.split(b"\r\n", 1)[0].decode(errors="replace"))
         self.buf = head.split(b"\r\n\r\n", 1)[1]
+        self.sock.settimeout(30)  # a big --push evaluation can take a while to answer
 
     def send(self, text, opcode=0x1):
         data = text.encode() if isinstance(text, str) else text
@@ -128,4 +130,15 @@ def main():
 
 
 if __name__ == "__main__":
-    main()
+    try:
+        try:
+            main()
+        except urllib.error.URLError as e:  # urlopen wraps socket errors
+            raise e.reason if isinstance(e.reason, (ConnectionRefusedError, TimeoutError, socket.timeout)) else e
+    except ConnectionRefusedError:
+        sys.exit(f"inspect_ui: nothing listens on {HOST}:{PORT}. Is the sim running, with Developer Mode on?")
+    except (TimeoutError, socket.timeout, urllib.error.URLError) as e:
+        sys.exit(f"inspect_ui: the sim's UI debugger ({HOST}:{PORT}) isn't answering ({e}).\n"
+                 "A sim that froze or quit can leave the port held by a program it started (seen: SimAppPro2.exe).\n"
+                 "Check: netstat -ano | findstr 19999  (more than one LISTENING PID: end the one that isn't the sim,\n"
+                 "or the child of a dead one: Get-CimInstance Win32_Process -Filter \"ParentProcessId=<pid>\")")
