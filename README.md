@@ -26,7 +26,7 @@ Requires BeyondATC 3.x. The BeyondATC toolbar panel doesn't need to be open.
 
 ## Settings
 
-Click the pill in flight to open its settings card. Changes apply immediately. While the card is open, the pill shows a sample ATC state so you can see its size and position.
+Click the pill in flight to open its settings card. Changes apply immediately. While the card is open, the pill shows a sample so you can see its size and position; after a change, the sample shows what that setting does (a radio change, a readback hint, the traffic pill, ...).
 
 <img src="docs/images/settings.png" alt="Settings card" width="340">
 

@@ -78,6 +78,7 @@
     infoBoxes: [],       // the toolbar's clearance boxes: [{ title: "SID", info: "KELA8L" }, ...]
     seenFacility: false, // the first Facility after connecting is the snapshot, not a change
     editing: false,      // settings card open: the pill shows a sample so size/position are visible
+    demo: "",            // the setting changed last in the card; the sample shows its effect
   };
   var socket = null;
   var timers = { reconnect: 0, linger: 0, error: 0, tune: 0, missed: 0, swap: 0, poll: 0 };
@@ -148,6 +149,8 @@
       '</span><span class="bc-sw"><i></i></span></div>';
   }
 
+  var cardShift = 0;
+
   function place() {
     var c = String(CONFIG.corner).split("-");
     var v = c[0] === "bottom" ? "bottom" : "top";
@@ -163,7 +166,8 @@
     // the card opens beside the pill, away from the screen edge (card units stay at scale 1)
     var cs = card.style;
     cs.top = cs.bottom = cs.left = cs.right = "";
-    cs[v] = "calc(" + (Number(CONFIG.y) + 26 * Number(CONFIG.scale || 1) + 10) + " * 0.0926vh)";
+    // cardShift: how much taller than usual the pill is (the clearance boxes sample)
+    cs[v] = "calc(" + (Number(CONFIG.y) + 26 * Number(CONFIG.scale || 1) + 10) + " * 0.0926vh + " + cardShift + "px)";
     cs[h] = "calc(" + Number(CONFIG.x) + " * 0.0926vh)";
     card.setAttribute("data-side", h);
     card.setAttribute("data-edge", v);
@@ -206,17 +210,21 @@
     // what ATC waits for: "Readback IFR Clearance" -> "Awaiting readback" + "IFR Clearance";
     // "Acknowledge Instruction" -> "Awaiting response"; a question -> its answers ("Runway 12L / Runway 12R")
     var w = waitingFor();
-    var label = w.readback ? "Awaiting readback" : "Awaiting response";
     var detail = readbackHint(rb.text) || w.choices.slice(0, 3).join(" / ") || w.kind;
-    var choices = w.choices;
+    // a question's answers beat the clearance boxes
+    return readbackLook(w.readback, rb.calls, detail, w.choices.length ? [] : state.infoBoxes);
+  }
+
+  function readbackLook(readback, calls, detail, boxes) {
+    var label = readback ? "Awaiting readback" : "Awaiting response";
     // ATC called again for it: louder color, faster pulse, "Awaiting readback ×2"
-    var cls = rb.calls > 1 ? "s-insist is-pulse" : "s-atc is-pulse";
-    if (rb.calls > 1) label += " ×" + rb.calls;
+    var cls = calls > 1 ? "s-insist is-pulse" : "s-atc is-pulse";
+    if (calls > 1) label += " ×" + calls;
     if (CONFIG.readbackDetail === "none") detail = "";
-    if (CONFIG.readbackDetail === "boxes" && state.infoBoxes.length && !choices.length) {
+    if (CONFIG.readbackDetail === "boxes" && boxes.length) {
       // "Awaiting readback" over the boxes, as in the toolbar; their titles say what it's about
       return { cls: cls + " is-msg", html: LAMP + '<span class="bp-who">' + label + "</span>",
-        extra: '<span class="bp-boxes">' + state.infoBoxes.map(function (b) {
+        extra: '<span class="bp-boxes">' + boxes.map(function (b) {
           return '<span class="bp-box"><span class="bp-box-t">' + esc(b.title) + '</span><span class="bp-box-v">' +
             esc(b.info) + "</span></span>";
         }).join("") + "</span>" };
@@ -238,12 +246,38 @@
     return w;
   }
 
+  function tuneLook(t) {
+    return { cls: "s-tune", html: RADIO + (t.label ? '<span class="bp-sep">' + t.label + "</span>" : "") +
+      facilityHtml("bp-who", t.facility, "No station") };
+  }
+
+  // Settings card open: a sample of what the setting changed last does (the ATC pill otherwise)
+  var DEMO_BOXES = [{ title: "Taxi to Runway", info: "12L" }, { title: "Taxi Via 1", info: "T1" },
+    { title: "Hold Short", info: "12L" }];
+
+  function demoView() {
+    switch (state.demo) {
+      case "showTuning":
+        if (CONFIG.showTuning) return tuneLook({ label: "", facility: { name: "Montpellier Tower", freq: "118.700" } });
+        break;
+      case "showReadback":
+      case "readbackDetail":
+        if (CONFIG.showReadback) return readbackLook(true, 1, "Taxi via T1 · Hold short 12L", DEMO_BOXES);
+        break;
+      case "showTraffic":
+        if (CONFIG.showTraffic) return { cls: "", html: BARS + "<span>Traffic</span>" };
+        break;
+      case "hideOffline":
+        if (!CONFIG.hideOffline) return { cls: "is-ghost", html: LAMP + "<span>BATC offline</span>" };
+        break;
+    }
+    return { cls: "s-atc", html: BARS + facilityHtml("bp-who", { name: "Montpellier Ground", freq: "121.955" }) };
+  }
+
   function view() {
     var now = Date.now();
     if (!state.inFlight || state.stage === "menu") return { hidden: true };
-    if (state.editing) {
-      return { cls: "s-atc", html: BARS + facilityHtml("bp-who", { name: "Montpellier Ground", freq: "121.955" }) };
-    }
+    if (state.editing) return withExtra(demoView());
     if (!state.connected) {
       if (CONFIG.hideOffline) return { hidden: true };
       return { cls: "is-ghost", html: LAMP + "<span>BATC offline</span>" };
@@ -278,9 +312,7 @@
         break;
       case "ready":
         if (state.tune && now < state.tuneUntil) {
-          var t = state.tune;
-          v = { cls: "s-tune", html: RADIO + (t.label ? '<span class="bp-sep">' + t.label + "</span>" : "") +
-            facilityHtml("bp-who", t.facility, "No station") };
+          v = tuneLook(state.tune);
         } else if ((v = readbackView())) {
           // waiting for your readback
         } else if (state.missed && now < state.missedUntil) {
@@ -296,6 +328,11 @@
     }
     if (!v) v = { cls: "is-dot", html: LAMP };
     if (state.muted && v.cls !== "is-dot") v.html += MUTE;
+    return withExtra(v);
+  }
+
+  function withExtra(v) {
+    // a second block (the clearance boxes) goes under a header row
     if (v.extra) v.html = '<span class="bp-head">' + v.html + "</span>" + v.extra;
     return v;
   }
@@ -320,6 +357,9 @@
     if (root.style.width !== w) root.style.width = w;
     var h = measureH();
     if (root.style.height !== h) root.style.height = h;
+    // keep the settings card clear of a taller pill
+    var shift = h ? Math.max(0, Math.round(parseFloat(h) - 26 * 0.000926 * window.innerHeight * Number(CONFIG.scale || 1))) : 0;
+    if (shift !== cardShift) { cardShift = shift; place(); }
   }
 
   function cssReady() {
@@ -649,6 +689,7 @@
       else els[i].removeAttribute("data-input-group");
     }
     if (open) updateCard();
+    state.demo = "";
     render();
   }
 
@@ -682,6 +723,8 @@
       var n = Number(CONFIG[k]) + (act.slice(-1) === "+" ? st[0] : -st[0]);
       patch[k] = Math.round(Math.min(st[2], Math.max(st[1], n)) * 100) / 100;
     }
+    // the sample pill shows what the change does ("facility" covers Full station names)
+    state.demo = act === "reset" ? "" : Object.keys(patch)[0] || "";
     set(patch);
   });
 

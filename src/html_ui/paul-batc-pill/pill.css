@@ -231,14 +231,16 @@
   transform: translateY(0) scale(1);
   visibility: visible;
   pointer-events: auto;
-  transition: opacity 0.22s ease, transform 0.3s var(--ease), visibility 0s;
+  transition: opacity 0.22s ease, transform 0.3s var(--ease), visibility 0s,
+    top 0.38s var(--ease), bottom 0.38s var(--ease);
 }
 #batc-pill-cfg.is-closed {
   opacity: 0;
   transform: translateY(calc(-6 * var(--k))) scale(0.97);
   pointer-events: none;
   visibility: hidden;
-  transition: opacity 0.22s ease, transform 0.3s var(--ease), visibility 0s linear 0.3s;
+  transition: opacity 0.22s ease, transform 0.3s var(--ease), visibility 0s linear 0.3s,
+    top 0.38s var(--ease), bottom 0.38s var(--ease);
 }
 #batc-pill-cfg[data-edge="bottom"].is-closed { transform: translateY(calc(6 * var(--k))) scale(0.97); }
 
