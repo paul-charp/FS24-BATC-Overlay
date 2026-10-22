@@ -13,7 +13,7 @@ var BP = (function () {
     ["processing", "s-proc", DOTS + "<span>Processing</span>", "Processing", "Speech or request being processed"],
     ["awaiting", "s-proc is-pulse", LAMP + "<span>Awaiting ATC</span>", "Awaiting ATC", "Request sent"],
     ["atc", "s-atc", BARS + '<span class="bp-who">Ground</span>' + FREQ, "ATC talking", "Controller speaking"],
-    ["you", "s-you", BARS + '<span class="bp-who">You</span>', "You talking", "Your readback or request"],
+    ["you", "s-you", BARS + '<span class="bp-who">Transmitting</span>', "Transmitting", "Your readback or request"],
     ["tune", "s-tune", RADIO + '<span class="bp-who">Tower</span><span class="bp-freq">118.700</span>', "Radio change", "New station on COM1 or COM2"],
     ["linger", "", LAMP + '<span>Ground</span>' + FREQ, "Exchange ended", "Station for 3 s, then the dot"],
     ["offline", "is-ghost", LAMP + "<span>BATC offline</span>", "Offline", "BeyondATC not running"],

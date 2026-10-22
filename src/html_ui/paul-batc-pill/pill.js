@@ -366,7 +366,8 @@
         v = { cls: "s-proc is-pulse", html: LAMP + "<span>Awaiting ATC</span>" };
         break;
       case "speaking":
-        if (state.speaker === "player") v = { cls: "s-you", html: BARS + '<span class="bp-who">You</span>' };
+        // the reply BeyondATC speaks for you (toolbar or Auto Respond); your own voice is pttLook (mic icon)
+        if (state.speaker === "player") v = { cls: "s-you", html: BARS + '<span class="bp-who">Transmitting</span>' };
         else if (state.speaker === "traffic") {
           v = CONFIG.showTraffic ? { cls: "", html: BARS + "<span>Traffic</span>" } : readbackView();
         }

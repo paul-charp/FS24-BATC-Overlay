@@ -21,7 +21,7 @@ A small, quiet pill in a corner of the screen that shows what BeyondATC is doing
 **What it shows**
 - Queued, Processing and Awaiting ATC while your request is on its way
 - ATC talking, with the station and frequency (amber)
-- You talking, while your readback or request plays (green)
+- Transmitting, while your readback or request plays (green)
 - Radio changes: the new station when COM1 or COM2 changes (cyan)
 - A muted COM1, AI traffic talking, and BeyondATC offline
 

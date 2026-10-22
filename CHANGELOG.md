@@ -9,6 +9,7 @@
 - Added: a new ATIS letter shows for 6 s ("ATIS changes" setting).
 - Added: ATC calling you while COM1 is muted turns the pill red-orange ("Muted ATC calls" setting).
 - Added: optional PTT indicator, from your PTT button also bound to the sim's Quick Reply ("PTT" setting).
+- Changed: "You" is now "Transmitting" while your readback or request plays.
 - Changed: with the settings card open, the sample pill shows the effect of the last setting changed.
 - Fixed: BeyondATC errors showed as raw JSON.
 - Fixed: the idle dot stayed visible in the sim's menus after a flight.
