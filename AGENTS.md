@@ -51,6 +51,14 @@ screen corner during flight, with a click-to-open settings card. Windows only. U
   nudge (`NUDGE_RE`) escalates it, "readback correct" or unrelated talk clears it, a new instruction
   replaces it. ATC's real nudge wording is unverified. Unverified
   live: what a voice (PTT) readback sends, and whether `waiting` means "awaiting readback".
+- BeyondATC's own logs (`%userprofile%\AppData\LocalLow\Skirmish Mode Games, Inc\BeyondATC`):
+  `Player.log` has every exchange as `[Instruction]` lines (ATC and pilot alike) and the script
+  that handled it (`[ControllerScript] ...WindCheckScript`, `...IFR.IfrEvaluatorScript`), but no
+  readback-expected state. Seen there: clearance "Airfrans 1234, Montpellier Ground, information D
+  current, cleared to Marseille Provence via KELA8R departure, runway 30R, climb to 6000 feet, squawk
+  1000.", toolbar readback, then "Airfrans 1234, readback correct. Call me back when ready for ...",
+  then the pilot's "Wilco, Airfrans 1234.". `beyondATC.log` (CPDLC bridge) holds the Hoppie logon
+  code: keep it private.
 - Nothing is sent while PTT is held, and no simvar shows it: PTT state is out of scope without a
   desktop helper.
 
