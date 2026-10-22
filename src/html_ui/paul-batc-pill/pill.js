@@ -27,6 +27,7 @@
                          // the sim's Communications > TOGGLE SPEAKER (BeyondATC's own PTT stays as it is)
     pttEvent: "TOGGLE_SPEAKER", // the sim event that binding sends
     pttBlock: false,     // also stop the sim acting on it
+    pttDelayMs: 500,     // PTT held this long before "Transmitting" shows (a click shows nothing)
     hideOffline: false,  // true: no pill at all while BeyondATC isn't running
     showTraffic: true,   // show a neutral "Traffic" pill while AI traffic talks
     facility: "short",   // "short": "Ground", "full": "Montpellier Ground"
@@ -89,6 +90,7 @@
     seenFacility: false, // the first Facility after connecting is the snapshot, not a change
     editing: false,      // settings card open: the pill shows a sample so size/position are visible
     ptt: false,          // PTT held (its key event keeps repeating)
+    pttShown: false,     // held for pttDelayMs: "Transmitting" shows
     pttRepeating: false,
     demo: "",            // the setting changed last in the card; the sample shows its effect
     autoTune: true,      // BeyondATC tunes the radios itself ("AutoTune: true")
@@ -99,7 +101,7 @@
     seenInfo: false,     // the first InfoBoxes after connecting is the snapshot, not a change
   };
   var socket = null;
-  var timers = { reconnect: 0, linger: 0, error: 0, tune: 0, missed: 0, atis: 0, demo: 0, ptt: 0, swap: 0, poll: 0 };
+  var timers = { reconnect: 0, linger: 0, error: 0, tune: 0, missed: 0, atis: 0, demo: 0, ptt: 0, pttShow: 0, swap: 0, poll: 0 };
   var destroyed = false;
   var current = null;    // last rendered view signature
 
@@ -350,7 +352,7 @@
     if (state.error && now < state.errorUntil) {
       return { cls: "s-err", html: LAMP + '<span class="bp-who">' + esc(state.error) + "</span>" };
     }
-    if (state.ptt && CONFIG.showPtt) return pttLook();
+    if (state.pttShown && CONFIG.showPtt) return pttLook();
 
     var v;
     switch (state.mode) {
@@ -892,9 +894,17 @@
     state.pttRepeating = held;
     state.ptt = true;
     clearTimeout(timers.ptt);
-    timers.ptt = setTimeout(function () { state.ptt = state.pttRepeating = false; render(true); },
-      state.pttRepeating ? PTT_REPEAT_MS : PTT_FIRST_MS);
-    if (!held) render(true);
+    timers.ptt = setTimeout(function () {
+      clearTimeout(timers.pttShow);
+      var shown = state.pttShown;
+      state.ptt = state.pttRepeating = state.pttShown = false;
+      if (shown) render(true);
+    }, state.pttRepeating ? PTT_REPEAT_MS : PTT_FIRST_MS);
+    if (!held) {
+      // still held after pttDelayMs (the sim repeats from ~0.4 s): show it
+      clearTimeout(timers.pttShow);
+      timers.pttShow = setTimeout(function () { state.pttShown = true; render(true); }, CONFIG.pttDelayMs);
+    }
   }
 
   function listenPtt() {
