@@ -24,9 +24,9 @@
     showAtis: true,      // show a new ATIS letter
     warnMuted: true,     // ATC calling you while COM1 is muted: red-orange instead of amber
     showPtt: false,      // show "Transmitting" while your PTT button is held. Needs that button also bound to
-                         // the sim's Communications > QUICK REPLY (BeyondATC's own PTT stays as it is)
-    pttEvent: "SR_COM_QUICK_REPLY", // the sim event that binding sends (input profiles: KEY_SR_COM_QUICK_REPLY)
-    pttBlock: false,     // also stop the sim acting on it. Off: blocking this event once froze the sim (unconfirmed)
+                         // the sim's Communications > TOGGLE SPEAKER (BeyondATC's own PTT stays as it is)
+    pttEvent: "TOGGLE_SPEAKER", // the sim event that binding sends
+    pttBlock: false,     // also stop the sim acting on it
     hideOffline: false,  // true: no pill at all while BeyondATC isn't running
     showTraffic: true,   // show a neutral "Traffic" pill while AI traffic talks
     facility: "short",   // "short": "Ground", "full": "Montpellier Ground"
@@ -146,7 +146,7 @@
     toggleRow("Readback hints", "showReadback") +
     choiceRow("readbackDetail", [["none", "None"], ["short", "Short"], ["hint", "Hint"],
       ["boxes", "Boxes"]]) +
-    toggleRow("Muted ATC calls", "warnMuted") + toggleRow("PTT (bind Quick Reply)", "showPtt") +
+    toggleRow("Muted ATC calls", "warnMuted") + toggleRow("PTT (bind Toggle Speaker)", "showPtt") +
     toggleRow("AI traffic", "showTraffic") +
     toggleRow("Full station names", "fullNames") + toggleRow("Hide when BATC is off", "hideOffline") +
     '<div class="bc-foot"><span class="bc-btn bc-reset" data-act="reset">Reset</span></div>';
@@ -888,6 +888,8 @@
   function listenPtt() {
     var eng = window.engine;
     if (!CONFIG.showPtt || !eng || typeof eng.on !== "function") return;
+    // speech-recognition actions (Quick Reply is SR_COM_QUICK_REPLY) froze the sim when intercepted: never
+    if (/^SR_/i.test(CONFIG.pttEvent)) return;
     // once per view and event: hot reloads (inspect_ui.py --push) keep the view, and its intercepts
     var reg = window.batcPillKeys = window.batcPillKeys || { attached: false, intercepted: {} };
     if (!reg.attached) {

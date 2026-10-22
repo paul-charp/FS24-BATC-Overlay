@@ -42,8 +42,8 @@ screen corner during flight, with a click-to-open settings card. Windows only. U
   the same ms. A held key sends once, then every ~33 ms after ~0.4 s; release sends nothing. //42 Flow's
   mainUi hook uses the same `ADD_VIEW_LISTENER` route (for `JS_LISTENER_DATASTORAGE`).
 - Controls > Communications > QUICK REPLY is `KEY_SR_COM_QUICK_REPLY` (`fs-input-profiles`), event
-  `SR_COM_QUICK_REPLY`. Intercepting it with block=1 (plus a second `ADD_VIEW_LISTENER` in the same session)
-  froze the sim once; the PTT indicator observes it with 0. Not yet tested live in pill.js.
+  `SR_COM_QUICK_REPLY`. Intercepting it froze the sim (block=1 by hand; then, apparently, observing with 0
+  from pill.js): `pill.js` refuses `SR_` events. The PTT indicator now defaults to `TOGGLE_SPEAKER`, untested.
 - No gamepads in mainUi (`navigator.getGamepads()` is `[]` even after presses). A package can't add new
   actions to the Controls menu (MSFS 2024 SDK: presets of existing actions only).
 - Rounded `overflow: hidden` boxes had jagged corners in the sim while the unclipped settings card was
