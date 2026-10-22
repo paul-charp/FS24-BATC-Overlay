@@ -17,7 +17,8 @@ screen corner during flight, with a click-to-open settings card. Windows only. U
 - `config.json`: package metadata. Local paths (`sim_packages`, `community`) go in
   `.local/config.json`, which overrides it.
 - `tools/inspect_ui.py`: Coherent inspector client (Devmode, `localhost:19999`); `--list`, `--page N`,
-  `--push` hot-reloads the pill into mainUi (page 2). `tools/sniff_batc.py`: socket logger.
+  `--push` hot-reloads the pill into mainUi (page 2). `tools/sniff_batc.py`: socket logger;
+  `tools/batc_timeline.py` prints a log as a timeline with `Actions`/`InfoBoxes` changes as diffs.
   `tools/harness.html`: desktop preview with replays.
 - `docs/render/*.html` + `docs/render_images.py`: README/flightsim.to images via headless Edge.
   `docs/flightsim-to.md`: flightsim.to page text. `CHANGELOG.md`: release history.
