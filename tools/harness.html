@@ -25,7 +25,7 @@
 <script>
   window.batcPillInlineCss = null;
   // Stand-in for the sim's `engine` key events: a held binding sends its event once, then every ~33 ms
-  // after ~0.4 s (measured live with BAROMETRIC). Only what pill.js uses.
+  // after ~0.4 s, each one twice in the same ms (measured live with BAROMETRIC). Only what pill.js uses.
   window.engine = {
     handlers: {},
     on(name, fn) { (this.handlers[name] = this.handlers[name] || []).push(fn); },
@@ -94,7 +94,7 @@
   const hostEl = document.getElementById('host'); // window.host stops resolving once it's removed
   let pttTimers = [];
   ptt.onmousedown = () => {
-    const send = () => engine.emit('keyIntercepted', batcPill.config.pttEvent, 0, 0, 0);
+    const send = () => { engine.emit('keyIntercepted', batcPill.config.pttEvent, 0, 0, 0); engine.emit('keyIntercepted', batcPill.config.pttEvent, 0, 0, 0); };
     send();
     pttTimers.push(setTimeout(() => pttTimers.push(setInterval(send, 33)), 400));
   };

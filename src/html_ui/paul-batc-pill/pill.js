@@ -444,7 +444,8 @@
     return window.getComputedStyle(root).position === "absolute";
   }
 
-  function render() {
+  // instant: swap the content without the fade-out first (PTT should react when you press)
+  function render(instant) {
     if (destroyed || !cssReady()) return;
     var v = view();
     var sig = v.hidden ? "hidden" : v.cls + "|" + v.html;
@@ -478,6 +479,11 @@
       root.style.width = measure() + "px";
       root.style.height = measureH();
       requestAnimationFrame(function () { root.className = v.cls; resize(); });
+      return;
+    }
+    if (instant) {
+      body.className = "bp-body";
+      apply();
       return;
     }
     body.className = "bp-body is-out";
@@ -874,15 +880,21 @@
   var PTT_FIRST_MS = 450, PTT_REPEAT_MS = 120;
   var keyHandler = null;
 
+  var pttLastAt = 0;
+
   function onKeyEvent(name) {
     if (name !== CONFIG.pttEvent || !CONFIG.showPtt) return;
+    // the sim reports each event twice in the same ms: a copy isn't a repeat
+    var now = Date.now();
+    if (state.ptt && now - pttLastAt < 15) return;
+    pttLastAt = now;
     var held = state.ptt;
     state.pttRepeating = held;
     state.ptt = true;
     clearTimeout(timers.ptt);
-    timers.ptt = setTimeout(function () { state.ptt = state.pttRepeating = false; render(); },
+    timers.ptt = setTimeout(function () { state.ptt = state.pttRepeating = false; render(true); },
       state.pttRepeating ? PTT_REPEAT_MS : PTT_FIRST_MS);
-    if (!held) render();
+    if (!held) render(true);
   }
 
   function listenPtt() {
