@@ -181,13 +181,13 @@
   // one icon button each, lit when on, dimmed and struck through when off
   var SLASH = '<path class="bs-slash" d="M2.5 2.5l11 11"/>';
   switches.innerHTML =
+    '<span class="bs-btn" data-sw="autorespond"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" ' +
+      'stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M2.5 3.5h11v7h-6l-3 2.5v-2.5h-2z"/>' +
+      '<path d="M5.5 7h5"/>' + SLASH + "</svg></span>" +
     '<span class="bs-btn" data-sw="autotune"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" ' +
       'stroke-width="1.6" stroke-linecap="round"><circle cx="8" cy="8" r="1.6" fill="currentColor" stroke="none"/>' +
       '<path d="M5.2 5.2a4 4 0 0 0 0 5.6M10.8 5.2a4 4 0 0 1 0 5.6M3.1 3.1a7 7 0 0 0 0 9.8M12.9 3.1a7 7 0 0 1 0 9.8"/>' +
-      SLASH + "</svg></span>" +
-    '<span class="bs-btn" data-sw="autorespond"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" ' +
-      'stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M2.5 3.5h11v7h-6l-3 2.5v-2.5h-2z"/>' +
-      '<path d="M5.5 7h5"/>' + SLASH + "</svg></span>";
+      SLASH + "</svg></span>";
   document.body.appendChild(switches);
   var switchEls = [switches].concat([].slice.call(switches.querySelectorAll("*")));
   var switchesOpen = false;

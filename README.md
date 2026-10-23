@@ -32,7 +32,7 @@ Click the pill in flight to open its settings card (two tabs: Display and Positi
 
 <img src="docs/images/settings.png" alt="Settings card" width="340">
 
-Hovering the pill shows two buttons under it: BeyondATC's **Auto Tune** (radio waves) and **Auto Respond** (speech bubble). Lit means on, dimmed and struck through means off; a click flips it, as the toolbar's own switches do.
+Hovering the pill shows two buttons under it: BeyondATC's **Auto Respond** (speech bubble) and **Auto Tune** (radio waves). Lit means on, dimmed and struck through means off; a click flips it, as the toolbar's own switches do.
 
 **Display**
 
