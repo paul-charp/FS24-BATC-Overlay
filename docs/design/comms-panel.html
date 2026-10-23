@@ -312,7 +312,7 @@
       <ul>
         <li><b>Glance</b>: the pill, unchanged. It stays the status line and the title of everything below it.</li>
         <li><b>Read</b>: captions under the pill. The lines of an exchange stay until it closes, then leave together about 5 s later; the instruction ATC waits on is outlined until you answer. Other aircraft's lines leave one by one. "Mine" drops lines to other aircraft.</li>
-        <li><b>Answer</b>: hover ATC's message or the pill and the answers slide out as a row of chips below the message, outside its box. They show in one place only: beside the pill when the message isn't on screen (captions off), with the Auto Respond / Auto Tune switches at the far end. The obvious one filled amber, up to three, "+N" shows the rest in place. No Say Again: the message is there to read again. With Auto Tune off, a handoff adds a cyan "Tune 118.775" that sets COM1; once you've replied it heads the requests column until COM1 is on it. At rest only the message shows.</li>
+        <li><b>Answer</b>: hover ATC's message or the pill and the answers slide out as a row of chips below the message, outside its box. They show in one place only: beside the pill when the message isn't on screen (captions off), with the Auto Respond / Auto Tune switches at the far end. The obvious one filled amber, up to three, "+N" shows the rest in place. No Say Again: the message is there to read again. With Auto Tune off, once you've acknowledged a handoff, a cyan "Tune 118.775" heads the column under the pill until COM1 is on it. At rest only the message shows.</li>
         <li><b>Request</b>: with nothing pending, hovering the pill offers BeyondATC's requests as a column under it, in BeyondATC's order (the likely next one on top). The switches stay on the pill's row.</li>
         <li><b>Look up</b>: clicking the pill opens a panel with Frequencies (Departure / Arrival) and Log. It opens on Frequencies while ATC's handoff is pending, else on the tab used last. Settings sit behind the gear.</li>
       </ul>
@@ -658,10 +658,10 @@
   }
   function answerChips(p, all) {
     var cancels = p.replies.filter(function (r) { return /^cancel\b/i.test(r); });
-    return chipList(answersOf(p).concat(cancels), "data-reply", p.kind !== "question", all) + tuneChip();
+    return chipList(answersOf(p).concat(cancels), "data-reply", p.kind !== "question", all);
   }
-  // Auto Tune off and ATC said "contact <station> <freq>": tune COM1 there. Never greyed: tuning doesn't
-  // wait for the radio to be quiet.
+  // Auto Tune off and ATC said "contact <station> <freq>": once you've acknowledged, tune COM1 there.
+  // Never greyed: tuning doesn't wait for the radio to be quiet.
   function tuneChip() {
     return S.contact && !S.autoTune ? '<span class="chip tune" data-tunec="1">Tune ' + esc(S.contact.freq) + "</span>" : "";
   }
