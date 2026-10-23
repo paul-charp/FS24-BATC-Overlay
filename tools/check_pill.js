@@ -69,6 +69,19 @@ const CONTACTS = [
 ];
 CONTACTS.forEach(([t, want]) => expect("contact " + t.slice(0, 60), contactIn(t), want));
 
+// "Frequencies:" as the toolbar's code reads it: listed in the order you call them; anything else kept raw
+const parseFreqs = new Function(
+  src.slice(src.indexOf("  function parseJson"), src.indexOf("  // Short hints")) +
+  src.slice(src.indexOf('  // "Frequencies: ['), src.indexOf("  var GEAR")) + "; return parseFreqs;")();
+expect("freqs   order and format", parseFreqs(JSON.stringify([
+  { name: "Montpellier Tower (30R, 30L)", type: "Tower", frequency: "118.775", cpdlcLogonCode: "" },
+  { name: "Marseille Control", type: "Center", frequency: 132.365, cpdlcLogonCode: "LFMM" },
+  { name: "Montpellier Automated Terminal Information Service", type: "ATIS", frequency: "124.13" },
+  { name: "Montpellier Ground", type: "Ground", frequency: "121.955" },
+])).rows.map((r) => r.name + " " + r.freq),
+  ["Montpellier ATIS 124.130", "Montpellier Ground 121.955", "Montpellier Tower 118.775", "Marseille Control 132.365"]);
+expect("freqs   unreadable kept raw", parseFreqs("Nothing here"), { raw: "Nothing here" });
+
 // speed: each must finish well under a frame budget even on long, unlucky input
 const HOSTILE = [
   "contact " + "ABCDEFGHIJKLMNOPQRSTUVWXYZ".repeat(40) + " x",

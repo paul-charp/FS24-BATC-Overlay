@@ -123,9 +123,12 @@ screen corner during flight, with a click-to-open settings card. Windows only. U
   then the pilot's "Wilco, Airfrans 1234.". `beyondATC.log` (CPDLC bridge) holds the Hoppie logon
   code: keep it private.
 - Nothing is sent while PTT is held. The PTT indicator instead listens to a sim binding (below).
-- Comms panel, not yet verified live: what `Frequencies:` holds (`parseFreqs` reads any JSON of objects with a
-  frequency and a name, grouped by the key above them, or `Name|freq` lines, and the panel shows anything else
-  raw); whether `set_frequency` sets COM1 active or standby (COM2 has no known command: right-click for COM2 is
+- `frequencies` gets `Frequencies: [{"name","type","frequency","cpdlcLogonCode"},...]` (from the toolbar's code; never
+  in sniffs: BeyondATC sends it only when asked, maybe only to the asker): the stations around you (the toolbar
+  heads it with one name), not the route; `type` is ATIS / Clearance / Ground / Tower / ApproachDeparture /
+  Center / UNICOM. `pill.js` asks when the panel opens and when COM1 changes with Frequencies open.
+- Comms panel, not yet verified live: the `Frequencies:` reply's exact values (`parseFreqs` shows anything it
+  can't read raw); whether `set_frequency` sets COM1 active or standby (COM2 has no known command: right-click for COM2 is
   not built); what `atc_log` returns (not sent; the Log is built from the stream); whether wheel events reach
   mainUi (the Log scrolls); whether a reply sent with `set_action` gives the same `queued` / `Player:` sequence
   as the toolbar's.

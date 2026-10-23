@@ -122,8 +122,7 @@
     sentAt: 0,           // an answer or request was just sent: hide them until BeyondATC reacts
     panel: false,        // comms panel open (click the pill)
     panelTab: "freq",    // "freq" | "log"
-    freqSide: 0,         // index of the Frequencies group shown (Departure, Arrival, ...)
-    freqs: null,         // from "Frequencies:": { groups: [{ title, rows: [{ name, freq }] }] }, or { raw } unread
+    freqs: null,         // from "Frequencies:": { rows: [{ name, type, freq }] }, or { raw } if it can't be read
     logReset: true,      // open the Log at its newest line
   };
   var socket = null;
@@ -890,6 +889,8 @@
         if (state.seenFacility && (prev.name !== state.facility.name || prev.freq !== state.facility.freq)) {
           tuned("", state.facility);
           state.kept = null; // a new station: the last clearance belongs to the old one
+          // the stations around you may have changed: refresh the open Frequencies tab
+          if (state.panel && state.panelTab === "freq") send("frequencies");
         }
         if (state.contact && onContact(state.contact)) state.contact = null;
         state.seenFacility = true;
@@ -1528,6 +1529,7 @@
 
   function tune(freq) {
     // as the toolbar's frequency list; BeyondATC retunes COM1 and sends the new Facility
+    if (sameFreq(freq, state.facility.freq)) return; // already there
     if (send("set_frequency: " + freq)) renderComms();
   }
 
@@ -1540,62 +1542,33 @@
     state.panel = open;
     if (open) {
       showSwitches(false);
-      if (contactPending()) {
-        // the station ATC handed you to: on Frequencies, on the side that holds it
-        state.panelTab = "freq";
-        var g = state.freqs && state.freqs.groups || [];
-        for (var i = 0; i < g.length; i++) {
-          if (g[i].rows.some(function (r) { return sameFreq(r.freq, state.contact.freq); })) state.freqSide = i;
-        }
-      }
+      if (contactPending()) state.panelTab = "freq"; // the station ATC handed you to
       state.logReset = true;
-      send("frequencies"); // as the toolbar's Frequencies tab
+      send("frequencies"); // as the toolbar's Frequencies tab: BeyondATC answers only when asked
     }
     renderComms();
   }
 
   function sameFreq(a, b) { return !!a && !!b && Number(a).toFixed(3) === Number(b).toFixed(3); }
 
-  // "Frequencies:" isn't captured yet (AGENTS.md): read any JSON holding objects with a frequency and a name,
-  // grouped under the key or title above them ("departure", "arrival", an airport); "Name|freq" lines too.
-  // Anything else is kept raw, so the panel shows it instead of guessing.
+  // "Frequencies: [{"name","type","frequency","cpdlcLogonCode"}, ...]" (read from the toolbar's code; not seen
+  // in sniffs: BeyondATC sends it only when asked). The stations around you, not the route; type is ATIS,
+  // Clearance, Ground, Tower, ApproachDeparture, Center or UNICOM. Listed in the order you call them. Anything
+  // else is kept raw, so the panel shows it instead of guessing.
+  var FREQ_ORDER = ["atis", "clearance", "ground", "tower", "approachdeparture", "center", "unicom"];
+
   function parseFreqs(payload) {
-    var groups = [], data = parseJson(payload);
-    function add(title, row) {
-      for (var i = 0; i < groups.length; i++) if (groups[i].title === title) { groups[i].rows.push(row); return; }
-      groups.push({ title: title, rows: [row] });
-    }
-    function rowOf(o) {
-      var name = "", freq = "";
-      for (var k in o) {
-        var v = o[k];
-        if (typeof v === "number") v = String(v);
-        if (typeof v !== "string") continue;
-        v = v.trim();
-        if (!freq && /freq/i.test(k) && /^1\d{2}\.\d{1,3}$/.test(v)) freq = v;
-        else if (!name && /^(name|label|facility|station|title|type|callsign)$/i.test(k)) name = v;
-      }
-      return freq ? { name: stationName(name) || freq, freq: Number(freq).toFixed(3) } : null;
-    }
-    function title(k) {
-      return String(k).replace(/([a-z])([A-Z])/g, "$1 $2").replace(/^./, function (c) { return c.toUpperCase(); });
-    }
-    function walk(node, t, depth) {
-      if (!node || typeof node !== "object" || depth > 6) return;
-      if (!(node instanceof Array)) {
-        var r = rowOf(node);
-        if (r) { add(t, r); return; }
-      }
-      for (var k in node) walk(node[k], node instanceof Array || typeof node[k] !== "object" ? t : title(k), depth + 1);
-    }
-    if (data && typeof data === "object") walk(data, "", 0);
-    else {
-      String(payload).split(/¬|\n/).forEach(function (line) {
-        var p = line.split("|"), f = (p[1] || "").trim();
-        if (p[0] && /^1\d{2}\.\d{1,3}$/.test(f)) add("", { name: stationName(p[0]), freq: Number(f).toFixed(3) });
-      });
-    }
-    return groups.length ? { groups: groups } : { raw: String(payload) };
+    var data = parseJson(payload), rows = [];
+    (data instanceof Array ? data : []).forEach(function (o, i) {
+      var f = o && Number(o.frequency);
+      if (!f || f < 100 || f > 200) return;
+      var t = String(o.type || "").toLowerCase().replace(/[^a-z]/g, "");
+      var rank = FREQ_ORDER.indexOf(t);
+      rows.push({ name: stationName(o.name) || String(o.type || ""), type: String(o.type || ""), freq: f.toFixed(3),
+        rank: (rank < 0 ? FREQ_ORDER.length : rank) * 1000 + i });
+    });
+    rows.sort(function (a, b) { return a.rank - b.rank; });
+    return rows.length ? { rows: rows } : { raw: String(payload) };
   }
 
   var GEAR = '<svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="8" cy="8" r="2.3"/>' +
@@ -1619,16 +1592,8 @@
       return h + '<div class="bm-note">BeyondATC sent its frequencies in a form the pill can\'t read yet:</div>' +
         '<div class="bm-raw">' + esc(f.raw.slice(0, 600)) + "</div>";
     }
-    var i = Math.min(state.freqSide, f.groups.length - 1), g = f.groups[i];
     var com2 = state.com2 ? state.com2.split("|")[1] : "";
-    if (f.groups.length > 1) {
-      h += '<div class="bm-seg">' + f.groups.map(function (x, j) {
-        return '<span class="bm-tab' + (j === i ? " is-on" : "") + '" data-side="' + j + '">' + esc(x.title || "Stations") + "</span>";
-      }).join("") + "</div>";
-    } else if (g.title) {
-      h += '<div class="bm-grp">' + esc(g.title) + "</div>";
-    }
-    h += '<div class="bm-rows">' + g.rows.map(function (r) {
+    h += '<div class="bm-rows">' + f.rows.map(function (r) {
       var on1 = sameFreq(r.freq, state.facility.freq);
       return '<div class="bm-row' + (on1 ? " is-active" : "") + '" data-tune="' + esc(r.freq) + '"><span class="bm-grow">' +
         esc(r.name) + "</span>" +
@@ -1683,13 +1648,12 @@
   }
 
   panel.addEventListener("click", function (e) {
-    var el = e.target, names = ["data-tab", "data-side", "data-tune", "data-act", "data-sw"];
+    var el = e.target, names = ["data-tab", "data-tune", "data-act", "data-sw"];
     function has(n) { for (var i = 0; i < names.length; i++) if (n.getAttribute(names[i])) return true; return false; }
     while (el && el !== panel && !(el.getAttribute && has(el))) el = el.parentNode;
     if (!el || el === panel) return;
     var act = el.getAttribute("data-act");
     if (el.getAttribute("data-tab")) { state.panelTab = el.getAttribute("data-tab"); state.logReset = true; }
-    else if (el.getAttribute("data-side")) state.freqSide = Number(el.getAttribute("data-side"));
     else if (el.getAttribute("data-tune")) { tune(el.getAttribute("data-tune")); return; }
     else if (el.getAttribute("data-sw")) { flip(el.getAttribute("data-sw")); return; }
     else if (act === "close") { openPanel(false); return; }

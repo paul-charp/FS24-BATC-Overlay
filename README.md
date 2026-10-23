@@ -26,7 +26,7 @@ Everything the BeyondATC toolbar does, around the pill:
 - **Answers**: hover that message, or the pill, and its answers open below it; the obvious one (a readback, an acknowledgement) is amber. A long list shows three and "+N" for the rest. With messages off, the answers open in a column under the pill instead.
 - **Requests**: with nothing pending, hovering the pill opens BeyondATC's requests in a column under it, the likely next one first. They close while the radio is busy and come back when it's quiet.
 - **Tune**: with Auto Tune off, once you've acknowledged a handoff, "Tune 118.775" sets COM1 to the new station (under the handoff message, or in the column).
-- **Panel**: click the pill for **Frequencies** (the flight's stations, Departure / Arrival; click one to tune COM1) and **Log** (every radio line, scrolling). The gear opens the settings. The panel isn't modal: leave it open and the cockpit stays clickable.
+- **Panel**: click the pill for **Frequencies** (the stations around you, ATIS first, Center last; click one to tune COM1) and **Log** (every radio line, scrolling). The gear opens the settings. The panel isn't modal: leave it open and the cockpit stays clickable.
 
 In the bottom corners everything stacks upward from the pill; in the left corners it's mirrored.
 
