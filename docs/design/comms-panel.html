@@ -294,6 +294,7 @@
       <h2>Options</h2>
       <div class="opts">
         <div class="opt"><span>Captions</span><span class="seg" id="optCaptions"><button data-v="off">Off</button><button data-v="mine">Mine</button><button data-v="all">All</button></span></div>
+        <div class="opt"><span>Readback hints on the pill</span><span class="seg" id="optHints"><button data-v="off">Off</button><button data-v="on">On</button></span></div>
         <div class="opt"><span>AI traffic (pill, captions, log)</span><span class="seg" id="optTraffic"><button data-v="off">Hide</button><button data-v="on">Show</button></span></div>
       </div>
     </div>
@@ -389,7 +390,7 @@
   function allFreqs() { return FREQS.dep.rows.concat(FREQS.arr.rows); }
 
   var S, epoch = 0;
-  var opt = { captions: "all", traffic: true };
+  var opt = { captions: "all", traffic: true, hints: true };
   function fresh() {
     return { facility: ST.gnd, mode: "ready", speaker: null, qtext: "", pending: null, confirm: null, tune: null,
       contact: null, com2: null, freqSide: "dep", lingerUntil: 0, requests: [], log: [], caps: [], autoTune: true, autoRespond: false,
@@ -592,6 +593,8 @@
   // ---------- pill ----------
   function radioBusy() { return S.lock || S.mode !== "ready"; }
   function hintHtml(h) { return h ? '<span class="dim">·</span><span>' + esc(h) + "</span>" : ""; }
+  // the readback hint after the status ("Awaiting readback · Taxi via T1"), with the Readback hints option on
+  function readbackHint(h) { return opt.hints ? hintHtml(h) : ""; }
   function facilityHtml(cls, f) { return '<span class="' + cls + '">' + esc(short(f)) + '</span><span class="freq">' + esc(f.freq) + "</span>"; }
   function pillView() {
     var now = Date.now(), p = S.pending;
@@ -599,16 +602,16 @@
     if (S.mode === "awaiting") return { cls: "s-proc is-pulse", html: LAMP + "<span>Awaiting ATC</span>" };
     if (S.mode === "speaking") {
       if (S.speaker === "atc") return { cls: "s-atc", html: BARS + facilityHtml("who", S.facility) };
-      if (S.speaker === "player") return { cls: "s-you", html: BARS + '<span class="who">Transmitting</span>' + hintHtml(p && p.hint) };
+      if (S.speaker === "player") return { cls: "s-you", html: BARS + '<span class="who">Transmitting</span>' + readbackHint(p && p.hint) };
       if (opt.traffic) return { cls: "", html: BARS + "<span>Traffic</span>" };
     }
     if (S.tune && now < S.tune.until) return { cls: "s-tune", html: RADIO + (S.tune.label ? '<span class="dim">' + S.tune.label + "</span>" : "") + facilityHtml("who", S.tune.f) };
     if (p) {
       var label = p.kind === "readback" ? "Awaiting readback" : "Awaiting response";
       if (p.calls > 1) label += " ×" + p.calls;
-      return { cls: (p.calls > 1 ? "s-insist" : "s-atc") + " is-pulse", html: LAMP + '<span class="who">' + label + "</span>" + hintHtml(p.hint) };
+      return { cls: (p.calls > 1 ? "s-insist" : "s-atc") + " is-pulse", html: LAMP + '<span class="who">' + label + "</span>" + readbackHint(p.hint) };
     }
-    if (S.confirm) return { cls: "s-ok", html: CHECK + '<span class="who">' + (S.confirm.readback ? "Readback OK" : "Response OK") + "</span>" + hintHtml(S.confirm.hint) };
+    if (S.confirm) return { cls: "s-ok", html: CHECK + '<span class="who">' + (S.confirm.readback ? "Readback OK" : "Response OK") + "</span>" + readbackHint(S.confirm.hint) };
     if (S.contact && !S.autoTune) return { cls: "s-tune", html: RADIO + '<span class="who">Contact</span>' + facilityHtml("", S.contact) };
     if (now < S.lingerUntil) return { cls: "", html: LAMP + facilityHtml("", S.facility) };
     return { cls: "is-dot", html: LAMP };
@@ -978,6 +981,7 @@
     return paint;
   }
   segInit("optCaptions", "captions", { get: function () { return opt.captions; }, set: function (v) { opt.captions = v; if (v === "off") S.caps = []; } });
+  segInit("optHints", "hints", { get: function () { return opt.hints ? "on" : "off"; }, set: function (v) { opt.hints = v === "on"; } });
   var paintTraffic = segInit("optTraffic", "traffic", { get: function () { return opt.traffic ? "on" : "off"; }, set: function (v) { opt.traffic = v === "on"; } });
   function setTraffic(on) { opt.traffic = on; if (!on) S.caps = S.caps.filter(function (c) { return c.who !== "traffic"; }); paintTraffic(); update(); }
 
