@@ -22,14 +22,14 @@ A small, quiet pill in a corner of the screen that shows what BeyondATC is doing
 - Queued, Processing and Awaiting ATC while your request is on its way
 - ATC talking, with the station and frequency (amber)
 - Awaiting readback / Awaiting response: what ATC is waiting for from you, as a short hint ("Taxi via T1 · Hold short 12L"), the clearance values or the toolbar's clearance boxes. Red-orange when ATC calls you again or answers "Negative" with a correction, green when ATC takes your reply, and "No readback" if BeyondATC gives up waiting
-- Transmitting, while your readback or request plays (green), and optionally while you hold PTT
+- Transmitting, while your readback or request plays (green), and optionally while you hold PTT, with the hint of the readback you're answering
 - Radio changes: the new station when COM1 or COM2 changes (cyan), and with Auto Tune off, whom to contact
 - A new ATIS letter, ATC calling while COM1 is muted, AI traffic talking, and BeyondATC offline
 
 When nothing is happening it shrinks to a small dot. Changes between states are animated.
 
 **Settings**
-Hover the pill for two buttons that flip BeyondATC's Auto Tune and Auto Respond. Click the pill in flight to open its settings: which events to show and how much detail (Display tab), corner, position and size (Position tab).
+Hover the pill for two buttons that flip BeyondATC's Auto Tune and Auto Respond. Click the pill in flight to open its settings (a click outside closes them): which events to show and how much detail (Display tab), corner, position and size (Position tab).
 
 **Requirements**
 - Microsoft Flight Simulator 2024
@@ -56,12 +56,13 @@ Source and issues: https://github.com/paul-charp/FS24-BATC-Pill
 - Added: a green "Readback OK" when ATC takes your reply, and a red-orange "Negative" with the correction when ATC rejects it.
 - Added: optional "Keep last clearance": the last clearance stays on the pill until the next one.
 - Added: hovering the pill shows buttons for BeyondATC's Auto Tune and Auto Respond.
-- Added: hints for line up, go around, speeds, STARs, "report" requests and taxi to a ramp or gate.
+- Added: hints for pushback, line up, go around, speeds, STARs, runway exits, "say ..." requests and taxi to a ramp, gate or stand.
 - Added: with Auto Tune off, a "Contact" reminder until COM1 is on the station ATC handed you to.
 - Added: a new ATIS letter shows for 6 s; an ATIS playing on COM1 shows "ATIS".
 - Added: ATC calling you while COM1 is muted turns the pill red-orange.
 - Added: optional PTT indicator.
-- Changed: "You" is now "Transmitting"; the settings card has Display and Position tabs.
+- Changed: "You" is now "Transmitting", and keeps the hint while you answer a readback.
+- Changed: the settings card has Display and Position tabs, and closes on a click outside it.
 - Fixed: the idle dot stayed visible in the sim's menus after a flight.
 - Fixed: BeyondATC errors, ATC broadcasts and ATIS showed raw or wrong text.
 - Fixed: radio changes showed while a flight was loading.

@@ -8,8 +8,8 @@ A small pill in a corner of the Microsoft Flight Simulator 2024 screen that show
 
 - **Queued / Processing / Awaiting ATC** (blue): your request is on its way.
 - **ATC talking** (amber): the controller is speaking, with the station and frequency.
-- **Transmitting** (green): your readback or request is being played (sound-wave icon), or you're holding PTT (mic icon, optional, see below).
-- **Awaiting readback / Awaiting response** (amber, pulsing): ATC waits for your readback, acknowledgement or answer (the toolbar offers "Say Again"), with a short hint ("IFR clearance · Climb FL060", "Taxi 30R", the answers to a question: "Runway 12L / Runway 12R"), or the toolbar's clearance boxes (runway, SID, altitude, squawk). If ATC calls you again before you reply, the pill turns red-orange ("Awaiting response ×2"). If ATC answers your readback with a correction ("Negative, QNH 1013"), the pill turns red-orange with "Negative" and the correction. When ATC takes your reply, the pill turns green for 1.5 s ("Readback OK"); with **Keep last clearance** on, its hint then stays on the pill, dimmed, until the next instruction, a new station on COM1, or its ✕ (hover the pill: the clipboard icon turns into ✕). If BeyondATC stops waiting without a reply (it drops taxi and acknowledge replies after about 18 s), "No readback" shows for 5 s.
+- **Transmitting** (green): your readback or request is being played (sound-wave icon), or you're holding PTT (mic icon, optional, see below). While you answer a readback, the hint stays next to it ("Transmitting · Taxi 30R"), and through "Processing" while BeyondATC handles a voice reply.
+- **Awaiting readback / Awaiting response** (amber, pulsing): ATC waits for your readback, acknowledgement or answer (the toolbar offers "Say Again"), with a short hint ("IFR clearance · Climb FL060", "Taxi 30R", the answers to a question: "Runway 12L / Runway 12R"), or the toolbar's clearance boxes (runway, SID, altitude, squawk). If ATC calls you again before you reply, the pill turns red-orange ("Awaiting response ×2"). If ATC answers your readback with a correction ("Negative, QNH 1013"), the pill turns red-orange with "Negative" and the correction. When ATC takes your reply, the pill turns green for 1.5 s ("Readback OK"; after a handoff with Auto Tune on, the new station shows instead); with **Keep last clearance** on, its hint then stays on the pill, dimmed, until the next instruction, a new station on COM1, or its ✕ (hover the pill: the clipboard icon turns into ✕). If BeyondATC stops waiting without a reply (it drops taxi and acknowledge replies after about 18 s), "No readback" shows for 5 s.
 - **Radio change** (cyan): the new station when COM1 or COM2 changes.
 - **Contact** (cyan): with BeyondATC's Auto Tune off, after "contact Marseille Approach on 120.100", until COM1 is on it.
 - **ATIS** (purple): a new ATIS letter ("ATIS · Z"), for 6 s; and "ATIS" while COM1 plays an ATIS.
@@ -28,7 +28,7 @@ Requires BeyondATC 3.x. The BeyondATC toolbar panel doesn't need to be open.
 
 ## Settings
 
-Click the pill in flight to open its settings card (two tabs: Display and Position). Changes apply immediately. While the card is open, the pill shows a sample so you can see its size and position; after a change, the sample shows what that setting does (a radio change, a readback hint, the traffic pill, ...).
+Click the pill in flight to open its settings card (two tabs: Display and Position); click the pill again, the ✕, or anywhere outside the card to close it. Changes apply immediately. While the card is open, the pill shows a sample so you can see its size and position; after a change, the sample shows what that setting does (a radio change, a readback hint, the traffic pill, ...).
 
 <img src="docs/images/settings.png" alt="Settings card" width="340">
 
@@ -88,7 +88,7 @@ The package is built from your local sim install (the stock component is copied 
 python tools/build.py install
 ```
 
-Builds `build/paul-batc-pill` and junctions it into Community. Restart the sim once; after that, rebuilds are enough.
+Builds `build/paul-batc-pill` and junctions it into Community. Restart the sim once; after that, rebuilds are enough, and they work with the sim running (the folder is updated in place).
 
 ```bash
 python tools/inspect_ui.py --push
@@ -137,10 +137,10 @@ CI (`.github/workflows/check.yml`) checks the JS, Python and JSON on every push,
 ## How it works
 
 - The BeyondATC desktop app serves its in-sim toolbar over `ws://127.0.0.1:41716`, in lines like `Type: payload`. `CommsState: {"mode","text"}` carries the state (`ready`, `queued`, `processing`, `request`, `awaiting`, `speaking`, `traffic`). The `ATC:` / `Player:` / `Traffic:` line before `speaking` says whose voice it is. `Facility:` (COM1) and `Com2:` changes trigger the radio-change pill. The pill only reads, except for the hover buttons: they send the toolbar's own `set_autotune: true|false` / `set_autorespond: true|false`, and BeyondATC answers every client with `AutoTune:` / `AutoRespond:`.
-- Readback hints come from the toolbar's own reply menu (`Actions`): while ATC waits for you it offers "Say Again" next to the replies ("Readback Taxi Instruction", "Acknowledge Takeoff Clearance", "Runway 12L"). The clearance boxes (`InfoBoxes`) give Short and Boxes; the hint text is read from ATC's words.
+- Readback hints come from the toolbar's own reply menu (`Actions`): while ATC waits for you it offers "Say Again" next to the replies ("Readback Taxi Instruction", "Acknowledge Takeoff Clearance", "Runway 12L"). When the menu drops "Say Again" after you replied, ATC took the reply ("Readback OK"; a correct readback gets no spoken answer); without a reply, BeyondATC gave up ("No readback"). The clearance boxes (`InfoBoxes`) give Short and Boxes; the hint text is read from ATC's words.
 - The PTT indicator asks the sim to report the `TOGGLE_SPEAKER` key event to the pill's view (the way the sim's own instruments listen to key events). A held button repeats it; the pill shows "Transmitting" while the repeats keep coming.
 - `injections.json`: the build appends a hidden `<img onerror>` to the stock `MasterPage_InGame` cooked component, which loads `pill.js` once (the same hook //42 Flow uses). `MasterPage_InGame` only mounts in flight; the pill also hides when BeyondATC reports `LoadState.stage` `menu`.
-- Clicks in flight: the sim only routes a click to the element directly under the cursor, if it has `data-input-group` and `pointer-events` isn't `none`. The pill's children ignore pointer events; every element of the settings card carries the attribute while it's open.
+- Clicks in flight: the sim only routes a click to the element directly under the cursor, if it has `data-input-group` and `pointer-events` isn't `none`. The pill's children ignore pointer events; every element of the settings card carries the attribute while it's open. Clicks outside the pill's elements never reach the page, so while the card is open a transparent full-screen layer behind it takes them and closes the card.
 - `src/html_ui/paul-batc-pill/pill.js`: socket client, state machine, transitions, settings card, defaults in `CONFIG`. `pill.css`: the look; `--u` is one screen pixel at 1080p, times the size setting.
 
 ## License
