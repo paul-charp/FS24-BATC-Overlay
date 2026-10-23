@@ -271,20 +271,30 @@
 
   // ---- state -> view ---------------------------------------------------
 
-  function readbackView() {
+  // reply: { cls, lamp, label, who } while you answer it (Transmitting, Processing): same detail and layout
+  // as "Awaiting readback", under your own label
+  function readbackView(reply) {
     var rb = state.readback;
-    if (!CONFIG.showReadback || !rb || state.answered || !state.menuFresh) return null;
+    if (!CONFIG.showReadback || !rb) return null;
+    if (!reply && (state.answered || !state.menuFresh)) return null;
     // what ATC waits for: "Readback IFR Clearance" -> "Awaiting readback" + "IFR Clearance";
     // "Acknowledge Instruction" -> "Awaiting response"; a question -> its answers ("Runway 12L / Runway 12R")
     var w = waitingFor();
     if (rb.negative) {
       // "Negative, QNH 1013.": your readback was wrong; the correction is the hint, whatever the detail mode
       var fix = CONFIG.readbackDetail === "none" ? "" : readbackHint(rb.text) || correction(rb.text);
-      return readbackLook(w.readback, 1, fix, [], { cls: "s-insist is-pulse", label: "Negative", raw: true });
+      return readbackLook(w.readback, 1, fix, [], reply ? { cls: reply.cls, lamp: reply.lamp, label: reply.label,
+        who: reply.who, raw: true } : { cls: "s-insist is-pulse", label: "Negative", raw: true });
     }
     var detail = readbackHint(rb.text) || w.choices.slice(0, 3).join(" / ") || w.kind;
     // a question's answers beat the clearance boxes
-    return readbackLook(w.readback, rb.calls, detail, w.choices.length ? [] : state.infoBoxes);
+    return readbackLook(w.readback, reply ? 1 : rb.calls, detail, w.choices.length ? [] : state.infoBoxes, reply);
+  }
+
+  // "Transmitting" / "Processing", with the pending readback's hint or boxes when you're answering one
+  function replyLook(cls, lamp, label, who) {
+    return readbackView({ cls: cls, lamp: lamp, label: label, who: who }) ||
+      { cls: cls, html: lamp + '<span class="' + who + '">' + label + "</span>" };
   }
 
   // "Negative, Nantes Approach on 124.25." -> "Nantes Approach on 124.25"
@@ -293,21 +303,23 @@
     return t.length > 40 ? t.slice(0, 39) + "…" : t;
   }
 
-  // look: { cls, label, lamp, raw } overrides (raw: detail as given, not the detail mode's)
+  // look: { cls, label, lamp, who, raw } overrides (who: the label's class; raw: detail as given, not the
+  // detail mode's)
   function readbackLook(readback, calls, detail, boxes, look) {
     look = look || {};
     var label = look.label || (readback ? "Awaiting readback" : "Awaiting response");
     // ATC called again for it: louder color, faster pulse, "Awaiting readback ×2"
     var cls = look.cls || (calls > 1 ? "s-insist is-pulse" : "s-atc is-pulse");
     var lamp = look.lamp || LAMP;
+    var who = '<span class="' + (look.who === undefined ? "bp-who" : look.who) + '">';
     if (calls > 1) label += " ×" + calls;
     if (!look.raw) detail = detailFor(detail, boxes);
     if (CONFIG.readbackDetail === "boxes" && boxes.length) {
       // "Awaiting readback" over the boxes, as in the toolbar; their titles say what it's about
-      return { cls: cls + " is-msg", html: lamp + '<span class="bp-who">' + label + "</span>",
+      return { cls: cls + " is-msg", html: lamp + who + label + "</span>",
         extra: boxesHtml(boxes) };
     }
-    return { cls: cls, html: lamp + '<span class="bp-who">' + label + "</span>" +
+    return { cls: cls, html: lamp + who + label + "</span>" +
       (detail ? '<span class="bp-sep">·</span><span>' + esc(detail) + "</span>" : "") };
   }
 
@@ -374,18 +386,7 @@
   }
 
   function pttLook() {
-    return { cls: "s-you", html: MIC + '<span class="bp-who">Transmitting</span>' + replyDetail() };
-  }
-
-  // While you answer a pending readback (PTT, the toolbar's spoken reply, then BeyondATC processing it), the
-  // hint stays after the label: "Transmitting · Taxi 30R". One line whatever the detail mode.
-  function replyDetail() {
-    var rb = state.readback;
-    if (!CONFIG.showReadback || !rb || CONFIG.readbackDetail === "none") return "";
-    var w = waitingFor();
-    var d = detailFor(readbackHint(rb.text) || (rb.negative && correction(rb.text)) || w.kind,
-      w.choices.length ? [] : state.infoBoxes);
-    return d ? '<span class="bp-sep">·</span><span>' + esc(d) + "</span>" : "";
+    return replyLook("s-you", MIC, "Transmitting", "bp-who");
   }
 
   function mutedLook() {
@@ -461,7 +462,7 @@
     switch (state.mode) {
       case "processing":
       case "request":
-        v = { cls: "s-proc", html: DOTS + "<span>Processing</span>" + replyDetail() };
+        v = replyLook("s-proc", DOTS, "Processing", "");
         break;
       case "queued":
         v = { cls: "s-proc", html: LAMP + "<span>Queued</span>" +
@@ -473,7 +474,7 @@
       case "speaking":
         // the reply BeyondATC speaks for you (toolbar or Auto Respond); your own voice is pttLook (mic icon)
         if (state.speaker === "player") {
-          v = { cls: "s-you", html: BARS + '<span class="bp-who">Transmitting</span>' + replyDetail() };
+          v = replyLook("s-you", BARS, "Transmitting", "bp-who");
         }
         else if (state.speaker === "traffic") {
           v = CONFIG.showTraffic ? { cls: "", html: BARS + "<span>Traffic</span>" } : readbackView();
