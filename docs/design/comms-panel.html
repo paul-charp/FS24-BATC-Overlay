@@ -130,6 +130,7 @@
      the card inside fades and slides. Height and opacity only, which Gameface transitions (the pill does). */
   .cap {
     max-width: 100%; overflow: hidden; padding-top: calc(6 * var(--u));
+    display: flex; flex-direction: column; align-items: flex-end; /* the box keeps its width when the answers open */
     transition: height .42s cubic-bezier(.22,.8,.24,1), padding-top .42s cubic-bezier(.22,.8,.24,1);
   }
   .cap .card {
@@ -142,10 +143,11 @@
   }
   .cap.out { padding-top: 0; }
   /* answers under ATC's message: the same chips as the hover row, a size smaller, read left to right */
-  .cap .acts { display: flex; flex-wrap: wrap; margin-top: calc(5 * var(--u)); text-shadow: none; }
-  .cap .chip { height: calc(22 * var(--u)); padding: 0 calc(9 * var(--u)); margin: calc(2 * var(--u)) calc(4 * var(--u)) 0 0;
-    border-radius: calc(11 * var(--u)); font-size: calc(11.5 * var(--u)); }
-  .cap .chip.round { width: calc(22 * var(--u)); padding: 0; }
+  /* answers: their own row of chips below ATC's message (not inside its box), only while you hover it or the pill */
+  .cap .acts { display: flex; flex-wrap: wrap; justify-content: flex-end; padding-top: calc(3 * var(--u)); }
+  .cap .chip { height: calc(24 * var(--u)); padding: 0 calc(10 * var(--u)); margin: calc(3 * var(--u)) 0 0 calc(4 * var(--u));
+    border-radius: calc(12 * var(--u)); font-size: calc(11.5 * var(--u)); }
+  .cap .chip.round { width: calc(24 * var(--u)); padding: 0; }
   .cap .chip.round svg { width: calc(12 * var(--u)); height: calc(12 * var(--u)); }
   .cap.out .card { opacity: 0; transform: translateY(calc(6 * var(--u))); }
   .cap.leaving .card { transform: translateY(calc(-6 * var(--u))); }
@@ -308,7 +310,7 @@
       <h2>Options</h2>
       <div class="opts">
         <div class="opt"><span>Captions</span><span class="seg" id="optCaptions"><button data-v="off">Off</button><button data-v="mine">Mine</button><button data-v="all">All</button></span></div>
-        <div class="opt"><span>Answers</span><span class="seg" id="optAnswers"><button data-v="message">Under the message</button><button data-v="hover">On hover</button></span></div>
+        <div class="opt"><span>Answers</span><span class="seg" id="optAnswers"><button data-v="message">Below the message</button><button data-v="hover">Beside the pill</button></span></div>
         <div class="opt"><span>AI traffic (pill, captions, log)</span><span class="seg" id="optTraffic"><button data-v="off">Hide</button><button data-v="on">Show</button></span></div>
       </div>
     </div>
@@ -321,7 +323,7 @@
       <ul>
         <li><b>Glance</b>: the pill, unchanged. It stays the status line and the title of everything below it.</li>
         <li><b>Read</b>: captions under the pill. Each ATC line shows for about 9 s; the instruction ATC waits on stays, outlined, until you answer. "Mine" drops lines to other aircraft.</li>
-        <li><b>Answer</b>: the answers sit under ATC's message, right where you read it: the obvious one filled amber, up to three, "+N" for the rest (opens the panel), Say Again as an icon. With captions off (or "On hover"), they move to a row beside the pill that opens on hover, with the Auto Respond / Auto Tune switches at its far end.</li>
+        <li><b>Answer</b>: hover ATC's message (or the pill) and its answers slide out as a row of chips below it, outside its box: the obvious one filled amber, up to three, "+N" for the rest (opens the panel), Say Again as an icon. At rest only the message shows. With captions off (or "Beside the pill"), they open beside the pill on hover instead, with the Auto Respond / Auto Tune switches at the far end.</li>
         <li><b>Everything else</b>: clicking the pill opens the comms panel with Radio (pending reply, requests), Log and Frequencies tabs. It opens on the tab that matters: Radio while ATC waits, Frequencies while a contact is pending.</li>
       </ul>
       <h3>Decisions to make</h3>
@@ -371,7 +373,7 @@
       <h3>New settings</h3>
       <ul>
         <li>Captions: Off / Mine / All, and how long they stay.</li>
-        <li>Answers: under the message / on hover.</li>
+        <li>Answers on hover: below the message / beside the pill.</li>
         <li>AI traffic (exists) also filters captions and the log.</li>
       </ul>
     </section>
@@ -697,10 +699,10 @@
     return false;
   }
   var hoverTimer = 0;
-  anchor.addEventListener("mouseenter", function () { clearTimeout(hoverTimer); if (!S.hover) { S.hover = true; renderTray(); } });
+  anchor.addEventListener("mouseenter", function () { clearTimeout(hoverTimer); if (!S.hover) { S.hover = true; update(); } });
   anchor.addEventListener("mouseleave", function () {
     clearTimeout(hoverTimer);
-    hoverTimer = setTimeout(function () { S.hover = false; renderTray(); }, 350);
+    hoverTimer = setTimeout(function () { S.hover = false; update(); }, 350);
   });
   tray.addEventListener("click", function (e) {
     var el = e.target.closest("[data-reply],[data-sw],[data-more]");
@@ -722,7 +724,7 @@
   }
   // Captions enter by opening their slot to the card's height, and leave by closing it, so the rest glide.
   // Nodes are kept per caption; new ones are always the newest, so they only ever append.
-  var CAP_MS = 420;
+  var CAP_MS = 420, capHoverTimer = 0;
   function capClass(c) { return "cap " + c.who + (c.pinned ? " pinned" : ""); }
   function capEnter(c) {
     var n = document.createElement("div");
@@ -730,6 +732,11 @@
     n.setAttribute("data-id", c.id);
     n.innerHTML = '<div class="card">' + capText(c) + "</div>";
     n.style.height = "0px";
+    n.addEventListener("mouseenter", function () { clearTimeout(capHoverTimer); if (S.capHover !== c.id) { S.capHover = c.id; update(); } });
+    n.addEventListener("mouseleave", function () {
+      clearTimeout(capHoverTimer);
+      capHoverTimer = setTimeout(function () { S.capHover = null; update(); }, 350);
+    });
     capsEl.appendChild(n);
     var h = n.firstChild.offsetHeight;
     requestAnimationFrame(function () {
@@ -750,15 +757,17 @@
   }
   function capActs(c) {
     var p = S.pending;
-    return c.pinned && p && p.capId === c.id && answersUnderMessage() ? '<div class="acts">' + answerChips(p) + "</div>" : "";
+    return c.pinned && p && p.capId === c.id && answersUnderMessage() && (S.hover || S.capHover === c.id) ? answerChips(p) : "";
   }
-  // change a caption's content and glide its slot to the new height
+  // show or hide the answers row under a caption and glide its slot to the new height
   function capSet(n, c, acts) {
-    var card = n.firstChild, from = n.offsetHeight;
-    card.innerHTML = capText(c) + acts;
+    var from = n.offsetHeight, row = n.querySelector(".acts");
+    if (acts && !row) { row = document.createElement("div"); row.className = "acts"; n.appendChild(row); }
+    if (row) { if (acts) row.innerHTML = acts; else n.removeChild(row); }
     n.setAttribute("data-acts", acts);
     if (n.className.indexOf(" out") >= 0) return; // still entering: its open animation measures again below
-    var to = card.offsetHeight + 6 * u();
+    n.style.height = "";
+    var to = n.offsetHeight; // natural height, measured before the frame paints
     if (Math.abs(to - from) < 1) return;
     n.style.height = from + "px";
     n.offsetHeight;
