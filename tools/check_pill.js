@@ -44,6 +44,9 @@ const HINTS = [
   ["Negative, taxi via M, T.", "Taxi via M, T"],
   ["Negative, QNH 1013.", "QNH 1013"],
   ["Volotea 2NK, unable direct at this time.", ""],
+  ["Volotea 2NK, Nantes Tower, continue.", "Continue"],
+  ["Volotea 2NK, welcome back. Continue.", "Continue"],
+  ["Volotea 2NK, Bordeaux Control, identified, continue climb to FL380.", "Climb FL380"],
 ];
 HINTS.forEach(([t, want]) => expect("hint    " + t.slice(0, 60), readbackHint(t), want));
 

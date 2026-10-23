@@ -588,6 +588,7 @@
     ["(?:qnh|altimeter)\\s+(\\d{3,4}(?:\\.\\d{2})?)", "QNH $1"],
     ["(?:proceed )?direct(?: to)?\\s+(?!at\\b|this\\b|the\\b)([A-Z]{2,5})\\b", "Direct $1"],
     ["report ([a-z][a-z ]{2,30}?)(?=[.,?]|$)", "Report $1"],
+    ["continue\\s*\\.?\\s*$", "Continue"],
   ].map(function (r) { return [new RegExp("\\b" + r[0], "i"), r[1]]; });
 
   function readbackHint(text) {
@@ -726,7 +727,13 @@
           // again (the toolbar's "Say Again" would have sent a Player: line first)
           // "Negative, QNH 1013.": ATC answers a wrong readback with the correction
           var negative = /^negative\b/i.test(payload);
-          if (!state.answered && !negative) state.readback.calls++;
+          if (!negative && (state.answered || state.readback.facility.name !== state.facility.name)) {
+            // you replied (or a new station talks): a new instruction with the same reply menu, like
+            // "Nantes Tower, continue." after the handoff's "Acknowledge Instruction". Not the old hint.
+            state.readback = { text: clip(payload), facility: state.facility, calls: 1, negative: false };
+          } else if (!state.answered && !negative) {
+            state.readback.calls++;
+          }
           if (negative || readbackHint(payload)) {
             state.readback.text = clip(payload);
             state.readback.negative = negative;

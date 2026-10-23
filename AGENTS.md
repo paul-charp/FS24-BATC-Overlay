@@ -77,6 +77,9 @@ screen corner during flight, with a click-to-open settings card. Windows only. U
   (`awaiting` with no queued request). BeyondATC drops taxi and acknowledge replies after ~18 s with no
   answer (menu back to requests, `pill.js` shows "No readback"); it keeps takeoff clearance and chases.
   A voice (PTT) reply is `processing` then `ready`, with no `Player:` line. `READBACKS` only shapes the hint.
+  The same menu can span two exchanges: after a handoff's `Acknowledge Instruction¬Say Again¬`, your
+  check-in and "Nantes Tower, continue." keep it unchanged, so `pill.js` treats an ATC line after your reply
+  (or from a new station) as a new instruction, not a chase.
 - `InfoBoxes: [{"title":"Taxi to Runway","info":"12L"},{"title":"SID","info":"KELA8L"},
   {"title":"Altitude Clearance","info":"FL060"},{"title":"Squawk","info":"1000"}]`: the toolbar's
   clearance boxes (`info` may hold `<br>`); `[]` at load, a CTAF box on UNICOM.
