@@ -298,7 +298,7 @@
       <h3>Three levels, one anchor</h3>
       <ul>
         <li><b>Glance</b>: the pill, unchanged. It stays the status line and the title of everything below it.</li>
-        <li><b>Read</b>: captions under the pill. Each ATC line shows for about 9 s; the instruction ATC waits on stays, outlined, until you answer. "Mine" drops lines to other aircraft.</li>
+        <li><b>Read</b>: captions under the pill. The lines of an exchange stay until it closes, then leave together about 5 s later; the instruction ATC waits on is outlined until you answer. Other aircraft's lines leave one by one. "Mine" drops lines to other aircraft.</li>
         <li><b>Answer</b>: hover ATC's message or the pill and the answers slide out as a row of chips below the message, outside its box. They show in one place only: beside the pill when the message isn't on screen (captions off), with the Auto Respond / Auto Tune switches at the far end. The obvious one filled amber, up to three, "+N" shows the rest in place. No Say Again: the message is there to read again. At rest only the message shows.</li>
         <li><b>Request</b>: with nothing pending, hovering the pill offers BeyondATC's requests in the same row, in its own order (the likely next one first), three at a time and "+N" for the rest.</li>
         <li><b>Look up</b>: clicking the pill opens a panel with Frequencies (Departure / Arrival) and Log. It opens on Frequencies while ATC's handoff is pending, else on the tab used last. Settings sit behind the gear.</li>
@@ -418,9 +418,10 @@
     var mine = who !== "traffic";
     if (opt.captions !== "off" && (mine || (opt.captions === "all" && opt.traffic))) {
       S.caps.push({ id: line.id, who: who, label: label, text: text, born: Date.now(), pinned: false });
-      if (S.caps.length > 3) {
-        for (var i = 0; i < S.caps.length && S.caps.length > 3; i++) if (!S.caps[i].pinned) S.caps.splice(i--, 1);
-      }
+      // room for a whole exchange (a clearance is five lines): other aircraft's lines make way first
+      var i;
+      for (i = 0; i < S.caps.length && S.caps.length > 6; i++) if (S.caps[i].who === "traffic") S.caps.splice(i--, 1);
+      for (i = 0; i < S.caps.length && S.caps.length > 6; i++) if (!S.caps[i].pinned) S.caps.splice(i--, 1);
     }
     return line;
   }
@@ -705,7 +706,7 @@
   }
   // Captions enter by opening their slot to the card's height, and leave by closing it, so the rest glide.
   // Nodes are kept per caption; new ones are always the newest, so they only ever append.
-  var CAP_MS = 420, capHoverTimer = 0;
+  var CAP_MS = 420, capHoverTimer = 0, EXCHANGE_LINGER_MS = 5000;
   function capClass(c) { return "cap " + c.who + (c.pinned ? " pinned" : ""); }
   function capEnter(c) {
     var n = document.createElement("div");
@@ -759,7 +760,15 @@
   }
   function renderCaps() {
     var now = Date.now();
-    S.caps = S.caps.filter(function (c) { return c.pinned || now - c.born < (c.who === "traffic" ? 6000 : 9000); });
+    // your exchange's lines stay together and leave together, a few seconds after it closes (nothing pending,
+    // nothing queued or playing); other aircraft's lines leave one by one
+    var closed = !S.pending && !S.lock && !S.confirm && S.mode === "ready";
+    if (!closed) S.closedAt = 0;
+    else if (!S.closedAt) S.closedAt = now;
+    var clear = closed && now - S.closedAt >= EXCHANGE_LINGER_MS;
+    S.caps = S.caps.filter(function (c) {
+      return c.who === "traffic" ? now - c.born < 6000 : !clear;
+    });
     var live = {}, nodes = {};
     S.caps.forEach(function (c) { live[c.id] = c; });
     [].slice.call(capsEl.children).forEach(function (n) {
