@@ -33,6 +33,8 @@
     pttDelayMs: 250,     // PTT held this long before "Transmitting" shows. Under ~450 ms a click still shows briefly:
                          // the sim's first repeat comes at ~0.4 s, so a click looks held until then
     hideOffline: false,  // true: no pill at all while BeyondATC isn't running
+    devLog: false,       // developers: stream what the pill gets, shows and does to tools/pill_log.py
+    devLogUrl: "ws://127.0.0.1:41799",
     showTraffic: true,   // show a neutral "Traffic" pill while AI traffic talks
     facility: "short",   // "short": "Ground", "full": "Montpellier Ground"
     url: "ws://127.0.0.1:41716",
@@ -44,7 +46,7 @@
 
   // What the settings card changes. Saved in localStorage, which every sim UI view shares.
   var USER_KEYS = ["corner", "x", "y", "scale", "showTuning", "showContact", "showAtis", "showReadback", "readbackDetail", "keepLast",
-    "warnMuted", "showPtt", "hideOffline",
+    "warnMuted", "showPtt", "hideOffline", "devLog",
     "showTraffic", "facility"];
   var STORE_KEY = "batcpill.settings";
   var DEFAULTS = {};
@@ -111,7 +113,7 @@
     seenInfo: false,     // the first InfoBoxes after connecting is the snapshot, not a change
   };
   var socket = null;
-  var timers = { reconnect: 0, linger: 0, error: 0, tune: 0, missed: 0, confirm: 0, swHide: 0, atis: 0, demo: 0, ptt: 0, pttShow: 0, swap: 0, poll: 0 };
+  var timers = { reconnect: 0, linger: 0, error: 0, tune: 0, missed: 0, confirm: 0, swHide: 0, atis: 0, demo: 0, ptt: 0, pttShow: 0, swap: 0, poll: 0, log: 0 };
   var destroyed = false;
   var current = null;    // last rendered view signature
 
@@ -162,6 +164,8 @@
       '<div class="bc-note">Also bind your PTT button to "Toggle Speaker"</div>' +
       toggleRow("AI traffic", "showTraffic") + toggleRow("Full station names", "fullNames") +
       toggleRow("Hide when BATC is off", "hideOffline") +
+      toggleRow("Log flight (developers)", "devLog") +
+      '<div class="bc-note">Run python tools/pill_log.py on this PC</div>' +
     "</div>" +
     '<div class="bc-pane" data-pane="position">' +
       '<div class="bc-row"><span class="bc-label">Corner</span><span class="bc-corners">' +
@@ -580,6 +584,8 @@
     var v = view();
     var sig = v.hidden ? "hidden" : v.cls + "|" + v.html;
     if (sig === current) return;
+    shown = v.hidden ? "hidden" : (v.cls || "-") + " | " + v.html.replace(/<[^>]*>/g, " ").replace(/\s+/g, " ").trim();
+    devLog("pill", shown);
     var wasHidden = current === null || current === "hidden";
     current = sig;
 
@@ -786,6 +792,7 @@
   }
 
   function onMessage(msg) {
+    devLog("msg", msg);
     var i = msg.indexOf(":");
     if (i < 0) return;
     var type = msg.slice(0, i);
@@ -967,8 +974,11 @@
       state.readback = null;
       state.kept = null;
       showSwitches(false);
-      render();
-      if (!destroyed) timers.reconnect = setTimeout(connect, CONFIG.reconnectMs);
+      // closed on purpose for the developer log's snapshot: straight back, no "BATC offline" in between
+      var now = resnapshot;
+      resnapshot = false;
+      if (!now) render();
+      if (!destroyed) timers.reconnect = setTimeout(connect, now ? 0 : CONFIG.reconnectMs);
     };
     socket.onerror = function () { /* onclose follows */ };
   }
@@ -1012,6 +1022,7 @@
   }
 
   function openCard(open) {
+    if (open !== state.editing) devLog("event", open ? "settings opened" : "settings closed");
     state.editing = open;
     if (open) showSwitches(false);
     card.className = open ? "" : "is-closed";
@@ -1034,6 +1045,7 @@
     for (var el = e.target; el && el !== root; el = el.parentNode) {
       if (el.className && String(el.className.baseVal || el.className).indexOf("bp-unpin") >= 0) {
         if (state.editing) break; // the settings sample: just a click on the pill
+        devLog("event", "hide kept clearance");
         state.kept = null;
         render();
         return;
@@ -1163,9 +1175,11 @@
       state.autoTune = !state.autoTune;
       if (state.autoTune) state.contact = null;
       socket.send("set_autotune: " + state.autoTune);
+      devLog("event", "sent set_autotune: " + state.autoTune);
     } else {
       state.autoRespond = !state.autoRespond;
       socket.send("set_autorespond: " + state.autoRespond);
+      devLog("event", "sent set_autorespond: " + state.autoRespond);
     }
     updateSwitches();
     render();
@@ -1208,9 +1222,11 @@
       clearTimeout(timers.pttShow);
       var shown = state.pttShown;
       state.ptt = state.pttRepeating = state.pttShown = false;
+      devLog("event", "ptt up");
       if (shown) render(true);
     }, state.pttRepeating ? PTT_REPEAT_MS : PTT_FIRST_MS);
     if (!held) {
+      devLog("event", "ptt down");
       // still held after pttDelayMs (the sim repeats from ~0.4 s): show it
       clearTimeout(timers.pttShow);
       timers.pttShow = setTimeout(function () { state.pttShown = true; render(true); }, CONFIG.pttDelayMs);
@@ -1239,12 +1255,51 @@
     }
   }
 
+  // ---- developer log (tools/pill_log.py) --------------------------------
+  // With devLog on, the pill streams to a local logger: every BeyondATC message ("msg"), what it shows ("pill")
+  // and what you do ("event"). The logger writes them as they come, so a sim crash keeps the log.
+
+  var logSock = null;
+  var resnapshot = false; // BeyondATC socket closed to get a fresh snapshot into the log
+  var shown = "";         // what the pill shows, as logged: "s-atc is-pulse | Awaiting readback · Taxi 30R"
+
+  function logConnect() {
+    clearTimeout(timers.log);
+    if (!CONFIG.devLog || destroyed) {
+      if (logSock) { logSock.onclose = null; logSock.close(); logSock = null; }
+      return;
+    }
+    if (logSock) return;
+    try {
+      logSock = new WebSocket(CONFIG.devLogUrl);
+    } catch (e) {
+      timers.log = setTimeout(logConnect, CONFIG.reconnectMs);
+      return;
+    }
+    logSock.onopen = function () {
+      devLog("pill", shown || "(not rendered yet)");
+      // reconnect to BeyondATC so the log starts with its snapshot
+      if (socket) { resnapshot = true; socket.close(); }
+    };
+    logSock.onclose = function () {
+      logSock = null;
+      if (CONFIG.devLog && !destroyed) timers.log = setTimeout(logConnect, CONFIG.reconnectMs);
+    };
+    logSock.onerror = function () { /* onclose follows */ };
+  }
+
+  function devLog(kind, value) {
+    if (!logSock || logSock.readyState !== 1) return;
+    try { logSock.send(JSON.stringify({ k: kind, v: value })); } catch (e) { /* the logger went away */ }
+  }
+
   // ---- lifecycle -------------------------------------------------------
 
   function destroy() {
     destroyed = true;
     for (var k in timers) { clearTimeout(timers[k]); clearInterval(timers[k]); }
     if (socket) { socket.onclose = null; socket.close(); socket = null; }
+    if (logSock) { logSock.onclose = null; logSock.close(); logSock = null; }
     if (keyHandler && window.engine && typeof window.engine.off === "function") window.engine.off("keyIntercepted", keyHandler);
     if (root.parentNode) root.parentNode.removeChild(root);
     if (card.parentNode) card.parentNode.removeChild(card);
@@ -1260,6 +1315,8 @@
     var moved = "corner" in patch;
     for (var k in patch) CONFIG[k] = patch[k];
     saveSettings();
+    devLog("event", "settings " + JSON.stringify(patch));
+    if ("devLog" in patch) logConnect();
     listenPtt(); // turning PTT on starts listening (off just ignores the events)
     place();
     updateCard();
@@ -1280,5 +1337,6 @@
   poll();
   timers.poll = setInterval(poll, 1000);
   connect();
+  logConnect();
   try { listenPtt(); } catch (e) { /* no key events in this view: no PTT */ }
 })();

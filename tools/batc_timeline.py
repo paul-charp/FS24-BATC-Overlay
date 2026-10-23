@@ -1,10 +1,11 @@
 """Print a readable timeline from a sniff_batc.py log, to see how BeyondATC's state messages move
 around an exchange (e.g. which pilot responses `Actions` offers while ATC waits for a readback). Stdlib only.
 
-    python tools/batc_timeline.py                  latest logs/batc-*.jsonl
+    python tools/batc_timeline.py                  latest log in logs/ (sniff_batc.py or pill_log.py)
     python tools/batc_timeline.py logs/batc-X.jsonl --types Actions,InfoBoxes
 
-Speech (ATC:, Player:, ...), CommsState, Facility and QueuedAction lines are printed as they come.
+Speech (ATC:, Player:, ...), CommsState, Facility and QueuedAction lines are printed as they come, and so are
+the pill's own lines in a tools/pill_log.py log (PILL: what it showed, --: what you did).
 For the state types (--types), only changes are printed, as added (+) and removed (-) items, so a
 response appearing in the toolbar menu after a clearance stands out. The payload format doesn't need
 to be known: JSON is flattened to `path = value` items, anything else is compared whole.
@@ -48,16 +49,23 @@ def main():
     if args.log:
         path = Path(args.log)
     else:
-        logs = sorted((Path(__file__).resolve().parent.parent / "logs").glob("batc-*.jsonl"))
+        logs = sorted((Path(__file__).resolve().parent.parent / "logs").glob("*.jsonl"), key=lambda p: p.stat().st_mtime)
         if not logs:
-            sys.exit("timeline: no logs/batc-*.jsonl, run tools/sniff_batc.py first")
+            sys.exit("timeline: no logs/*.jsonl, run tools/sniff_batc.py or tools/pill_log.py first")
         path = logs[-1]
     diffed = set(t for t in args.types.split(",") if t)
     seen = {}
     print(f"timeline: {path}")
     for line in path.open(encoding="utf-8"):
         rec = json.loads(line)
-        t, msg = rec["t"], rec["msg"]
+        t = rec["t"]
+        if "msg" not in rec:  # a pill_log.py line
+            if "pill" in rec:
+                print(f"{t:8.2f}  {'PILL':<12} {rec['pill'][:160]}")
+            elif "event" in rec:
+                print(f"{t:8.2f}  {'--':<12} {rec['event'][:160]}")
+            continue
+        msg = rec["msg"]
         typ, _, payload = msg.partition(":")
         payload = payload.strip()
         if typ in EVENTS:

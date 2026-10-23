@@ -49,6 +49,7 @@ Hovering the pill shows two buttons under it: BeyondATC's **Auto Respond** (spee
 | AI traffic | show the "Traffic" pill while AI traffic talks |
 | Full station names | "Montpellier Ground" instead of "Ground" |
 | Hide when BATC is off | no pill at all while BeyondATC isn't running |
+| Log flight (developers) | stream what the pill receives, shows and does to `tools/pill_log.py` (see Development) |
 
 **Position**
 
@@ -105,10 +106,16 @@ Logs every BeyondATC socket message with timestamps to `logs/`. Use it when Beyo
 `tools/harness.html` previews the pill in a desktop browser against the live socket, with replay buttons for captured exchanges (wind check, voice request, IFR clearance and readback, runway question) and a "Hold PTT" button: run `python -m http.server 8765` in the repo root and open `http://localhost:8765/tools/harness.html`.
 
 ```bash
+python tools/pill_log.py
+```
+
+Records a flight as the pill sees it: turn on **Log flight (developers)** in the pill's settings, and the pill streams to this script every BeyondATC message (it reconnects once so the log starts with BeyondATC's snapshot), what it shows, and what you do (clicks, PTT, settings, the Auto Tune / Auto Respond commands). Written to `logs/pill-<date>.jsonl` line by line, so a sim crash keeps the log. It replaces the sniffer for a test flight.
+
+```bash
 python tools/batc_timeline.py
 ```
 
-Prints the latest sniff log as a timeline, with the toolbar's reply menu (`Actions`) and clearance boxes (`InfoBoxes`) as +/- changes.
+Prints the latest log (sniffer or pill log) as a timeline, with the toolbar's reply menu (`Actions`) and clearance boxes (`InfoBoxes`) as +/- changes, and the pill's states (`PILL`) and your actions (`--`) in between.
 
 ```bash
 python docs/render_images.py
