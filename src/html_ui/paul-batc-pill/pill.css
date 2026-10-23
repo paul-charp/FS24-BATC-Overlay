@@ -144,7 +144,6 @@
   justify-content: center;
   width: calc(16 * var(--u));
   height: calc(16 * var(--u));
-  margin-left: calc(-2 * var(--u));
   border-radius: 50%;
   color: var(--c);
   pointer-events: auto; /* the one child that takes clicks: it hides the kept clearance */
@@ -152,6 +151,9 @@
 }
 /* both icons sit at explicit offsets in the 16-unit circle rather than relying on flex centering of
    absolute children (the sim set a glyph off-center in the settings close button) */
+/* as far from the side as from the top/bottom, so the circle sits centred in the pill's rounded corner (one
+   line: 5 units each; over the boxes: 6). Beats the first-child margin reset of .bp-body / .bp-head */
+#batc-pill .bp-body > .bp-unpin:first-child, #batc-pill .bp-head > .bp-unpin:first-child { margin-left: calc(-5 * var(--u)); }
 #batc-pill .bp-unpin svg { position: absolute; display: block; }
 #batc-pill .bp-unpin .bp-clip {
   top: calc(2 * var(--u)); left: calc(2 * var(--u)); width: calc(12 * var(--u)); height: calc(12 * var(--u));
