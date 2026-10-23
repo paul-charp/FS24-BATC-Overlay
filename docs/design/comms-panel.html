@@ -125,18 +125,25 @@
   .captions { position: absolute; top: calc(74 * var(--u)); right: calc(24 * var(--u)); z-index: 5; width: calc(380 * var(--u));
     display: flex; flex-direction: column; align-items: flex-end; transition: opacity .2s; }
   .captions.behind { opacity: .25; }
+  /* each caption is a slot that opens and closes its height (and gap), so the others glide instead of jumping;
+     the card inside fades and slides. Height and opacity only, which Gameface transitions (the pill does). */
   .cap {
-    max-width: 100%; margin-top: calc(6 * var(--u)); padding: calc(7 * var(--u)) calc(11 * var(--u)) calc(8 * var(--u));
+    max-width: 100%; overflow: hidden; padding-top: calc(6 * var(--u));
+    transition: height .42s cubic-bezier(.22,.8,.24,1), padding-top .42s cubic-bezier(.22,.8,.24,1);
+  }
+  .cap .card {
+    padding: calc(7 * var(--u)) calc(11 * var(--u)) calc(8 * var(--u));
     border-radius: calc(9 * var(--u)); background: rgba(14,18,24,0.72); border: calc(1 * var(--u)) solid rgba(255,255,255,0.08);
     color: rgba(236,241,246,0.94); font: 400 calc(13 * var(--u))/1.38 var(--sim);
-    animation: capin .3s cubic-bezier(.22,.8,.24,1); transition: opacity .5s, transform .5s;
+    transition: opacity .3s ease, transform .42s cubic-bezier(.22,.8,.24,1), border-color .3s ease, background-color .3s ease;
   }
-  .cap.gone { opacity: 0; transform: translateY(calc(-4 * var(--u))); }
-  @keyframes capin { from { opacity: 0; transform: translateY(calc(6 * var(--u))); } }
+  .cap.out { padding-top: 0; }
+  .cap.out .card { opacity: 0; transform: translateY(calc(6 * var(--u))); }
+  .cap.leaving .card { transform: translateY(calc(-6 * var(--u))); }
   .cap .w { display: block; margin-bottom: calc(2 * var(--u)); font: 600 calc(10 * var(--u))/1.2 var(--sim); letter-spacing: .06em; text-transform: uppercase; }
   .cap.atc .w { color: #ffb547; } .cap.you .w { color: #5fd38d; } .cap.traffic .w { color: rgba(236,241,246,0.5); }
-  .cap.traffic { color: rgba(236,241,246,0.7); background: rgba(14,18,24,0.55); }
-  .cap.pinned { border-color: rgba(255,181,71,0.7); }
+  .cap.traffic .card { color: rgba(236,241,246,0.7); background: rgba(14,18,24,0.55); }
+  .cap.pinned .card { border-color: rgba(255,181,71,0.7); }
 
   /* comms panel: non-modal, under the pill (the pill stays live as its title) */
   .panel {
@@ -678,33 +685,48 @@
   function capText(c) {
     return (c.who === "atc" ? "" : '<span class="w">' + esc(c.label) + "</span>") + esc(c.text);
   }
+  // Captions enter by opening their slot to the card's height, and leave by closing it, so the rest glide.
+  // Nodes are kept per caption; new ones are always the newest, so they only ever append.
+  var CAP_MS = 420;
+  function capClass(c) { return "cap " + c.who + (c.pinned ? " pinned" : ""); }
+  function capEnter(c) {
+    var n = document.createElement("div");
+    n.className = capClass(c) + " out";
+    n.setAttribute("data-id", c.id);
+    n.innerHTML = '<div class="card">' + capText(c) + "</div>";
+    n.style.height = "0px";
+    capsEl.appendChild(n);
+    var h = n.firstChild.offsetHeight;
+    requestAnimationFrame(function () {
+      n.className = capClass(c);
+      n.style.height = h + 6 * u() + "px";
+      // free the height once open, so a resize or a new line reflows normally
+      setTimeout(function () { if (!n.getAttribute("data-leaving")) n.style.height = ""; }, CAP_MS + 30);
+    });
+  }
+  function capLeave(n) {
+    if (n.getAttribute("data-leaving")) return;
+    n.setAttribute("data-leaving", "1");
+    n.style.height = n.offsetHeight + "px";
+    n.offsetHeight; // start the collapse from the measured height
+    n.className += " out leaving";
+    n.style.height = "0px";
+    setTimeout(function () { if (n.parentNode) n.parentNode.removeChild(n); }, CAP_MS + 30);
+  }
   function renderCaps() {
     var now = Date.now();
-    S.caps = S.caps.filter(function (c) { return c.pinned || now - c.born < (c.who === "traffic" ? 6500 : 9500); });
-    var html = S.caps.map(function (c) {
-      var fading = !c.pinned && now - c.born > (c.who === "traffic" ? 6000 : 9000);
-      return '<div class="cap ' + c.who + (c.pinned ? " pinned" : "") + (fading ? " gone" : "") + '" data-id="' + c.id + '">' +
-        capText(c) + "</div>";
-    }).join("");
-    if (capsEl.getAttribute("data-sig") !== html) {
-      // keep existing nodes so only new captions animate in
-      var keep = {};
-      [].forEach.call(capsEl.children, function (n) { keep[n.getAttribute("data-id")] = n; });
-      var frag = document.createDocumentFragment();
-      S.caps.forEach(function (c) {
-        var tmp = document.createElement("div");
-        tmp.innerHTML = '<div class="cap ' + c.who + '"></div>';
-        var n = keep[c.id] || tmp.firstChild;
-        var now2 = Date.now(), fading = !c.pinned && now2 - c.born > (c.who === "traffic" ? 6000 : 9000);
-        n.className = "cap " + c.who + (c.pinned ? " pinned" : "") + (fading ? " gone" : "");
-        n.setAttribute("data-id", c.id);
-        n.innerHTML = capText(c);
-        frag.appendChild(n);
-      });
-      capsEl.innerHTML = "";
-      capsEl.appendChild(frag);
-      capsEl.setAttribute("data-sig", html);
-    }
+    S.caps = S.caps.filter(function (c) { return c.pinned || now - c.born < (c.who === "traffic" ? 6000 : 9000); });
+    var live = {}, nodes = {};
+    S.caps.forEach(function (c) { live[c.id] = c; });
+    [].slice.call(capsEl.children).forEach(function (n) {
+      var id = n.getAttribute("data-id");
+      if (n.getAttribute("data-leaving")) return;
+      if (!live[id]) { capLeave(n); return; }
+      nodes[id] = n;
+      var cls = capClass(live[id]);
+      if (n.className !== cls && n.className.indexOf(" out") < 0) n.className = cls;
+    });
+    S.caps.forEach(function (c) { if (!nodes[c.id]) capEnter(c); });
   }
 
   // ---------- panel ----------
@@ -875,7 +897,7 @@
     S = fresh();
     if (keep) { S.panel = keep.panel; S.tab = keep.tab; }
     pillSig = "";
-    capsEl.innerHTML = ""; capsEl.removeAttribute("data-sig");
+    [].slice.call(capsEl.children).forEach(capLeave);
     [].forEach.call(document.querySelectorAll("[data-sc]"), function (b) { b.className = b.getAttribute("data-sc") === name ? "on" : ""; });
     SCENARIOS[name]();
     if (S.panel) openPanel(true); else update();
