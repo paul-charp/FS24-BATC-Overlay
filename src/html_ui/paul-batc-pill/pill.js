@@ -997,6 +997,19 @@
     openCard(!state.editing);
   });
 
+  // a click anywhere but the card or the pill closes the card. Worked out from the position: outside the pill's
+  // elements the click lands on the sim's page (or nowhere we see, in which case the card just stays open)
+  function onPageDown(e) {
+    if (!state.editing) return;
+    var x = e.clientX, y = e.clientY;
+    var inside = [card, root].some(function (el) {
+      var r = el.getBoundingClientRect();
+      return x >= r.left && x <= r.right && y >= r.top && y <= r.bottom;
+    });
+    if (!inside) openCard(false);
+  }
+  document.addEventListener("mousedown", onPageDown, true);
+
   card.addEventListener("click", function (e) {
     var el = e.target;
     while (el && el !== card && !el.hasAttribute("data-act") && !el.hasAttribute("data-corner") &&
@@ -1196,6 +1209,7 @@
     if (card.parentNode) card.parentNode.removeChild(card);
     if (switches.parentNode) switches.parentNode.removeChild(switches);
     document.removeEventListener("mousemove", onMouseMove);
+    document.removeEventListener("mousedown", onPageDown, true);
     if (style.parentNode) style.parentNode.removeChild(style);
     if (window.batcPill && window.batcPill.destroy === destroy) delete window.batcPill;
   }
