@@ -60,7 +60,7 @@ def main():
     print(f"render: states.png {img.size}")
 
     # pill + open card in the top-right corner of a 1080p screen
-    img = shoot("settings.html", (1920, 1080), 2).crop((1600 * 2, 50 * 2, 1920 * 2, 610 * 2))
+    img = shoot("settings.html", (1920, 1080), 2).crop((1600 * 2, 50 * 2, 1920 * 2, 640 * 2))
     img.save(OUT / "settings.png", optimize=True)
     print(f"render: settings.png {img.size}")
 

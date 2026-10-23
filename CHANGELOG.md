@@ -10,6 +10,7 @@
 - Added: with Auto Tune off, a "Contact" reminder until COM1 is on the station ATC handed you to.
 - Added: a new ATIS letter shows for 6 s; an ATIS playing on COM1 shows "ATIS".
 - Added: ATC calling you while COM1 is muted turns the pill red-orange.
+- Added: hovering the pill shows two buttons that flip BeyondATC's Auto Tune and Auto Respond, like the toolbar's own switches (setting "Auto Tune / Respond on hover").
 - Added: optional PTT indicator, from your PTT button also bound to the sim's Toggle Speaker.
 - Changed: "You" is now "Transmitting" while your readback or request plays.
 - Changed: the settings card has two tabs, Display and Position.

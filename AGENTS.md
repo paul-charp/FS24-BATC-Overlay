@@ -6,7 +6,7 @@ screen corner during flight, with a click-to-open settings card. Windows only. U
 
 ## Layout
 
-- `src/html_ui/paul-batc-pill/pill.js`: the whole runtime. Read-only WebSocket client for BeyondATC
+- `src/html_ui/paul-batc-pill/pill.js`: the whole runtime. WebSocket client for BeyondATC (read-only but for the hover buttons)
   (`ws://127.0.0.1:41716`), state machine (`view()`), animated render (`render()` measures the new
   content, then transitions width), settings card, `CONFIG` defaults. `pill.css`: the look; `--u` is
   one 1080p pixel times `CONFIG.scale`.
@@ -87,6 +87,10 @@ screen corner during flight, with a click-to-open settings card. Windows only. U
   `pill.js` keeps a "Contact" reminder from "contact <Station> [on] <freq>" until COM1 (`Facility`)
   matches. An `ATIS Current` box with a new letter shows "ATIS"; the snapshot's box doesn't.
   `CPDLCCode:` and other CPDLC traffic: the pill stays silent (CPDLC is fully handled in the sim).
+- What the toolbar sends (its panel `beyondatc_toolbar.js`, BeyondATC's package, read 2026-10-23): `set_autotune: <bool>`,
+  `set_autorespond: <bool>` on its switches, `set_action: <reply>` on a menu item, `set_frequency: <f>`,
+  `frequencies` / `datis` / `atc_log` on tab clicks. BeyondATC broadcasts the resulting `AutoTune:` /
+  `AutoRespond:` to every client (seen in sniffs when the toolbar switch was clicked).
 - `AppError: {"text","fatal","kicked"}` (text may span lines; empty clears). `Callsign: {full,shortForm}`.
 - The server pings (an empty frame); `sniff_batc.py` lost the connection after each one until it
   answered with a pong. Browsers pong on their own.
@@ -111,5 +115,6 @@ screen corner during flight, with a click-to-open settings card. Windows only. U
 ## Rules
 
 - Never commit Asobo files (cooked components, vanilla UI); the build copies them from the local install.
-- Never send anything on the BeyondATC socket (WebSocket pongs aside).
+- Never send anything on the BeyondATC socket except, on the user's click, the toolbar's own switch commands
+  `set_autotune: true|false` and `set_autorespond: true|false` (the hover buttons). WebSocket pongs aside.
 - Changelogs and release notes list what changed, not why.

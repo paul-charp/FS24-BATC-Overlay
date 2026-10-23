@@ -1,5 +1,6 @@
 // BATC comms pill: shows BeyondATC's comms state in a screen corner during flight.
-// Reads BeyondATC's toolbar socket (the same one its in-sim panel uses); never sends anything.
+// Reads BeyondATC's toolbar socket (the same one its in-sim panel uses). The only thing it sends is what
+// BeyondATC's own toolbar switches send: "set_autotune: true|false" and "set_autorespond: true|false".
 (function () {
   "use strict";
 
@@ -29,6 +30,7 @@
     pttBlock: false,     // also stop the sim acting on it
     pttDelayMs: 250,     // PTT held this long before "Transmitting" shows. Under ~450 ms a click still shows briefly:
                          // the sim's first repeat comes at ~0.4 s, so a click looks held until then
+    hoverSwitches: true, // hovering the pill shows BeyondATC's Auto Tune and Auto Respond buttons
     hideOffline: false,  // true: no pill at all while BeyondATC isn't running
     showTraffic: true,   // show a neutral "Traffic" pill while AI traffic talks
     facility: "short",   // "short": "Ground", "full": "Montpellier Ground"
@@ -41,7 +43,7 @@
 
   // What the settings card changes. Saved in localStorage, which every sim UI view shares.
   var USER_KEYS = ["corner", "x", "y", "scale", "showTuning", "showContact", "showAtis", "showReadback", "readbackDetail",
-    "warnMuted", "showPtt", "hideOffline",
+    "warnMuted", "showPtt", "hoverSwitches", "hideOffline",
     "showTraffic", "facility"];
   var STORE_KEY = "batcpill.settings";
   var DEFAULTS = {};
@@ -99,6 +101,7 @@
     pttRepeating: false,
     demo: "",            // the setting changed last in the card; the sample shows its effect
     autoTune: true,      // BeyondATC tunes the radios itself ("AutoTune: true")
+    autoRespond: false,  // BeyondATC replies for you ("AutoRespond: true")
     contact: null,       // { name, freq } ATC told you to contact, until COM1 is on it (Auto Tune off)
     atis: "",            // new ATIS letter, shown until atisUntil
     atisUntil: 0,
@@ -106,7 +109,7 @@
     seenInfo: false,     // the first InfoBoxes after connecting is the snapshot, not a change
   };
   var socket = null;
-  var timers = { reconnect: 0, linger: 0, error: 0, tune: 0, missed: 0, confirm: 0, atis: 0, demo: 0, ptt: 0, pttShow: 0, swap: 0, poll: 0 };
+  var timers = { reconnect: 0, linger: 0, error: 0, tune: 0, missed: 0, confirm: 0, swHide: 0, atis: 0, demo: 0, ptt: 0, pttShow: 0, swap: 0, poll: 0 };
   var destroyed = false;
   var current = null;    // last rendered view signature
 
@@ -154,6 +157,7 @@
       toggleRow("ATIS changes", "showAtis") + toggleRow("Warn when COM1 muted", "warnMuted") +
       toggleRow("PTT indicator", "showPtt") +
       '<div class="bc-note">Also bind your PTT button to "Toggle Speaker"</div>' +
+      toggleRow("Auto Tune / Respond on hover", "hoverSwitches") +
       toggleRow("AI traffic", "showTraffic") + toggleRow("Full station names", "fullNames") +
       toggleRow("Hide when BATC is off", "hideOffline") +
     "</div>" +
@@ -167,6 +171,24 @@
     '<div class="bc-foot"><span class="bc-btn bc-reset" data-act="reset">Reset</span></div>';
   document.body.appendChild(card);
   var cardEls = card.querySelectorAll("*");
+
+  // Auto Tune / Auto Respond buttons, beside the pill while the mouse is over it (see onMouseMove)
+  var switches = document.createElement("div");
+  switches.id = "batc-pill-sw";
+  switches.className = "is-closed";
+  // one icon button each, lit when on, dimmed and struck through when off
+  var SLASH = '<path class="bs-slash" d="M2.5 2.5l11 11"/>';
+  switches.innerHTML =
+    '<span class="bs-btn" data-sw="autotune"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" ' +
+      'stroke-width="1.6" stroke-linecap="round"><circle cx="8" cy="8" r="1.6" fill="currentColor" stroke="none"/>' +
+      '<path d="M5.2 5.2a4 4 0 0 0 0 5.6M10.8 5.2a4 4 0 0 1 0 5.6M3.1 3.1a7 7 0 0 0 0 9.8M12.9 3.1a7 7 0 0 1 0 9.8"/>' +
+      SLASH + "</svg></span>" +
+    '<span class="bs-btn" data-sw="autorespond"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" ' +
+      'stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M2.5 3.5h11v7h-6l-3 2.5v-2.5h-2z"/>' +
+      '<path d="M5.5 7h5"/>' + SLASH + "</svg></span>";
+  document.body.appendChild(switches);
+  var switchEls = [switches].concat([].slice.call(switches.querySelectorAll("*")));
+  var switchesOpen = false;
 
   function stepRow(label, key) {
     return '<div class="bc-row"><span class="bc-label">' + label + '</span><span class="bc-step">' +
@@ -811,6 +833,11 @@
       case "AutoTune":
         state.autoTune = payload !== "false";
         if (state.autoTune) state.contact = null;
+        updateSwitches();
+        break;
+      case "AutoRespond":
+        state.autoRespond = payload === "true";
+        updateSwitches();
         break;
       case "Actions":
         onActions(payload);
@@ -861,6 +888,7 @@
       state.repliesKey = "";
       state.infoBoxes = [];
       state.readback = null;
+      showSwitches(false);
       render();
       if (!destroyed) timers.reconnect = setTimeout(connect, CONFIG.reconnectMs);
     };
@@ -907,6 +935,7 @@
 
   function openCard(open) {
     state.editing = open;
+    if (open) showSwitches(false);
     card.className = open ? "" : "is-closed";
     // the sim checks data-input-group on the exact element under the cursor, so tag every element
     var els = [card].concat([].slice.call(cardEls));
@@ -962,6 +991,86 @@
     timers.demo = setTimeout(function () { state.demo = ""; render(); }, CONFIG.demoMs);
     set(patch);
   });
+
+  // ---- BeyondATC buttons on hover ----------------------------------------
+  // Mousemove reaches mainUi whatever is under the cursor, so hovering is worked out from positions: the
+  // buttons open over the pill and stay while the mouse is over the pill, the buttons or the gap between.
+
+  function canSwitch() {
+    return CONFIG.hoverSwitches && state.connected && state.inFlight && !state.editing && current !== null &&
+      current !== "hidden";
+  }
+
+  function onMouseMove(e) {
+    if (!canSwitch()) { if (switchesOpen) showSwitches(false); return; }
+    var r = root.getBoundingClientRect();
+    var a = { left: r.left, right: r.right, top: r.top, bottom: r.bottom };
+    if (switchesOpen) {
+      var b = switches.getBoundingClientRect();
+      a = { left: Math.min(a.left, b.left), right: Math.max(a.right, b.right),
+        top: Math.min(a.top, b.top), bottom: Math.max(a.bottom, b.bottom) };
+    }
+    var m = switchesOpen ? 8 : 0;
+    var inside = e.clientX >= a.left - m && e.clientX <= a.right + m && e.clientY >= a.top - m && e.clientY <= a.bottom + m;
+    if (inside) {
+      clearTimeout(timers.swHide);
+      timers.swHide = 0;
+      if (!switchesOpen) showSwitches(true);
+    } else if (switchesOpen && !timers.swHide) {
+      timers.swHide = setTimeout(function () { timers.swHide = 0; showSwitches(false); }, 350);
+    }
+  }
+
+  function showSwitches(open) {
+    switchesOpen = open;
+    switches.className = open ? "" : "is-closed";
+    // clicks need data-input-group on the exact element under the cursor (see openCard)
+    for (var i = 0; i < switchEls.length; i++) {
+      if (open) switchEls[i].setAttribute("data-input-group", "BATC-PILL");
+      else switchEls[i].removeAttribute("data-input-group");
+    }
+    if (open) { placeSwitches(); updateSwitches(); }
+  }
+
+  function placeSwitches() {
+    // beside the pill, on its side, away from the screen edge it sits on
+    var r = root.getBoundingClientRect();
+    var gap = 6 * 0.000926 * window.innerHeight;
+    var st = switches.style;
+    st.top = st.bottom = st.left = st.right = "";
+    if (root.getAttribute("data-side") === "left") st.left = r.left + "px";
+    else st.right = window.innerWidth - r.right + "px";
+    switches.setAttribute("data-edge", /^bottom/.test(CONFIG.corner) ? "bottom" : "top");
+    if (/^bottom/.test(CONFIG.corner)) st.bottom = window.innerHeight - r.top + gap + "px";
+    else st.top = r.bottom + gap + "px";
+  }
+
+  function updateSwitches() {
+    var chips = switches.querySelectorAll("[data-sw]");
+    for (var i = 0; i < chips.length; i++) {
+      var on = chips[i].getAttribute("data-sw") === "autotune" ? state.autoTune : state.autoRespond;
+      chips[i].className = "bs-btn" + (on ? " is-on" : "");
+    }
+  }
+
+  switches.addEventListener("click", function (e) {
+    var el = e.target;
+    while (el && el !== switches && !el.hasAttribute("data-sw")) el = el.parentNode;
+    if (!el || el === switches || !socket || socket.readyState !== 1) return;
+    // the same commands as BeyondATC's toolbar switches; it then sends the new state to every client
+    if (el.getAttribute("data-sw") === "autotune") {
+      state.autoTune = !state.autoTune;
+      if (state.autoTune) state.contact = null;
+      socket.send("set_autotune: " + state.autoTune);
+    } else {
+      state.autoRespond = !state.autoRespond;
+      socket.send("set_autorespond: " + state.autoRespond);
+    }
+    updateSwitches();
+    render();
+  });
+
+  document.addEventListener("mousemove", onMouseMove);
 
   // ---- flight detection -----------------------------------------------
 
@@ -1038,6 +1147,8 @@
     if (keyHandler && window.engine && typeof window.engine.off === "function") window.engine.off("keyIntercepted", keyHandler);
     if (root.parentNode) root.parentNode.removeChild(root);
     if (card.parentNode) card.parentNode.removeChild(card);
+    if (switches.parentNode) switches.parentNode.removeChild(switches);
+    document.removeEventListener("mousemove", onMouseMove);
     if (style.parentNode) style.parentNode.removeChild(style);
     if (window.batcPill && window.batcPill.destroy === destroy) delete window.batcPill;
   }

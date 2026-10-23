@@ -222,6 +222,48 @@
 #batc-pill[data-input-group]:hover .bp-bg { background-color: rgba(14, 18, 24, 0.78); }
 #batc-pill.is-dot[data-input-group]:hover { opacity: 1; }
 
+/* ---- BeyondATC switches (on hover) ---- */
+#batc-pill-sw {
+  --k: 0.0926vh;
+  --on: #63d3e6;
+  position: absolute;
+  z-index: 9999;
+  display: flex;
+  pointer-events: auto;
+  opacity: 1;
+  transform: translateY(0);
+  visibility: visible;
+  transition: opacity 0.18s ease, transform 0.25s cubic-bezier(0.22, 0.8, 0.24, 1), visibility 0s;
+}
+#batc-pill-sw.is-closed {
+  opacity: 0;
+  transform: translateY(calc(-4 * var(--k)));
+  pointer-events: none;
+  visibility: hidden;
+  transition: opacity 0.18s ease, transform 0.25s ease, visibility 0s linear 0.25s;
+}
+#batc-pill-sw .bs-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-sizing: border-box;
+  width: calc(26 * var(--k));
+  height: calc(26 * var(--k));
+  margin-left: calc(4 * var(--k));
+  border-radius: 50%;
+  border: calc(1 * var(--k)) solid rgba(255, 255, 255, 0.08);
+  background-color: rgba(14, 18, 24, 0.78);
+  color: rgba(236, 241, 246, 0.45);
+  cursor: pointer;
+  transition: background-color 0.15s ease, color 0.15s ease, border-color 0.15s ease;
+}
+#batc-pill-sw .bs-btn:first-child { margin-left: 0; }
+#batc-pill-sw .bs-btn:hover { background-color: rgba(30, 36, 44, 0.9); }
+#batc-pill-sw .bs-btn svg { width: calc(14 * var(--k)); height: calc(14 * var(--k)); }
+#batc-pill-sw .bs-btn.is-on { color: var(--on); border-color: rgba(99, 211, 230, 0.55); }
+#batc-pill-sw .bs-btn.is-on .bs-slash { display: none; }
+#batc-pill-sw[data-edge="bottom"].is-closed { transform: translateY(calc(4 * var(--k))); }
+
 /* ---- settings card (opens on pill click) ---- */
 #batc-pill-cfg {
   --k: 0.0926vh;

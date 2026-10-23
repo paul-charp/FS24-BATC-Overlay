@@ -32,6 +32,8 @@ Click the pill in flight to open its settings card (two tabs: Display and Positi
 
 <img src="docs/images/settings.png" alt="Settings card" width="340">
 
+Hovering the pill shows two buttons under it: BeyondATC's **Auto Tune** (radio waves) and **Auto Respond** (speech bubble). Lit means on, dimmed and struck through means off; a click flips it, as the toolbar's own switches do.
+
 **Display**
 
 | Setting | |
@@ -43,6 +45,7 @@ Click the pill in flight to open its settings card (two tabs: Display and Positi
 | ATIS changes | show a new ATIS letter |
 | Warn when COM1 muted | red-orange pill when ATC calls you while COM1 is muted |
 | PTT indicator | show "Transmitting" while your PTT button is held (see below) |
+| Auto Tune / Respond on hover | show the Auto Tune and Auto Respond buttons while the mouse is over the pill |
 | AI traffic | show the "Traffic" pill while AI traffic talks |
 | Full station names | "Montpellier Ground" instead of "Ground" |
 | Hide when BATC is off | no pill at all while BeyondATC isn't running |
@@ -133,7 +136,7 @@ CI (`.github/workflows/check.yml`) checks the JS, Python and JSON on every push,
 
 ## How it works
 
-- The BeyondATC desktop app serves its in-sim toolbar over `ws://127.0.0.1:41716`, in lines like `Type: payload`. `CommsState: {"mode","text"}` carries the state (`ready`, `queued`, `processing`, `request`, `awaiting`, `speaking`, `traffic`). The `ATC:` / `Player:` / `Traffic:` line before `speaking` says whose voice it is. `Facility:` (COM1) and `Com2:` changes trigger the radio-change pill. The pill only reads; it never sends.
+- The BeyondATC desktop app serves its in-sim toolbar over `ws://127.0.0.1:41716`, in lines like `Type: payload`. `CommsState: {"mode","text"}` carries the state (`ready`, `queued`, `processing`, `request`, `awaiting`, `speaking`, `traffic`). The `ATC:` / `Player:` / `Traffic:` line before `speaking` says whose voice it is. `Facility:` (COM1) and `Com2:` changes trigger the radio-change pill. The pill only reads, except for the hover buttons: they send the toolbar's own `set_autotune: true|false` / `set_autorespond: true|false`, and BeyondATC answers every client with `AutoTune:` / `AutoRespond:`.
 - Readback hints come from the toolbar's own reply menu (`Actions`): while ATC waits for you it offers "Say Again" next to the replies ("Readback Taxi Instruction", "Acknowledge Takeoff Clearance", "Runway 12L"). The clearance boxes (`InfoBoxes`) give Short and Boxes; the hint text is read from ATC's words.
 - The PTT indicator asks the sim to report the `TOGGLE_SPEAKER` key event to the pill's view (the way the sim's own instruments listen to key events). A held button repeats it; the pill shows "Transmitting" while the repeats keep coming.
 - `injections.json`: the build appends a hidden `<img onerror>` to the stock `MasterPage_InGame` cooked component, which loads `pill.js` once (the same hook //42 Flow uses). `MasterPage_InGame` only mounts in flight; the pill also hides when BeyondATC reports `LoadState.stage` `menu`.

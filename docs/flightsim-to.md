@@ -29,7 +29,7 @@ A small, quiet pill in a corner of the screen that shows what BeyondATC is doing
 When nothing is happening it shrinks to a small dot. Changes between states are animated.
 
 **Settings**
-Click the pill in flight to open its settings: which events to show and how much detail (Display tab), corner, position and size (Position tab).
+Hover the pill for two buttons that flip BeyondATC's Auto Tune and Auto Respond. Click the pill in flight to open its settings: which events to show and how much detail (Display tab), corner, position and size (Position tab).
 
 **Requirements**
 - Microsoft Flight Simulator 2024
@@ -39,7 +39,7 @@ Click the pill in flight to open its settings: which events to show and how much
 Extract the `paul-batc-pill` folder into your Community folder.
 
 **Notes**
-- The pill reads BeyondATC's local connection and never sends anything to it.
+- The pill reads BeyondATC's local connection. The only thing it sends is the Auto Tune / Auto Respond commands, when you click their buttons (as the toolbar does).
 - Optional PTT indicator: bind your PTT button a second time to the sim's Toggle Speaker (Controls > Communications), keeping BeyondATC's binding, then turn it on in the settings.
 - CPDLC is left to the sim's own datalink pages.
 - The mod overrides one stock UI component (`MasterPage_InGame`) to load. Another mod that overrides the same component will conflict with it. After a sim update that changes it, install the updated version.
@@ -54,6 +54,7 @@ Source and issues: https://github.com/paul-charp/FS24-BATC-Pill
 - Added: readback hints. While ATC waits for your readback, acknowledgement or answer, the pill shows "Awaiting readback" or "Awaiting response" with a short hint, the toolbar's clearance boxes or their values.
 - Added: the pill turns red-orange when ATC calls you again before you reply, and shows "No readback" when BeyondATC stops waiting.
 - Added: a green "Readback OK" when ATC takes your reply, and a red-orange "Negative" with the correction when ATC rejects it.
+- Added: hovering the pill shows buttons for BeyondATC's Auto Tune and Auto Respond.
 - Added: hints for line up, go around, speeds, STARs, "report" requests and taxi to a ramp or gate.
 - Added: with Auto Tune off, a "Contact" reminder until COM1 is on the station ATC handed you to.
 - Added: a new ATIS letter shows for 6 s; an ATIS playing on COM1 shows "ATIS".
