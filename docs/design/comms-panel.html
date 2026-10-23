@@ -132,18 +132,20 @@
     transition: height .42s cubic-bezier(.22,.8,.24,1), padding-top .42s cubic-bezier(.22,.8,.24,1);
   }
   .cap .card {
-    padding: calc(7 * var(--u)) calc(11 * var(--u)) calc(8 * var(--u));
-    border-radius: calc(9 * var(--u)); background: rgba(14,18,24,0.72); border: calc(1 * var(--u)) solid rgba(255,255,255,0.08);
-    color: rgba(236,241,246,0.94); font: 400 calc(13 * var(--u))/1.38 var(--sim);
+    /* light: a faint veil and a soft text shadow keep it readable over sky or cockpit without a heavy box */
+    padding: calc(5 * var(--u)) calc(9 * var(--u)) calc(6 * var(--u));
+    border-radius: calc(7 * var(--u)); background: rgba(14,18,24,0.4); border: calc(1 * var(--u)) solid transparent;
+    color: rgba(236,241,246,0.9); font: 400 calc(12.5 * var(--u))/1.36 var(--sim);
+    text-shadow: 0 0 calc(3 * var(--u)) rgba(0,0,0,0.55), 0 calc(1 * var(--u)) calc(1 * var(--u)) rgba(0,0,0,0.35);
     transition: opacity .3s ease, transform .42s cubic-bezier(.22,.8,.24,1), border-color .3s ease, background-color .3s ease;
   }
   .cap.out { padding-top: 0; }
   .cap.out .card { opacity: 0; transform: translateY(calc(6 * var(--u))); }
   .cap.leaving .card { transform: translateY(calc(-6 * var(--u))); }
-  .cap .w { display: block; margin-bottom: calc(2 * var(--u)); font: 600 calc(10 * var(--u))/1.2 var(--sim); letter-spacing: .06em; text-transform: uppercase; }
-  .cap.atc .w { color: #ffb547; } .cap.you .w { color: #5fd38d; } .cap.traffic .w { color: rgba(236,241,246,0.5); }
-  .cap.traffic .card { color: rgba(236,241,246,0.7); background: rgba(14,18,24,0.55); }
-  .cap.pinned .card { border-color: rgba(255,181,71,0.7); }
+  .cap .w { display: block; margin-bottom: calc(1 * var(--u)); font: 600 calc(9.5 * var(--u))/1.2 var(--sim); letter-spacing: .06em; text-transform: uppercase; }
+  .cap.atc .w { color: #ffb547; } .cap.you .w { color: #5fd38d; } .cap.traffic .w { color: rgba(236,241,246,0.62); }
+  .cap.traffic .card { color: rgba(236,241,246,0.72); background: rgba(14,18,24,0.28); }
+  .cap.pinned .card { border-color: rgba(255,181,71,0.5); background: rgba(14,18,24,0.48); }
 
   /* comms panel: non-modal, under the pill (the pill stays live as its title) */
   .panel {
