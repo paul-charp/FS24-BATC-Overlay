@@ -193,6 +193,7 @@
   .row .f { font: 500 calc(12 * var(--k)) var(--sim); font-variant-numeric: tabular-nums; color: var(--dimk); margin-left: calc(8 * var(--k)); }
   .row .tag { font: 600 calc(9.5 * var(--k))/1 var(--sim); padding: calc(3 * var(--k)) calc(5 * var(--k)); border-radius: calc(4 * var(--k)); margin-left: calc(6 * var(--k)); }
   .tag.com1 { background: var(--on); color: #0e1218; }
+  .tag.com2 { box-shadow: inset 0 0 0 calc(1 * var(--k)) var(--on); color: var(--on); }
   .tag.ask { background: #ffb547; color: #15110a; }
   .row.active .grow { color: var(--on); }
   .seg2 { display: flex; flex: 1; }
@@ -331,6 +332,7 @@
             <tr><td>History on connect</td><td><code>atc_log</code> request, reply format?</td><td class="st unk">sniff with the toolbar's Log tab</td></tr>
             <tr><td>Flight's frequencies</td><td><code>frequencies</code> request, <code>Frequencies:</code> reply</td><td class="st unk">payload not captured yet</td></tr>
             <tr><td>Tune a frequency</td><td><code>set_frequency: &lt;f&gt;</code></td><td class="st unk">COM1 only? standby or active?</td></tr>
+            <tr><td>Tune COM2 (right-click)</td><td>not seen; the toolbar may not offer it</td><td class="st unk">unknown</td></tr>
             <tr><td>Auto Tune / Auto Respond</td><td><code>set_autotune</code> <code>set_autorespond</code></td><td class="st known">sent today</td></tr>
           </tbody>
         </table>
@@ -340,6 +342,7 @@
         <li>One sniff with the toolbar open, clicking its Frequencies and Log tabs, a frequency and a reply, to capture the request/answer pairs.</li>
         <li>The AGENTS.md rule allowing only the two switch commands widens to <code>set_action</code>, <code>set_frequency</code>, <code>frequencies</code> and <code>atc_log</code>, always on a user's click.</li>
         <li>Check that a wheel event reaches mainUi; if it does, the log can scroll instead of paging.</li>
+        <li>Check that a right-click reaches mainUi (<code>contextmenu</code> or <code>mousedown</code> button 2) for COM2.</li>
       </ul>
       <h3>Suggested order</h3>
       <ul>
@@ -383,7 +386,7 @@
   var opt = { captions: "all", traffic: true };
   function fresh() {
     return { facility: ST.gnd, mode: "ready", speaker: null, qtext: "", pending: null, confirm: null, tune: null,
-      contact: null, freqSide: "dep", lingerUntil: 0, requests: [], log: [], caps: [], autoTune: true, autoRespond: false,
+      contact: null, com2: null, freqSide: "dep", lingerUntil: 0, requests: [], log: [], caps: [], autoTune: true, autoRespond: false,
       lock: false, panel: false, tab: "freq", logShown: 8, hover: false, clock: 14 * 3600 + 32 * 60 };
   }
 
@@ -460,6 +463,11 @@
     update();
     await wait(speechMs(text));
     S.mode = "ready"; S.speaker = null;
+    update();
+  }
+  function tuneCom2(f) {
+    S.com2 = f; S.tune = { f: f, label: "COM2", until: Date.now() + 3000 };
+    setTimeout(update, 3050);
     update();
   }
   function tuneCom1(f) {
@@ -588,7 +596,7 @@
       if (S.speaker === "player") return { cls: "s-you", html: BARS + '<span class="who">Transmitting</span>' + hintHtml(p && p.hint) };
       if (opt.traffic) return { cls: "", html: BARS + "<span>Traffic</span>" };
     }
-    if (S.tune && now < S.tune.until) return { cls: "s-tune", html: RADIO + facilityHtml("who", S.tune.f) };
+    if (S.tune && now < S.tune.until) return { cls: "s-tune", html: RADIO + (S.tune.label ? '<span class="dim">' + S.tune.label + "</span>" : "") + facilityHtml("who", S.tune.f) };
     if (p) {
       var label = p.kind === "readback" ? "Awaiting readback" : "Awaiting response";
       if (p.calls > 1) label += " ×" + p.calls;
@@ -823,10 +831,11 @@
     g.rows.forEach(function (f) {
       var active = f.freq === S.facility.freq, ask = S.contact && S.contact.freq === f.freq && !S.autoTune;
       h += '<div class="row' + (active ? " active" : "") + '" data-tune="' + f.freq + '"><span class="grow">' + esc(f.name) + "</span>" +
-        (ask ? '<span class="tag ask">ATC</span>' : "") + (active ? '<span class="tag com1">COM1</span>' : "") + '<span class="f">' + f.freq + "</span></div>";
+        (ask ? '<span class="tag ask">ATC</span>' : "") + (active ? '<span class="tag com1">COM1</span>' : "") +
+        (S.com2 && S.com2.freq === f.freq ? '<span class="tag com2">COM2</span>' : "") + '<span class="f">' + f.freq + "</span></div>";
     });
     h += "</div>";
-    h += '<div class="note">' + (S.autoTune ? "Auto Tune is on: BeyondATC also retunes COM1 on handoffs." : "Click a station to tune COM1.") + " Example frequencies.</div>";
+    h += '<div class="note">' + "Click: COM1. Right-click: COM2." + (S.autoTune ? " Auto Tune is on: BeyondATC also retunes COM1 on handoffs." : "") + " Example frequencies.</div>";
     return h;
   }
   function renderPanel() {
@@ -841,6 +850,15 @@
       '<div class="pn-foot"><span class="tog' + (S.autoRespond ? " on" : "") + '" data-sw="ar">Auto Respond<span class="sw"><i></i></span></span>' +
       '<span class="tog' + (S.autoTune ? " on" : "") + '" data-sw="at">Auto Tune<span class="sw"><i></i></span></span></div>';
   }
+  // right-click a station: COM2 (monitor ATIS or the next sector without leaving COM1)
+  panel.addEventListener("contextmenu", function (e) {
+    var el = e.target.closest("[data-tune]");
+    if (!el) return;
+    e.preventDefault();
+    var st = null;
+    allFreqs().forEach(function (r) { if (r.freq === el.getAttribute("data-tune")) st = r; });
+    if (st && (!S.com2 || st.freq !== S.com2.freq)) { toast("COM2 → " + st.freq + " (command not captured yet)"); tuneCom2(st); }
+  });
   panel.addEventListener("click", function (e) {
     var el = e.target.closest("[data-tab],[data-act],[data-reply],[data-req],[data-tune],[data-sw],[data-side]");
     if (!el) return;
