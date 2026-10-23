@@ -20,6 +20,8 @@
     showReadback: true,  // while BeyondATC waits for your readback, hint what it is ("Taxi 30R")
     readbackDetail: "hint", // with a readback pending: "none" (status only), "short" (the boxes' values:
                             // "30R · T1"), "hint" ("Taxi via T1"), "boxes" (the toolbar's clearance boxes)
+    keepLast: false,     // after ATC took your reply, keep its hint on the pill (quiet) until the next instruction,
+                         // a new station on COM1, or its ✕ (hover) instead of shrinking to the dot
     showTuning: true,    // show the new station when COM1/COM2 changes
     showContact: true,   // Auto Tune off: after "contact <station> <freq>", remind you until COM1 is on it
     showAtis: true,      // show a new ATIS letter
@@ -42,7 +44,7 @@
   var CONFIRM_MS = 1500;  // "Readback OK" shows this long after ATC took your reply
 
   // What the settings card changes. Saved in localStorage, which every sim UI view shares.
-  var USER_KEYS = ["corner", "x", "y", "scale", "showTuning", "showContact", "showAtis", "showReadback", "readbackDetail",
+  var USER_KEYS = ["corner", "x", "y", "scale", "showTuning", "showContact", "showAtis", "showReadback", "readbackDetail", "keepLast",
     "warnMuted", "showPtt", "hoverSwitches", "hideOffline",
     "showTraffic", "facility"];
   var STORE_KEY = "batcpill.settings";
@@ -91,7 +93,8 @@
     missed: null,        // { label, detail } after BeyondATC stopped waiting without a reply, until missedUntil
     missedUntil: 0,
     confirmed: null,     // { readback, detail, boxes } after ATC took your reply, shown until confirmedUntil
-    confirmedUntil: 0,   // 0 while your reply still plays: the confirmation starts once the radio is quiet
+    confirmedUntil: 0,
+    kept: null,          // { detail, boxes } of the last reply ATC took, shown with keepLast   // 0 while your reply still plays: the confirmation starts once the radio is quiet
     infoBoxes: [],       // the toolbar's clearance boxes: [{ title: "SID", info: "KELA8L" }, ...]
     seenFacility: false, // the first Facility after connecting is the snapshot, not a change
     editing: false,      // settings card open: the pill shows a sample so size/position are visible
@@ -153,6 +156,7 @@
     '<div class="bc-pane" data-pane="display">' +
       toggleRow("Readback hints", "showReadback") +
       choiceRow("readbackDetail", [["none", "None"], ["short", "Short"], ["hint", "Hint"], ["boxes", "Boxes"]]) +
+      toggleRow("Keep last clearance", "keepLast") +
       toggleRow("Radio changes", "showTuning") + toggleRow("Contact reminders", "showContact") +
       toggleRow("ATIS changes", "showAtis") + toggleRow("Warn when COM1 muted", "warnMuted") +
       toggleRow("PTT indicator", "showPtt") +
@@ -220,6 +224,7 @@
     st[v] = "calc(" + Number(CONFIG.y) + " * 0.0926vh)";
     st[h] = "calc(" + Number(CONFIG.x) + " * 0.0926vh)";
     st.setProperty("--u", (0.0926 * Number(CONFIG.scale || 1)) + "vh");
+    switches.style.setProperty("--k", (0.0926 * Number(CONFIG.scale || 1)) + "vh"); // the hover buttons scale too
     root.setAttribute("data-side", h);
 
     // the card opens beside the pill, away from the screen edge (card units stay at scale 1)
@@ -302,13 +307,34 @@
     if (CONFIG.readbackDetail === "boxes" && boxes.length) {
       // "Awaiting readback" over the boxes, as in the toolbar; their titles say what it's about
       return { cls: cls + " is-msg", html: lamp + '<span class="bp-who">' + label + "</span>",
-        extra: '<span class="bp-boxes">' + boxes.map(function (b) {
-          return '<span class="bp-box"><span class="bp-box-t">' + esc(b.title) + '</span><span class="bp-box-v">' +
-            esc(b.info) + "</span></span>";
-        }).join("") + "</span>" };
+        extra: boxesHtml(boxes) };
     }
     return { cls: cls, html: lamp + '<span class="bp-who">' + label + "</span>" +
       (detail ? '<span class="bp-sep">·</span><span>' + esc(detail) + "</span>" : "") };
+  }
+
+  function boxesHtml(boxes) {
+    return '<span class="bp-boxes">' + boxes.map(function (b) {
+      return '<span class="bp-box"><span class="bp-box-t">' + esc(b.title) + '</span><span class="bp-box-v">' +
+        esc(b.info) + "</span></span>";
+    }).join("") + "</span>";
+  }
+
+  // The last reply ATC took, kept quiet in the pill. Its clipboard icon turns into a ✕ on hover (CSS); a click
+  // there hides it (the rest of the pill still opens the settings). Returns null when there's nothing to show.
+  var KEPT_ICON = '<span class="bp-unpin" data-input-group="BATC-PILL">' +
+    '<svg class="bp-clip" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" ' +
+    'stroke-linejoin="round"><rect x="3.5" y="3" width="9" height="11" rx="1.5"/><path d="M6 3V2h4v1M6 7h4M6 10h3"/></svg>' +
+    '<svg class="bp-x" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round">' +
+    '<path d="M4.5 4.5l7 7M11.5 4.5l-7 7"/></svg></span>';
+
+  function keptLook(k) {
+    if (CONFIG.readbackDetail === "none") return null;
+    if (CONFIG.readbackDetail === "boxes" && k.boxes.length) {
+      return { cls: "s-pin is-msg", html: KEPT_ICON + "<span>Last clearance</span>", extra: boxesHtml(k.boxes) };
+    }
+    var d = detailFor(k.detail, k.boxes);
+    return d ? { cls: "s-pin", html: KEPT_ICON + "<span>" + esc(d) + "</span>" } : null;
   }
 
   // ATC took your reply (BeyondATC says nothing back to a correct one): green "Readback OK" with the hint
@@ -376,6 +402,12 @@
     switch (state.demo) {
       case "showTuning":
         if (CONFIG.showTuning) return tuneLook({ label: "", facility: { name: "Montpellier Tower", freq: "118.700" } });
+        break;
+      case "keepLast":
+        if (CONFIG.showReadback && CONFIG.keepLast) {
+          var kv = keptLook({ detail: "Taxi via T1 · Hold short 12L", boxes: DEMO_BOXES });
+          if (kv) return kv;
+        }
         break;
       case "showReadback":
       case "readbackDetail":
@@ -462,6 +494,8 @@
           v = atisLook(state.atis);
         } else if (state.contact && !state.autoTune && CONFIG.showContact) {
           v = contactLook(state.contact);
+        } else if (state.kept && CONFIG.keepLast && CONFIG.showReadback && (v = keptLook(state.kept))) {
+          // the last reply ATC took, instead of the station and the dot
         } else if (now < state.lingerUntil) {
           v = { cls: "", html: LAMP + facilityHtml("") };
         }
@@ -654,6 +688,7 @@
         state.confirmed = { readback: wc.readback, detail: readbackHint(state.readback.text) || wc.kind,
           boxes: wc.choices.length ? [] : state.infoBoxes };
         state.confirmedUntil = 0;
+        state.kept = { detail: state.confirmed.detail, boxes: state.confirmed.boxes };
         if (state.mode === "ready") startConfirm();
       } else if (state.readback && !state.replied) {
         // BeyondATC stopped waiting on its own (after ~18 s for taxi or acknowledge replies)
@@ -661,6 +696,7 @@
         state.missed = { label: w.readback ? "No readback" : "No response",
           detail: readbackHint(state.readback.text) || (state.readback.negative && correction(state.readback.text)) || w.kind, boxes: w.choices.length ? [] : state.infoBoxes };
         state.missedUntil = Date.now() + CONFIG.missedMs;
+        state.kept = null; // a newer instruction went unanswered: the kept one is out of date
         clearTimeout(timers.missed);
         timers.missed = setTimeout(render, CONFIG.missedMs + 20);
       }
@@ -784,6 +820,7 @@
         state.facility = freq ? { name: stationName(parts[0]), freq: freq } : { name: "", freq: "" };
         if (state.seenFacility && (prev.name !== state.facility.name || prev.freq !== state.facility.freq)) {
           tuned("", state.facility);
+          state.kept = null; // a new station: the last clearance belongs to the old one
         }
         if (state.contact && onContact(state.contact)) state.contact = null;
         state.seenFacility = true;
@@ -888,6 +925,7 @@
       state.repliesKey = "";
       state.infoBoxes = [];
       state.readback = null;
+      state.kept = null;
       showSwitches(false);
       render();
       if (!destroyed) timers.reconnect = setTimeout(connect, CONFIG.reconnectMs);
@@ -948,7 +986,18 @@
     render();
   }
 
-  root.addEventListener("click", function () { openCard(!state.editing); });
+  root.addEventListener("click", function (e) {
+    // the kept clearance's ✕ hides it; anywhere else opens the settings
+    for (var el = e.target; el && el !== root; el = el.parentNode) {
+      if (el.className && String(el.className.baseVal || el.className).indexOf("bp-unpin") >= 0) {
+        if (state.editing) break; // the settings sample: just a click on the pill
+        state.kept = null;
+        render();
+        return;
+      }
+    }
+    openCard(!state.editing);
+  });
 
   card.addEventListener("click", function (e) {
     var el = e.target;

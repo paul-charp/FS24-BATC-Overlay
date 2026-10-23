@@ -5,6 +5,7 @@
 - Added: readback hints. While ATC waits for your readback, acknowledgement or answer, the pill shows "Awaiting readback" or "Awaiting response" with a short hint, the toolbar's clearance boxes or their values (None / Short / Hint / Boxes).
 - Added: the pill turns red-orange when ATC calls you again before you reply ("×2", "×3"), and shows "No readback" when BeyondATC stops waiting.
 - Added: when ATC takes your reply, the pill turns green for 1.5 s ("Readback OK" with the hint).
+- Added: optional "Keep last clearance": the last reply ATC took stays on the pill, dimmed, until the next instruction or a new station on COM1; hover and click its ✕ to hide it.
 - Added: ATC answering a wrong readback ("Negative, QNH 1013.") turns the pill red-orange with "Negative" and the correction.
 - Added: hints for line up, go around, speeds, STARs, "report" requests and taxi to a ramp or gate; "taxi via M, T" shows every taxiway.
 - Added: with Auto Tune off, a "Contact" reminder until COM1 is on the station ATC handed you to.

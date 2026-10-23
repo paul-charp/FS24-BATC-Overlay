@@ -13,6 +13,9 @@ var BP = (function () {
     'stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h2l3-2.5v9L5 10H3z"/><path d="M11 6l3.5 4M14.5 6L11 10"/></svg>';
   var CHECK = '<svg class="bp-ico bp-check" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2" ' +
     'stroke-linecap="round" stroke-linejoin="round"><path d="M3.5 8.5l3 3 6-6.5"/></svg>';
+  var KEPT = '<span class="bp-unpin"><svg class="bp-clip" viewBox="0 0 16 16" fill="none" stroke="currentColor" ' +
+    'stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="3.5" y="3" width="9" height="11" rx="1.5"/>' +
+    '<path d="M6 3V2h4v1M6 7h4M6 10h3"/></svg></span>';
   var FREQ = '<span class="bp-freq">121.955</span>';
   var SEP = '<span class="bp-sep">·</span>';
   var STATES = [
@@ -24,13 +27,12 @@ var BP = (function () {
     ["ptt", "s-you", MIC + '<span class="bp-who">Transmitting</span>', "PTT held", "Optional: your PTT button"],
     ["readback", "s-atc is-pulse", LAMP + '<span class="bp-who">Awaiting readback</span>' + SEP + "<span>Taxi 12L</span>",
       "Awaiting readback", "ATC waits for your reply"],
-    ["question", "s-atc is-pulse", LAMP + '<span class="bp-who">Awaiting response</span>' + SEP + "<span>Runway 12L / Runway 12R</span>",
-      "Awaiting response", "ATC asks: its answers"],
     ["insist", "s-insist is-pulse", LAMP + '<span class="bp-who">Awaiting readback ×2</span>', "ATC calls again", "Still no reply"],
     ["negative", "s-insist is-pulse", LAMP + '<span class="bp-who">Negative</span>' + SEP + "<span>QNH 1013</span>",
       "Negative", "ATC corrects your readback"],
     ["ok", "s-ok", CHECK + '<span class="bp-who">Readback OK</span>' + SEP + "<span>Taxi 12L</span>",
       "Readback OK", "ATC took your reply"],
+    ["kept", "s-pin", KEPT + "<span>Taxi 12L</span>", "Last clearance", "Optional: kept until the next one"],
     ["missed", "s-insist", LAMP + '<span class="bp-who">No readback</span>' + SEP + "<span>Taxi 12L</span>",
       "No readback", "BeyondATC stopped waiting"],
     ["tune", "s-tune", RADIO + '<span class="bp-who">Tower</span><span class="bp-freq">118.700</span>', "Radio change", "New station on COM1 or COM2"],
