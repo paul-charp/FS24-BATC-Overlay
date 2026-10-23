@@ -60,7 +60,7 @@ Source and issues: https://github.com/paul-charp/FS24-BATC-Pill
 - Added: with Auto Tune off, a "Contact" reminder until COM1 is on the station ATC handed you to.
 - Added: a new ATIS letter shows for 6 s; an ATIS playing on COM1 shows "ATIS".
 - Added: ATC calling you while COM1 is muted turns the pill red-orange.
-- Added: optional PTT indicator.
+- Added: optional PTT indicator, red-orange when you transmit over ATC or traffic.
 - Changed: "You" is now "Transmitting", and keeps the hint while you answer a readback.
 - Changed: the settings card has Display and Position tabs, and closes on a click outside it.
 - Fixed: the idle dot stayed visible in the sim's menus after a flight.

@@ -386,7 +386,25 @@
   }
 
   function pttLook() {
+    // PTT held while someone else transmits: you're talking over them
+    var busy = busyWith();
+    if (busy) {
+      return { cls: "s-insist is-pulse", html: MIC + '<span class="bp-who">Transmitting</span>' +
+        '<span class="bp-sep">·</span><span>' + busy + "</span>" };
+    }
     return replyLook("s-you", MIC, "Transmitting", "bp-who");
+  }
+
+  // who else is on the frequency right now: "ATC talking", "Traffic talking", or "" (an ATIS doesn't count)
+  function busyWith() {
+    if (state.mode === "speaking") {
+      if (state.speaker === "atc" || state.speaker === "atcTraffic") return "ATC talking";
+      if (state.speaker === "traffic") return "Traffic talking";
+    }
+    if (state.mode === "traffic" && /transmitting/i.test(state.text) && !/^atis/i.test(state.text)) {
+      return /^atc/i.test(state.text) ? "ATC talking" : "Traffic talking";
+    }
+    return "";
   }
 
   function mutedLook() {

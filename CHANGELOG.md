@@ -12,7 +12,7 @@
 - Added: a new ATIS letter shows for 6 s; an ATIS playing on COM1 shows "ATIS".
 - Added: ATC calling you while COM1 is muted turns the pill red-orange.
 - Added: hovering the pill shows two buttons that flip BeyondATC's Auto Tune and Auto Respond, like the toolbar's own switches.
-- Added: optional PTT indicator, from your PTT button also bound to the sim's Toggle Speaker.
+- Added: optional PTT indicator, from your PTT button also bound to the sim's Toggle Speaker; red-orange when you transmit over ATC or traffic.
 - Changed: "You" is now "Transmitting" while your readback or request plays; while you reply to a readback, "Transmitting" and "Processing" keep its hint, values or boxes.
 - Changed: the settings card has two tabs, Display and Position, and closes on a click outside it.
 - Changed: with the settings card open, the sample pill shows the effect of the last setting changed for 4 s.
