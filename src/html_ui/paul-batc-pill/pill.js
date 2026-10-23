@@ -165,7 +165,7 @@
       toggleRow("AI traffic", "showTraffic") + toggleRow("Full station names", "fullNames") +
       toggleRow("Hide when BATC is off", "hideOffline") +
       toggleRow("Log flight (developers)", "devLog") +
-      '<div class="bc-note">Run python tools/pill_log.py on this PC</div>' +
+      '<div class="bc-note" data-lognote></div>' +
     "</div>" +
     '<div class="bc-pane" data-pane="position">' +
       '<div class="bc-row"><span class="bc-label">Corner</span><span class="bc-corners">' +
@@ -1017,6 +1017,9 @@
       choices[i].className = "bc-btn" + (String(CONFIG[c[0]]) === c[1] ? " is-on" : "");
     }
     // the detail only matters with readback hints on
+    // the developer log's state, under its switch
+    card.querySelector("[data-lognote]").innerHTML = !CONFIG.devLog ? "Logs go to<br>%LOCALAPPDATA%\\paul-batc-pill\\logs" :
+      logSock && logSock.readyState === 1 ? "Recording" : "Logger not running:<br>python tools/build.py logger-install";
     var detailRow = card.querySelector('[data-for="readbackDetail"]');
     detailRow.className = "bc-row bc-choice" + (CONFIG.showReadback ? "" : " is-off");
   }
@@ -1267,6 +1270,7 @@
     clearTimeout(timers.log);
     if (!CONFIG.devLog || destroyed) {
       if (logSock) { logSock.onclose = null; logSock.close(); logSock = null; }
+      if (!destroyed) updateCard();
       return;
     }
     if (logSock) return;
@@ -1277,12 +1281,14 @@
       return;
     }
     logSock.onopen = function () {
+      updateCard();
       devLog("pill", shown || "(not rendered yet)");
       // reconnect to BeyondATC so the log starts with its snapshot
       if (socket) { resnapshot = true; socket.close(); }
     };
     logSock.onclose = function () {
       logSock = null;
+      updateCard();
       if (CONFIG.devLog && !destroyed) timers.log = setTimeout(logConnect, CONFIG.reconnectMs);
     };
     logSock.onerror = function () { /* onclose follows */ };

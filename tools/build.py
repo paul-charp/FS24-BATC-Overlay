@@ -5,8 +5,11 @@
     python tools/build.py uninstall   remove the Community junction
     python tools/build.py lock        record the stock hash of each hooked component in stock.lock.json
     python tools/build.py release [X.Y.Z]   build, then zip the package as dist/paul-batc-pill-X.Y.Z.zip
+    python tools/build.py logger-install    have the sim start tools/pill_log.py (pythonw, no console) via exe.xml
+    python tools/build.py logger-uninstall  remove it from exe.xml
 
-Local paths (sim_packages, community) go in .local/config.json, which overrides config.json.
+Local paths (sim_packages, community) go in .local/config.json, which overrides config.json; so does
+exe_xml, when the sim's exe.xml isn't found on its own.
 """
 import argparse
 import hashlib
@@ -17,6 +20,7 @@ import subprocess
 import sys
 import time
 import zipfile
+import xml.etree.ElementTree as ET
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
@@ -34,12 +38,12 @@ def load_json(path):
     return json.loads(path.read_text(encoding="utf-8-sig"))
 
 
-def load_config():
+def load_config(required=("sim_packages", "community")):
     cfg = load_json(ROOT / "config.json")
     local = ROOT / ".local" / "config.json"
     if local.exists():
         cfg.update(load_json(local))
-    for key in ("sim_packages", "community"):
+    for key in required:
         if not cfg.get(key):
             sys.exit(f"config: set {key} in .local/config.json (see config.json)")
     return cfg
@@ -220,18 +224,89 @@ def cmd_release(cfg, injections, version=None):
     print(f"release: {out}")
 
 
+LOGGER_NAME = "BATC Pill logger"
+
+
+def exe_xml(cfg):
+    """The sim's exe.xml (programs it starts with it): .local/config.json's exe_xml, else the Store or Steam
+    location, whichever holds the sim's UserCfg.opt."""
+    if cfg.get("exe_xml"):
+        return Path(cfg["exe_xml"])
+    local, roaming = os.environ.get("LOCALAPPDATA", ""), os.environ.get("APPDATA", "")
+    for folder in (Path(local) / "Packages" / "Microsoft.Limitless_8wekyb3d8bbwe" / "LocalCache",
+                   Path(roaming) / "Microsoft Flight Simulator 2024"):
+        if (folder / "UserCfg.opt").exists():
+            return folder / "exe.xml"
+    sys.exit("logger: can't find the sim's exe.xml; set exe_xml in .local/config.json")
+
+
+def load_exe_xml(path):
+    if path.exists():
+        return ET.parse(path)
+    root = ET.Element("SimBase.Document", {"Type": "Launch", "version": "1,0"})
+    for tag, text in (("Descr", "Launch"), ("Filename", "exe.xml"), ("Disabled", "False"),
+                      ("Launch.ManualLoad", "False")):
+        ET.SubElement(root, tag).text = text
+    return ET.ElementTree(root)
+
+
+def save_exe_xml(tree, path):
+    if path.exists():
+        backup = path.with_name(f"exe.xml.bak-{time.strftime('%Y%m%d-%H%M%S')}")
+        shutil.copy2(path, backup)
+        print(f"logger: backed up {path.name} to {backup.name}")
+    ET.indent(tree, space="  ")
+    # the header as the sim's own exe.xml has it
+    xml = '<?xml version="1.0" encoding="Windows-1252"?>\n' + ET.tostring(tree.getroot(), encoding="unicode") + "\n"
+    path.write_bytes(xml.encode("cp1252", "xmlcharrefreplace"))
+
+
+def ours(tree):
+    return [a for a in tree.getroot().findall("Launch.Addon") if (a.findtext("Name") or "") == LOGGER_NAME]
+
+
+def cmd_logger_install(cfg, injections):
+    path = exe_xml(cfg)
+    tree = load_exe_xml(path)
+    for a in ours(tree):
+        tree.getroot().remove(a)
+    exe = Path(sys.executable)
+    pythonw = exe.with_name("pythonw.exe")  # no console window
+    addon = ET.SubElement(tree.getroot(), "Launch.Addon")
+    ET.SubElement(addon, "Name").text = LOGGER_NAME
+    ET.SubElement(addon, "Disabled").text = "False"
+    ET.SubElement(addon, "Path").text = str(pythonw if pythonw.exists() else exe)
+    ET.SubElement(addon, "CommandLine").text = f'"{ROOT / "tools" / "pill_log.py"}" --background'
+    save_exe_xml(tree, path)
+    print(f"logger: the sim now starts tools/pill_log.py in the background ({path})")
+    print("logger: restart the sim, then switch on \"Log flight (developers)\" in the pill's settings")
+
+
+def cmd_logger_uninstall(cfg, injections):
+    path = exe_xml(cfg)
+    if not path.exists() or not ours(load_exe_xml(path)):
+        print("logger: not in exe.xml")
+        return
+    tree = load_exe_xml(path)
+    for a in ours(tree):
+        tree.getroot().remove(a)
+    save_exe_xml(tree, path)
+    print(f"logger: removed from {path}")
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
-    parser.add_argument("command", choices=["build", "install", "uninstall", "lock", "release"])
+    parser.add_argument("command", choices=["build", "install", "uninstall", "lock", "release",
+                                            "logger-install", "logger-uninstall"])
     parser.add_argument("version", nargs="?", help="release only: package version, default from config.json")
     args = parser.parse_args()
-    cfg = load_config()
+    cfg = load_config(() if args.command.startswith("logger") else ("sim_packages", "community"))
     injections = load_json(ROOT / "injections.json")["injections"]
     try:
         if args.command == "release":
             cmd_release(cfg, injections, args.version)
         else:
-            globals()[f"cmd_{args.command}"](cfg, injections)
+            globals()[f"cmd_{args.command.replace('-', '_')}"](cfg, injections)
     except PermissionError as e:
         # the sim keeps some package files open while it runs
         sys.exit(f"{args.command}: {e.filename} is in use ({e.strerror}). Close the sim and run it again; "

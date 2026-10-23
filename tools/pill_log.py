@@ -1,30 +1,43 @@
-"""Record a flight as the pill sees it. Stdlib only.
+"""Record flights as the pill sees them. Stdlib only.
 
-    python tools/pill_log.py                   listen on 127.0.0.1:41799 until Ctrl+C, write logs/pill-<date>.jsonl
-    python tools/pill_log.py --quiet           print only what the pill shows and does, not BeyondATC's messages
+The sim starts it in the background (`python tools/build.py logger-install` adds it to exe.xml, run with
+pythonw: no console). It waits on 127.0.0.1:41799 and records while the pill's "Log flight (developers)"
+switch is on: one file per recording in %LOCALAPPDATA%\\paul-batc-pill\\logs, written line by line, so a sim
+crash keeps everything up to it. It exits when the sim does.
 
-Turn on "Log flight (developers)" in the pill's settings. The pill then streams here everything it gets
-from BeyondATC (it reconnects once so the log starts with BeyondATC's snapshot), what it shows, and what you
-do (clicks, PTT, settings, the Auto Tune / Auto Respond commands). Records:
+    python tools/pill_log.py                   run by hand, printing what it records
+    python tools/pill_log.py --background      as exe.xml runs it: silent, exits when the sim closes
+
+The pill streams everything it gets from BeyondATC (reconnecting once, so a recording starts with
+BeyondATC's snapshot), what it shows, and what you do (clicks, PTT, settings, the Auto Tune / Auto Respond
+commands). Records:
 
     {"t": 12.345, "msg": "CommsState: {...}"}       as sniff_batc.py writes them (replays and batc_timeline.py read them)
     {"t": 12.351, "pill": "s-atc is-pulse | Awaiting readback · Taxi 30R"}
     {"t": 14.002, "event": "ptt down"}
-
-Each line is written as it arrives, so a sim crash keeps everything up to it.
 """
 import argparse
 import base64
 import hashlib
 import json
+import os
 import re
 import socket
 import struct
+import subprocess
+import sys
+import threading
 import time
 from pathlib import Path
 
 PORT = 41799
+SIM_EXE = "FlightSimulator2024.exe"
 NOISY = ("DATIS", "Settings", "Actions", "InfoBoxes", "Progress", "Traffic:", "ATCTraffic:")
+
+
+def log_dir():
+    base = os.environ.get("LOCALAPPDATA") or str(Path.home() / ".local" / "share")
+    return Path(base) / "paul-batc-pill" / "logs"
 
 
 def recv_exact(conn, n):
@@ -77,55 +90,86 @@ def messages(conn):
                 parts = b""
 
 
-def main():
-    ap = argparse.ArgumentParser()
-    ap.add_argument("--quiet", action="store_true", help="don't print BeyondATC's messages on the console")
-    args = ap.parse_args()
+def sim_running():
+    """True while the sim runs (Windows only; elsewhere always True)."""
+    if sys.platform != "win32":
+        return True
+    out = subprocess.run(["tasklist", "/FI", f"IMAGENAME eq {SIM_EXE}", "/NH"], capture_output=True, text=True,
+                         creationflags=0x08000000)  # CREATE_NO_WINDOW
+    return SIM_EXE.lower() in out.stdout.lower()
 
-    logs = Path(__file__).resolve().parent.parent / "logs"
-    logs.mkdir(exist_ok=True)
-    out = logs / f"pill-{time.strftime('%Y%m%d-%H%M%S')}.jsonl"
-    server = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-    server.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
-    server.bind(("127.0.0.1", PORT))
-    server.listen(1)
+
+def watch_sim():
+    """Background mode: quit once the sim has closed (exe.xml starts us with it)."""
+    time.sleep(120)  # the sim may still be starting
+    while sim_running():
+        time.sleep(30)
+    os._exit(0)
+
+
+def record(conn, say):
+    """One recording: from the pill switching "Log flight" on (it connects) until off or the sim stops."""
+    out_dir = log_dir()
+    out_dir.mkdir(parents=True, exist_ok=True)
+    out = out_dir / f"pill-{time.strftime('%Y%m%d-%H%M%S')}.jsonl"
     t0 = time.monotonic()
-    print(f"pill_log: waiting for the pill on 127.0.0.1:{PORT} (turn on \"Log flight\" in its settings)")
-    print(f"pill_log: logging to {out}")
+    say(f"recording to {out}")
     with out.open("w", encoding="utf-8") as f:
         def write(rec):
             f.write(json.dumps(rec, ensure_ascii=False) + "\n")
             f.flush()
 
+        write({"t": 0.0, "event": "recording started"})
         try:
-            while True:
-                conn, _ = server.accept()
+            for text in messages(conn):
+                t = round(time.monotonic() - t0, 3)
                 try:
-                    handshake(conn)
-                    write({"t": round(time.monotonic() - t0, 3), "event": "pill connected"})
-                    print(f"{time.monotonic() - t0:8.2f}  -- pill connected")
-                    for text in messages(conn):
-                        t = round(time.monotonic() - t0, 3)
-                        try:
-                            rec = json.loads(text)
-                        except ValueError:
-                            continue
-                        kind, value = rec.get("k"), rec.get("v", "")
-                        if kind not in ("msg", "pill", "event"):
-                            continue
-                        write({"t": t, kind: value})
-                        if kind == "msg":
-                            if not (args.quiet or value.startswith(NOISY) or '"traffic"' in value):
-                                print(f"{t:8.2f}  {value[:150]}")
-                        else:
-                            print(f"{t:8.2f}  {'PILL ' if kind == 'pill' else '-- '}{value[:150]}")
-                except (ConnectionError, OSError) as e:
-                    print(f"{time.monotonic() - t0:8.2f}  -- pill disconnected ({e})")
-                finally:
-                    conn.close()
-                write({"t": round(time.monotonic() - t0, 3), "event": "pill disconnected"})
-        except KeyboardInterrupt:
+                    rec = json.loads(text)
+                except ValueError:
+                    continue
+                kind, value = rec.get("k"), rec.get("v", "")
+                if kind not in ("msg", "pill", "event"):
+                    continue
+                write({"t": t, kind: value})
+                if kind != "msg":
+                    say(f"{t:8.2f}  {'PILL ' if kind == 'pill' else '-- '}{value[:150]}")
+                elif not (value.startswith(NOISY) or '"traffic"' in value):
+                    say(f"{t:8.2f}  {value[:150]}")
+        except (ConnectionError, OSError):
             pass
+        write({"t": round(time.monotonic() - t0, 3), "event": "recording stopped"})
+    say(f"stopped: {out}")
+
+
+def main():
+    ap = argparse.ArgumentParser()
+    ap.add_argument("--background", action="store_true", help="silent; exit when the sim closes (exe.xml)")
+    args = ap.parse_args()
+    say = (lambda s: None) if args.background else print
+
+    server = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    try:
+        server.bind(("127.0.0.1", PORT))
+    except OSError:
+        say(f"pill_log: 127.0.0.1:{PORT} is taken, another pill_log is probably running")
+        return  # one logger per PC
+    server.listen(1)
+    if args.background:
+        threading.Thread(target=watch_sim, daemon=True).start()
+    say(f"pill_log: waiting on 127.0.0.1:{PORT}; turn on \"Log flight (developers)\" in the pill's settings")
+    say(f"pill_log: logs go to {log_dir()}")
+    try:
+        while True:
+            conn, _ = server.accept()
+            try:
+                handshake(conn)
+                record(conn, say)
+            except (ConnectionError, OSError):
+                pass
+            finally:
+                conn.close()
+    except KeyboardInterrupt:
+        pass
 
 
 if __name__ == "__main__":

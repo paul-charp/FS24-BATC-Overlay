@@ -21,8 +21,9 @@ screen corner during flight, with a click-to-open settings card. Windows only. U
   the port (seen: WinWing's SimAppPro2.exe): `netstat -ano | findstr 19999` shows a second LISTENING PID.
   `tools/sniff_batc.py`: socket logger; `tools/pill_log.py`: the pill's own flight log (setting "Log flight
   (developers)": the pill streams BeyondATC's messages, what it shows and what the user does to
-  `ws://127.0.0.1:41799`; sniffer records plus `{"t","pill"}` / `{"t","event"}`); `tools/batc_timeline.py`
-  prints either log as a timeline with `Actions`/`InfoBoxes` changes as diffs. `tools/harness.html`: desktop preview with replays, a fake
+  `ws://127.0.0.1:41799`; sniffer records plus `{"t","pill"}` / `{"t","event"}`; one file per recording in
+  `%LOCALAPPDATA%\paul-batc-pill\logs`). `build.py logger-install` adds it to the sim's exe.xml (pythonw
+  `--background`: silent, exits with the sim). `tools/batc_timeline.py` prints either log as a timeline with `Actions`/`InfoBoxes` changes as diffs. `tools/harness.html`: desktop preview with replays, a fake
   `engine` and a "Hold PTT" button.
 - `docs/render/*.html` + `docs/render_images.py`: README/flightsim.to images via headless Edge (or
   Chrome/Chromium); `docs/render/pills.js` mirrors `view()`'s markup for the state sheet.

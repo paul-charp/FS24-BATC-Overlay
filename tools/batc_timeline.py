@@ -1,7 +1,7 @@
 """Print a readable timeline from a sniff_batc.py log, to see how BeyondATC's state messages move
 around an exchange (e.g. which pilot responses `Actions` offers while ATC waits for a readback). Stdlib only.
 
-    python tools/batc_timeline.py                  latest log in logs/ (sniff_batc.py or pill_log.py)
+    python tools/batc_timeline.py                  the latest log (sniff_batc.py's or a pill recording)
     python tools/batc_timeline.py logs/batc-X.jsonl --types Actions,InfoBoxes
 
 Speech (ATC:, Player:, ...), CommsState, Facility and QueuedAction lines are printed as they come, and so are
@@ -49,9 +49,13 @@ def main():
     if args.log:
         path = Path(args.log)
     else:
-        logs = sorted((Path(__file__).resolve().parent.parent / "logs").glob("*.jsonl"), key=lambda p: p.stat().st_mtime)
+        # sniffer logs in the repo's logs/, pill recordings in %LOCALAPPDATA%\paul-batc-pill\logs
+        sys.path.insert(0, str(Path(__file__).resolve().parent))
+        import pill_log
+        dirs = (Path(__file__).resolve().parent.parent / "logs", pill_log.log_dir())
+        logs = sorted((p for d in dirs if d.exists() for p in d.glob("*.jsonl")), key=lambda p: p.stat().st_mtime)
         if not logs:
-            sys.exit("timeline: no logs/*.jsonl, run tools/sniff_batc.py or tools/pill_log.py first")
+            sys.exit("timeline: no log yet: run tools/sniff_batc.py, or record a flight with the pill's Log flight switch")
         path = logs[-1]
     diffed = set(t for t in args.types.split(",") if t)
     seen = {}

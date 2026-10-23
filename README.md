@@ -49,7 +49,7 @@ Hovering the pill shows two buttons under it: BeyondATC's **Auto Respond** (spee
 | AI traffic | show the "Traffic" pill while AI traffic talks |
 | Full station names | "Montpellier Ground" instead of "Ground" |
 | Hide when BATC is off | no pill at all while BeyondATC isn't running |
-| Log flight (developers) | stream what the pill receives, shows and does to `tools/pill_log.py` (see Development) |
+| Log flight (developers) | record the flight as the pill sees it (needs the logger, see Development); the note under it says whether it's recording |
 
 **Position**
 
@@ -106,16 +106,16 @@ Logs every BeyondATC socket message with timestamps to `logs/`. Use it when Beyo
 `tools/harness.html` previews the pill in a desktop browser against the live socket, with replay buttons for captured exchanges (wind check, voice request, IFR clearance and readback, runway question) and a "Hold PTT" button: run `python -m http.server 8765` in the repo root and open `http://localhost:8765/tools/harness.html`.
 
 ```bash
-python tools/pill_log.py
+python tools/build.py logger-install
 ```
 
-Records a flight as the pill sees it: turn on **Log flight (developers)** in the pill's settings, and the pill streams to this script every BeyondATC message (it reconnects once so the log starts with BeyondATC's snapshot), what it shows, and what you do (clicks, PTT, settings, the Auto Tune / Auto Respond commands). Written to `logs/pill-<date>.jsonl` line by line, so a sim crash keeps the log. It replaces the sniffer for a test flight.
+Once: the sim then starts `tools/pill_log.py` with itself, in the background (pythonw, no console window), and it quits when the sim does. Switching on **Log flight (developers)** in the pill's settings starts a recording, switching it off ends it: every BeyondATC message (the pill reconnects once so a recording starts with BeyondATC's snapshot), what the pill shows, and what you do (clicks, PTT, settings, the Auto Tune / Auto Respond commands). Each recording is a `pill-<date>.jsonl` in `%LOCALAPPDATA%\paul-batc-pill\logs`, written line by line, so a sim crash keeps it. `logger-install` backs up `exe.xml` first; `python tools/build.py logger-uninstall` removes the entry. `python tools/pill_log.py` runs the logger by hand, printing what it records.
 
 ```bash
 python tools/batc_timeline.py
 ```
 
-Prints the latest log (sniffer or pill log) as a timeline, with the toolbar's reply menu (`Actions`) and clearance boxes (`InfoBoxes`) as +/- changes, and the pill's states (`PILL`) and your actions (`--`) in between.
+Prints the latest log (a sniff or a pill recording) as a timeline, with the toolbar's reply menu (`Actions`) and clearance boxes (`InfoBoxes`) as +/- changes, and the pill's states (`PILL`) and your actions (`--`) in between.
 
 ```bash
 python docs/render_images.py
