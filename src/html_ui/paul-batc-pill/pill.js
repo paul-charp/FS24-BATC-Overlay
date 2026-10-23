@@ -1,6 +1,8 @@
-// BATC comms pill: shows BeyondATC's comms state in a screen corner during flight.
-// Reads BeyondATC's toolbar socket (the same one its in-sim panel uses). The only thing it sends is what
-// BeyondATC's own toolbar switches send: "set_autotune: true|false" and "set_autorespond: true|false".
+// BATC comms pill: shows BeyondATC's comms state in a screen corner during flight, with ATC's messages, their
+// answers, the requests and a Frequencies / Log panel around it.
+// Reads BeyondATC's toolbar socket (the same one its in-sim panel uses). It only sends, on a click, what the
+// toolbar itself sends: "set_autotune: <bool>", "set_autorespond: <bool>", "set_action: <label>",
+// "set_frequency: <freq>" and "frequencies".
 (function () {
   "use strict";
 
@@ -33,7 +35,9 @@
     pttDelayMs: 250,     // PTT held this long before "Transmitting" shows. Under ~450 ms a click still shows briefly:
                          // the sim's first repeat comes at ~0.4 s, so a click looks held until then
     hideOffline: false,  // true: no pill at all while BeyondATC isn't running
-    showTraffic: true,   // show a neutral "Traffic" pill while AI traffic talks
+    showTraffic: true,   // show a neutral "Traffic" pill while AI traffic talks (and its lines in the messages and Log)
+    captions: "all",     // ATC's lines as messages under the pill: "off", "mine" (your exchanges), "all" (and AI traffic)
+    exchangeMs: 5000,    // an exchange's messages leave together this long after it closes
     facility: "short",   // "short": "Ground", "full": "Montpellier Ground"
     url: "ws://127.0.0.1:41716",
     reconnectMs: 5000,
@@ -45,7 +49,7 @@
   // What the settings card changes. Saved in localStorage, which every sim UI view shares.
   var USER_KEYS = ["corner", "x", "y", "scale", "showTuning", "showContact", "showAtis", "showReadback", "readbackDetail", "keepLast",
     "warnMuted", "showPtt", "hideOffline",
-    "showTraffic", "facility"];
+    "showTraffic", "facility", "captions"];
   var STORE_KEY = "batcpill.settings";
   var DEFAULTS = {};
   USER_KEYS.forEach(function (k) { DEFAULTS[k] = CONFIG[k]; });
@@ -109,9 +113,21 @@
     atisUntil: 0,
     atisLetter: "",      // last "ATIS Current" box seen
     seenInfo: false,     // the first InfoBoxes after connecting is the snapshot, not a change
+    caps: [],            // messages under the pill: { id, who: "atc" | "you" | "traffic", label, text, born }
+    log: [],             // every line since the sim started, for the panel's Log: { who, label, text, at }
+    lastAtcCap: 0,       // id of the last ATC: line (the instruction a reply menu answers)
+    closedAt: 0,         // when your exchange last closed: nothing pending, queued, playing or just sent
+    menu: [],            // the toolbar's whole Actions list
+    requests: [],        // the request menu (Actions while ATC isn't waiting for you)
+    sentAt: 0,           // an answer or request was just sent: hide them until BeyondATC reacts
+    panel: false,        // comms panel open (click the pill)
+    panelTab: "freq",    // "freq" | "log"
+    freqSide: 0,         // index of the Frequencies group shown (Departure, Arrival, ...)
+    freqs: null,         // from "Frequencies:": { groups: [{ title, rows: [{ name, freq }] }] }, or { raw } unread
+    logReset: true,      // open the Log at its newest line
   };
   var socket = null;
-  var timers = { reconnect: 0, linger: 0, error: 0, tune: 0, missed: 0, confirm: 0, swHide: 0, atis: 0, demo: 0, ptt: 0, pttShow: 0, swap: 0, poll: 0 };
+  var timers = { reconnect: 0, linger: 0, error: 0, tune: 0, missed: 0, confirm: 0, swHide: 0, atis: 0, demo: 0, ptt: 0, pttShow: 0, swap: 0, poll: 0, sent: 0, capHover: 0 };
   var destroyed = false;
   var current = null;    // last rendered view signature
 
@@ -156,6 +172,8 @@
       toggleRow("Readback hints", "showReadback") +
       choiceRow("readbackDetail", [["none", "None"], ["short", "Short"], ["hint", "Hint"], ["boxes", "Boxes"]]) +
       toggleRow("Keep last clearance", "keepLast") +
+      '<div class="bc-row"><span class="bc-label">Messages</span></div>' +
+      choiceRow("captions", [["off", "Off"], ["mine", "Mine"], ["all", "All"]]) +
       toggleRow("Radio changes", "showTuning") + toggleRow("Contact reminders", "showContact") +
       toggleRow("ATIS changes", "showAtis") + toggleRow("Warn when COM1 muted", "warnMuted") +
       toggleRow("PTT indicator", "showPtt") +
@@ -191,6 +209,19 @@
   document.body.appendChild(switches);
   var switchEls = [switches].concat([].slice.call(switches.querySelectorAll("*")));
   var switchesOpen = false;
+
+  // ATC's messages, the answers/requests column and the comms panel (see "comms" below)
+  var msgs = document.createElement("div");
+  msgs.id = "batc-pill-msgs";
+  document.body.appendChild(msgs);
+  var list = document.createElement("div");
+  list.id = "batc-pill-list";
+  list.className = "is-closed";
+  document.body.appendChild(list);
+  var panel = document.createElement("div");
+  panel.id = "batc-pill-panel";
+  panel.className = "is-closed";
+  document.body.appendChild(panel);
 
   function stepRow(label, key) {
     return '<div class="bc-row"><span class="bc-label">' + label + '</span><span class="bc-step">' +
@@ -233,6 +264,7 @@
     cs[h] = "calc(" + Number(CONFIG.x) + " * 0.0926vh)";
     card.setAttribute("data-side", h);
     card.setAttribute("data-edge", v);
+    placeComms(v, h);
   }
   place();
 
@@ -549,6 +581,7 @@
     // keep the settings card clear of a taller pill
     var shift = h ? Math.max(0, Math.round(parseFloat(h) - 26 * 0.000926 * window.innerHeight * Number(CONFIG.scale || 1))) : 0;
     if (shift !== cardShift) { cardShift = shift; place(); }
+    if (switchesOpen) placeSwitches();
   }
 
   function cssReady() {
@@ -692,11 +725,13 @@
     // while your own request is still out, before ATC has said anything: not ATC waiting for you
     if (waiting && /^(request|processing|queued)$/.test(state.mode)) return;
     var replies = waiting ? list.filter(function (s) { return s && !/^(say again|cancel\b)/i.test(s); }) : [];
+    state.menu = list.filter(function (s) { return s; });
+    if (!waiting) state.requests = state.menu;
     var key = "¬" + replies.join("¬"); // never "", which means not waiting
     if (waiting && key !== state.repliesKey) {
       // the instruction or question is the last ATC line (empty when we connected mid-exchange)
       state.readback = { text: clip(state.atcText), facility: state.facility, calls: 1,
-        negative: /^negative\b/i.test(state.atcText) };
+        negative: /^negative\b/i.test(state.atcText), capId: state.lastAtcCap };
       state.answered = state.replied = false;
       state.missed = null;
     } else if (!waiting) {
@@ -767,6 +802,11 @@
   }
 
   function onMessage(msg) {
+    handleMessage(msg);
+    renderComms();
+  }
+
+  function handleMessage(msg) {
     var i = msg.indexOf(":");
     if (i < 0) return;
     var type = msg.slice(0, i);
@@ -797,8 +837,9 @@
       case "ATC":
         state.speaker = "atc";
         state.atcText = payload;
+        state.lastAtcCap = addLine("atc", stationLabel(), payload);
         var c = contactIn(payload);
-        if (c && !state.autoTune && !onContact(c)) state.contact = c;
+        if (c && !state.autoTune && !onContact(c)) { c.capId = state.lastAtcCap; state.contact = c; }
         state.menuFresh = false; // ATC may close the exchange: wait for the menu sent after it
         state.missed = null;
         if (state.readback) {
@@ -809,7 +850,7 @@
           if (!negative && (state.answered || state.readback.facility.name !== state.facility.name)) {
             // you replied (or a new station talks): a new instruction with the same reply menu, like
             // "Nantes Tower, continue." after the handoff's "Acknowledge Instruction". Not the old hint.
-            state.readback = { text: clip(payload), facility: state.facility, calls: 1, negative: false };
+            state.readback = { text: clip(payload), facility: state.facility, calls: 1, negative: false, capId: state.lastAtcCap };
           } else if (!state.answered && !negative) {
             state.readback.calls++;
           }
@@ -817,22 +858,29 @@
             state.readback.text = clip(payload);
             state.readback.negative = negative;
           }
+          state.readback.capId = state.lastAtcCap; // the latest call is the message to answer
           if (negative) state.replied = false; // that reply didn't count
           state.answered = false;
         }
         return;
       case "ATCTraffic":
         state.speaker = "atcTraffic"; // ATC talking to another aircraft: your pending readback stays
+        addLine("traffic", "ATC", payload);
         return;
       case "Player":
         state.speaker = "player"; // your readback (or "say again") is starting
+        addLine("you", "You", payload);
         state.answered = state.replied = true;
         state.missed = null;
         state.menuFresh = false;
         return;
       case "Traffic":
         state.speaker = "traffic";
+        addLine("traffic", "Traffic", payload);
         return;
+      case "Frequencies":
+        state.freqs = parseFreqs(payload);
+        break;
       case "Facility": {
         // "Montpellier Ground (30R, 30L)|121.955", or "Nothing Tuned" without a frequency
         var parts = payload.split("|");
@@ -931,6 +979,7 @@
       state.seenInfo = false;
       state.contact = null;
       state.com2 = null;
+      state.freqs = null;
       render();
     };
     socket.onmessage = function (ev) {
@@ -947,6 +996,10 @@
       state.infoBoxes = [];
       state.readback = null;
       state.kept = null;
+      state.caps = [];
+      state.menu = [];
+      state.requests = [];
+      state.panel = false;
       showSwitches(false);
       render();
       if (!destroyed) timers.reconnect = setTimeout(connect, CONFIG.reconnectMs);
@@ -994,7 +1047,7 @@
 
   function openCard(open) {
     state.editing = open;
-    if (open) showSwitches(false);
+    if (open) { showSwitches(false); state.panel = false; }
     card.className = open ? "" : "is-closed";
     shade.className = open ? "" : "is-closed";
     if (open) shade.setAttribute("data-input-group", "BATC-PILL");
@@ -1008,10 +1061,11 @@
     if (open) updateCard();
     state.demo = "";
     render();
+    renderComms();
   }
 
   root.addEventListener("click", function (e) {
-    // the kept clearance's ✕ hides it; anywhere else opens the settings
+    // the kept clearance's ✕ hides it; anywhere else opens the comms panel (or closes the settings card)
     for (var el = e.target; el && el !== root; el = el.parentNode) {
       if (el.className && String(el.className.baseVal || el.className).indexOf("bp-unpin") >= 0) {
         if (state.editing) break; // the settings sample: just a click on the pill
@@ -1020,7 +1074,8 @@
         return;
       }
     }
-    openCard(!state.editing);
+    if (state.editing) openCard(false);
+    else openPanel(!state.panel);
   });
 
   // While the card is open, a transparent layer behind it (and the pill) takes the clicks elsewhere and closes
@@ -1075,32 +1130,61 @@
   });
 
   // ---- BeyondATC buttons on hover ----------------------------------------
-  // Mousemove reaches mainUi whatever is under the cursor, so hovering is worked out from positions: the
-  // buttons open over the pill and stay while the mouse is over the pill, the buttons or the gap between.
+  // Mousemove reaches mainUi whatever is under the cursor, so hovering is worked out from positions, and only
+  // when the mouse moves: a layout change under a still cursor never ends it. The zone is the pill, the
+  // buttons beside it and the column under it; it remembers where the column was while the radio is busy (the
+  // column closes then), so the requests come back under a still cursor once it's quiet.
 
   function canSwitch() {
     return state.connected && state.inFlight && !state.editing && current !== null &&
       current !== "hidden";
   }
 
+  var hoverZone = null;
+
+  function box(el) {
+    var r = el.getBoundingClientRect();
+    return r.width || r.height ? { l: r.left, t: r.top, r: r.right, b: r.bottom } : null;
+  }
+
+  function union(a, b) {
+    if (!a || !b) return a || b;
+    return { l: Math.min(a.l, b.l), t: Math.min(a.t, b.t), r: Math.max(a.r, b.r), b: Math.max(a.b, b.b) };
+  }
+
+  function within(z, x, y, m) {
+    return !!z && x >= z.l - m && x <= z.r + m && y >= z.t - m && y <= z.b + m;
+  }
+
   function onMouseMove(e) {
-    if (!canSwitch()) { if (switchesOpen) showSwitches(false); return; }
-    var r = root.getBoundingClientRect();
-    var a = { left: r.left, right: r.right, top: r.top, bottom: r.bottom };
+    var x = e.clientX, y = e.clientY;
+    if (!canSwitch()) { if (switchesOpen) showSwitches(false); hoverMessage(0); return; }
+    var m = 8 * 0.000926 * window.innerHeight;
+    var cur = box(root);
     if (switchesOpen) {
-      var b = switches.getBoundingClientRect();
-      a = { left: Math.min(a.left, b.left), right: Math.max(a.right, b.right),
-        top: Math.min(a.top, b.top), bottom: Math.max(a.bottom, b.bottom) };
+      cur = union(cur, box(switches));
+      if (list.className !== "is-closed") cur = union(cur, box(list));
     }
-    var m = switchesOpen ? 8 : 0;
-    var inside = e.clientX >= a.left - m && e.clientX <= a.right + m && e.clientY >= a.top - m && e.clientY <= a.bottom + m;
-    if (inside) {
+    if (within(cur, x, y, switchesOpen ? m : 0)) {
+      // keep the larger remembered zone while the column is away (radio busy), else follow the layout
+      if (!(switchesOpen && busy() && within(hoverZone, x, y, 0))) hoverZone = cur && { l: cur.l - m, t: cur.t - m, r: cur.r + m, b: cur.b + m };
       clearTimeout(timers.swHide);
       timers.swHide = 0;
       if (!switchesOpen) showSwitches(true);
+    } else if (switchesOpen && within(hoverZone, x, y, 0)) {
+      clearTimeout(timers.swHide);
+      timers.swHide = 0;
     } else if (switchesOpen && !timers.swHide) {
-      timers.swHide = setTimeout(function () { timers.swHide = 0; showSwitches(false); }, 350);
+      timers.swHide = setTimeout(function () { timers.swHide = 0; hoverZone = null; showSwitches(false); }, 350);
     }
+    // the message under the cursor, if it can show a row (the one ATC waits on, the handoff)
+    var id = 0, nodes = msgs.children;
+    for (var i = 0; i < nodes.length; i++) {
+      if (!nodes[i].getAttribute("data-leaving") && within(box(nodes[i]), x, y, 4 * 0.000926 * window.innerHeight)) {
+        id = Number(nodes[i].getAttribute("data-id"));
+      }
+    }
+    hoverMessage(id);
   }
 
   function showSwitches(open) {
@@ -1112,19 +1196,25 @@
       else switchEls[i].removeAttribute("data-input-group");
     }
     if (open) { placeSwitches(); updateSwitches(); }
+    renderComms();
   }
 
   function placeSwitches() {
-    // beside the pill, on its side, away from the screen edge it sits on
+    // on the pill's row, toward the screen center. By the pill's target width: it animates, and the current
+    // width left the buttons over it while it grew
     var r = root.getBoundingClientRect();
-    var gap = 6 * 0.000926 * window.innerHeight;
+    var w = parseFloat(root.style.width) || r.width;
+    var gap = 8 * 0.000926 * window.innerHeight * Number(CONFIG.scale || 1);
+    var bottom = /^bottom/.test(CONFIG.corner);
     var st = switches.style;
     st.top = st.bottom = st.left = st.right = "";
-    if (root.getAttribute("data-side") === "left") st.left = r.left + "px";
-    else st.right = window.innerWidth - r.right + "px";
-    switches.setAttribute("data-edge", /^bottom/.test(CONFIG.corner) ? "bottom" : "top");
-    if (/^bottom/.test(CONFIG.corner)) st.bottom = window.innerHeight - r.top + gap + "px";
-    else st.top = r.bottom + gap + "px";
+    var side = root.getAttribute("data-side") === "left" ? "left" : "right";
+    switches.setAttribute("data-side", side);
+    if (side === "left") st.left = r.left + w + gap + "px";
+    else st.right = window.innerWidth - r.right + w + gap + "px";
+    // level with the pill's status row (its first 26 units; the clearance boxes hang below it)
+    // (a bottom-corner pill grows upward: its status row starts at its target height above its bottom)
+    st.top = (bottom ? r.bottom - (parseFloat(root.style.height) || r.height) : r.top) + "px";
   }
 
   function updateSwitches() {
@@ -1138,21 +1228,490 @@
   switches.addEventListener("click", function (e) {
     var el = e.target;
     while (el && el !== switches && !el.hasAttribute("data-sw")) el = el.parentNode;
-    if (!el || el === switches || !socket || socket.readyState !== 1) return;
-    // the same commands as BeyondATC's toolbar switches; it then sends the new state to every client
-    if (el.getAttribute("data-sw") === "autotune") {
+    if (!el || el === switches) return;
+    flip(el.getAttribute("data-sw"));
+  });
+
+  // the same commands as BeyondATC's toolbar switches; it then sends the new state to every client
+  function flip(which) {
+    if (which === "autotune") {
+      if (!send("set_autotune: " + !state.autoTune)) return;
       state.autoTune = !state.autoTune;
       if (state.autoTune) state.contact = null;
-      socket.send("set_autotune: " + state.autoTune);
     } else {
+      if (!send("set_autorespond: " + !state.autoRespond)) return;
       state.autoRespond = !state.autoRespond;
-      socket.send("set_autorespond: " + state.autoRespond);
     }
     updateSwitches();
     render();
-  });
+    renderComms();
+  }
 
   document.addEventListener("mousemove", onMouseMove);
+
+  // ---- comms: messages, answers, requests, panel ----------------------------
+  // What BeyondATC's toolbar offers, around the pill (design: docs/design/comms-panel.html). ATC's lines show as
+  // messages under the pill; your exchange's lines leave together exchangeMs after it closes, AI traffic's one
+  // by one. Hovering the message ATC waits on (or the pill) opens its answers below it; with that message off
+  // screen they open in a column under the pill, which otherwise holds "Tune" after a handoff (Auto Tune off)
+  // or the requests while the radio is quiet. Clicking the pill opens a panel with Frequencies and Log.
+
+  var CAP_MS = 420;       // a message opening or closing its space
+  var TRAFFIC_MS = 6000;  // AI traffic's messages leave one by one after this
+  var MAX_CAPS = 6;       // a clearance exchange is five lines
+  var LOG_MAX = 200;
+  var SENT_MS = 4000;     // after a click, answers and requests stay hidden this long unless BeyondATC reacts first
+  var CHIP_MAX = 3;       // answers shown before "+N"
+  var IG = ' data-input-group="BATC-PILL"'; // clicks reach only elements carrying it (see openCard)
+  var capSeq = 0, hoverCap = 0, hoverCapAll = false, panelHtml = "";
+  var sent = [];
+
+  function send(cmd) {
+    if (!socket || socket.readyState !== 1) return false;
+    socket.send(cmd);
+    sent.push(cmd);
+    if (sent.length > 20) sent.shift();
+    return true;
+  }
+
+  function unit() { return 0.000926 * window.innerHeight * Number(CONFIG.scale || 1); }
+
+  function stationLabel() {
+    var name = state.facility.name;
+    if (!name) return "ATC";
+    if (CONFIG.facility === "short") { var w = name.split(" "); name = w[w.length - 1]; }
+    return name;
+  }
+
+  // a radio line: into the Log, and onto the screen if the Messages setting shows it. Returns its id.
+  function addLine(who, label, text) {
+    var id = ++capSeq, now = Date.now();
+    text = String(text).trim();
+    state.log.push({ who: who, label: label, text: text, at: now });
+    if (state.log.length > LOG_MAX) state.log.shift();
+    if (who === "traffic" ? CONFIG.captions === "all" && CONFIG.showTraffic : CONFIG.captions !== "off") {
+      state.caps.push({ id: id, who: who, label: label, text: text, born: now });
+      // room for a whole exchange: AI traffic makes way first
+      var i;
+      for (i = 0; i < state.caps.length && state.caps.length > MAX_CAPS; i++) {
+        if (state.caps[i].who === "traffic") state.caps.splice(i--, 1);
+      }
+      for (i = 0; i < state.caps.length && state.caps.length > MAX_CAPS; i++) {
+        if (!capPinned(state.caps[i])) state.caps.splice(i--, 1);
+      }
+    }
+    return id;
+  }
+
+  // ATC waits for your answer (the toolbar offers replies with "Say Again") and you haven't given it
+  function awaiting() {
+    return !!(state.readback && !state.answered && state.menuFresh && state.repliesKey);
+  }
+
+  function justSent() { return Date.now() - state.sentAt < SENT_MS; }
+
+  // nothing can be sent now: someone's talking, a request is queued, or a click is on its way
+  function busy() { return state.mode !== "ready" || justSent(); }
+
+  function capPinned(c) { return awaiting() && state.readback.capId === c.id; }
+
+  // Auto Tune off and ATC handed you to a station: once you've answered, offer to tune COM1 to it
+  function contactPending() { return !!(state.contact && state.contact.freq && !state.autoTune && !awaiting()); }
+
+  // the toolbar's reply menu without "Say Again" (the message is there to read again); "Cancel ..." last
+  function answers() {
+    var a = [], cancels = [];
+    state.menu.forEach(function (s) {
+      if (/^say again$/i.test(s)) return;
+      (/^cancel\b/i.test(s) ? cancels : a).push(s);
+    });
+    return a.concat(cancels);
+  }
+
+  function chip(label, attr, value, cls) {
+    return '<span class="bm-chip' + (cls ? " " + cls : "") + '"' + IG + " " + attr + '="' + esc(value) + '">' +
+      esc(label) + "</span>";
+  }
+
+  // the obvious answer (a readback, an acknowledgement) filled amber; a question's answers all alike.
+  // A long list: the first few, then "+N" opens the rest in place.
+  function answerChips(all) {
+    var a = answers(), question = waitingFor().choices.length > 0, off = busy() ? " is-busy" : "";
+    var cut = all || a.length <= CHIP_MAX + 1 ? a.length : CHIP_MAX, html = "";
+    for (var i = 0; i < cut; i++) {
+      var cls = i === 0 && !question && !/^cancel\b/i.test(a[i]) ? "is-primary" : /^cancel\b/i.test(a[i]) ? "is-quiet" : "";
+      html += chip(a[i], "data-reply", a[i], cls + off);
+    }
+    if (cut < a.length) html += chip("+" + (a.length - cut), "data-more", "1", "is-quiet");
+    return html;
+  }
+
+  function tuneChip() {
+    return chip("Tune " + state.contact.freq, "data-tune", state.contact.freq, "is-tune");
+  }
+
+  function commsShown() {
+    return state.connected && state.inFlight && !state.editing && current !== null && current !== "hidden";
+  }
+
+  function messagesShown() { return commsShown() && !state.panel && CONFIG.captions !== "off"; }
+
+  function capShown(id) {
+    return messagesShown() && state.caps.some(function (c) { return c.id === id; });
+  }
+
+  function renderComms() {
+    if (destroyed || !cssReady()) return;
+    renderMessages();
+    renderList();
+    renderPanel();
+  }
+
+  // ---- messages ----
+  // Each message is a slot that opens and closes its height, so the others glide instead of jumping.
+
+  function capText(c) {
+    // ATC's lines go bare: the pill above names the station and the state
+    return (c.who === "atc" ? "" : '<span class="bm-who">' + esc(c.label) + "</span>") + esc(c.text);
+  }
+
+  function capClass(c) { return "bm-cap bm-" + c.who + (capPinned(c) ? " is-pinned" : ""); }
+
+  // the row under a message, while you hover it or the pill: its answers, or "Tune" under the handoff
+  function capActs(c) {
+    if (!(switchesOpen || hoverCap === c.id)) return "";
+    if (awaiting() && state.readback.capId === c.id && !justSent()) return answerChips(hoverCapAll);
+    if (contactPending() && state.contact.capId === c.id) return tuneChip();
+    return "";
+  }
+
+  function capEnter(c) {
+    var n = document.createElement("div");
+    n.className = capClass(c) + " is-out";
+    n.setAttribute("data-id", c.id);
+    n.innerHTML = '<div class="bm-card">' + capText(c) + "</div>";
+    n.style.height = "0px";
+    msgs.appendChild(n);
+    var h = n.firstChild.offsetHeight;
+    requestAnimationFrame(function () {
+      n.className = capClass(c);
+      n.style.height = h + 6 * unit() + "px";
+      // free the height once open, so a new row or a resize reflows normally
+      setTimeout(function () { if (!n.getAttribute("data-leaving")) n.style.height = ""; }, CAP_MS + 30);
+    });
+  }
+
+  function capLeave(n) {
+    if (n.getAttribute("data-leaving")) return;
+    n.setAttribute("data-leaving", "1");
+    n.style.height = n.offsetHeight + "px";
+    void n.offsetHeight; // start the collapse from the measured height
+    n.className += " is-out is-leaving";
+    n.style.height = "0px";
+    setTimeout(function () { if (n.parentNode) n.parentNode.removeChild(n); }, CAP_MS + 30);
+  }
+
+  // show or hide the row under a message, gliding its slot to the new height
+  function capSet(n, acts) {
+    var from = n.offsetHeight, row = null;
+    for (var i = 0; i < n.children.length; i++) if (n.children[i].className === "bm-acts") row = n.children[i];
+    if (acts && !row) {
+      row = document.createElement("div");
+      row.className = "bm-acts";
+      n.appendChild(row);
+    }
+    if (row) { if (acts) row.innerHTML = acts; else n.removeChild(row); }
+    n.setAttribute("data-acts", acts);
+    if (n.className.indexOf(" is-out") >= 0) return; // still opening: its own animation sizes it
+    n.style.height = "";
+    var to = n.offsetHeight; // natural height, measured before the frame paints
+    if (Math.abs(to - from) < 1) return;
+    n.style.height = from + "px";
+    void n.offsetHeight;
+    n.style.height = to + "px";
+    clearTimeout(n.batcTimer);
+    n.batcTimer = setTimeout(function () { if (!n.getAttribute("data-leaving")) n.style.height = ""; }, CAP_MS + 30);
+  }
+
+  function renderMessages() {
+    var now = Date.now();
+    // your exchange closes when nothing is pending, queued, playing or just sent; its lines then leave together
+    var closed = state.mode === "ready" && !state.readback && !confirming() && !justSent();
+    if (!closed) state.closedAt = 0;
+    else if (!state.closedAt) state.closedAt = now;
+    var clear = closed && now - state.closedAt >= CONFIG.exchangeMs;
+    state.caps = state.caps.filter(function (c) {
+      if (c.who === "traffic") return CONFIG.captions === "all" && CONFIG.showTraffic && now - c.born < TRAFFIC_MS;
+      return CONFIG.captions !== "off" && !clear;
+    });
+    if (clear) clearTimeout(timers.capHover);
+    if (!messagesShown()) {
+      // hidden (panel open, settings, menus): nothing to measure; they open again from scratch
+      msgs.innerHTML = "";
+      msgs.style.display = "none";
+      return;
+    }
+    msgs.style.display = "";
+    var live = {}, nodes = {};
+    state.caps.forEach(function (c) { live[c.id] = c; });
+    [].slice.call(msgs.children).forEach(function (n) {
+      var id = n.getAttribute("data-id");
+      if (n.getAttribute("data-leaving")) return;
+      if (!live[id]) { capLeave(n); return; }
+      nodes[id] = n;
+      var cls = capClass(live[id]);
+      if (n.className !== cls && n.className.indexOf(" is-out") < 0) n.className = cls;
+      var acts = capActs(live[id]);
+      if ((n.getAttribute("data-acts") || "") !== acts) capSet(n, acts);
+    });
+    state.caps.forEach(function (c) { if (!nodes[c.id]) capEnter(c); });
+  }
+
+  // the message under the cursor (0: none). Leaving waits a moment, so the cursor can reach the row's chips.
+  function hoverMessage(id) {
+    if (id) {
+      clearTimeout(timers.capHover);
+      timers.capHover = 0;
+      if (hoverCap !== id) { hoverCap = id; hoverCapAll = false; renderMessages(); }
+    } else if (hoverCap && !timers.capHover) {
+      timers.capHover = setTimeout(function () {
+        timers.capHover = 0;
+        hoverCap = 0;
+        hoverCapAll = false;
+        renderMessages();
+      }, 350);
+    }
+  }
+
+  // ---- the column under the pill (on hover) ----
+
+  function renderList() {
+    var html = "";
+    if (switchesOpen && commsShown() && !state.panel) {
+      if (awaiting()) {
+        // answers show in one place: under the message while it's on screen, else here
+        if (!capShown(state.readback.capId) && !justSent()) html = answerChips(true);
+      } else if (contactPending()) {
+        // requests wait until you're on the new station
+        if (!capShown(state.contact.capId)) html = tuneChip();
+      } else if (!busy()) {
+        // BeyondATC's order: the likely next request first
+        html = state.requests.map(function (r) { return chip(r, "data-req", r, ""); }).join("");
+      }
+    }
+    if (list.innerHTML !== html) list.innerHTML = html;
+    list.className = html ? "" : "is-closed";
+    if (html) list.setAttribute("data-input-group", "BATC-PILL");
+    else list.removeAttribute("data-input-group");
+  }
+
+  // a click on an answer, a request, "+N" or "Tune" (under a message or in the column)
+  function onChip(e, container) {
+    var el = e.target;
+    while (el && el !== container && !(el.getAttribute && (el.getAttribute("data-reply") ||
+      el.getAttribute("data-req") || el.getAttribute("data-more") || el.getAttribute("data-tune")))) {
+      el = el.parentNode;
+    }
+    if (!el || el === container) return;
+    if (el.getAttribute("data-more")) { hoverCapAll = true; renderMessages(); return; }
+    if (el.getAttribute("data-tune")) { tune(el.getAttribute("data-tune")); return; }
+    if (busy()) return;
+    var label = el.getAttribute("data-reply") || el.getAttribute("data-req");
+    // exactly as the toolbar's menu item: BeyondATC answers with queued / Player: / processing
+    if (!send("set_action: " + label)) return;
+    state.sentAt = Date.now();
+    hoverCapAll = false;
+    clearTimeout(timers.sent);
+    timers.sent = setTimeout(renderComms, SENT_MS + 20);
+    renderComms();
+  }
+
+  function tune(freq) {
+    // as the toolbar's frequency list; BeyondATC retunes COM1 and sends the new Facility
+    if (send("set_frequency: " + freq)) renderComms();
+  }
+
+  msgs.addEventListener("click", function (e) { onChip(e, msgs); });
+  list.addEventListener("click", function (e) { onChip(e, list); });
+
+  // ---- panel: Frequencies and Log ----
+
+  function openPanel(open) {
+    state.panel = open;
+    if (open) {
+      showSwitches(false);
+      if (contactPending()) {
+        // the station ATC handed you to: on Frequencies, on the side that holds it
+        state.panelTab = "freq";
+        var g = state.freqs && state.freqs.groups || [];
+        for (var i = 0; i < g.length; i++) {
+          if (g[i].rows.some(function (r) { return sameFreq(r.freq, state.contact.freq); })) state.freqSide = i;
+        }
+      }
+      state.logReset = true;
+      send("frequencies"); // as the toolbar's Frequencies tab
+    }
+    renderComms();
+  }
+
+  function sameFreq(a, b) { return !!a && !!b && Number(a).toFixed(3) === Number(b).toFixed(3); }
+
+  // "Frequencies:" isn't captured yet (AGENTS.md): read any JSON holding objects with a frequency and a name,
+  // grouped under the key or title above them ("departure", "arrival", an airport); "Name|freq" lines too.
+  // Anything else is kept raw, so the panel shows it instead of guessing.
+  function parseFreqs(payload) {
+    var groups = [], data = parseJson(payload);
+    function add(title, row) {
+      for (var i = 0; i < groups.length; i++) if (groups[i].title === title) { groups[i].rows.push(row); return; }
+      groups.push({ title: title, rows: [row] });
+    }
+    function rowOf(o) {
+      var name = "", freq = "";
+      for (var k in o) {
+        var v = o[k];
+        if (typeof v === "number") v = String(v);
+        if (typeof v !== "string") continue;
+        v = v.trim();
+        if (!freq && /freq/i.test(k) && /^1\d{2}\.\d{1,3}$/.test(v)) freq = v;
+        else if (!name && /^(name|label|facility|station|title|type|callsign)$/i.test(k)) name = v;
+      }
+      return freq ? { name: stationName(name) || freq, freq: Number(freq).toFixed(3) } : null;
+    }
+    function title(k) {
+      return String(k).replace(/([a-z])([A-Z])/g, "$1 $2").replace(/^./, function (c) { return c.toUpperCase(); });
+    }
+    function walk(node, t, depth) {
+      if (!node || typeof node !== "object" || depth > 6) return;
+      if (!(node instanceof Array)) {
+        var r = rowOf(node);
+        if (r) { add(t, r); return; }
+      }
+      for (var k in node) walk(node[k], node instanceof Array || typeof node[k] !== "object" ? t : title(k), depth + 1);
+    }
+    if (data && typeof data === "object") walk(data, "", 0);
+    else {
+      String(payload).split(/¬|\n/).forEach(function (line) {
+        var p = line.split("|"), f = (p[1] || "").trim();
+        if (p[0] && /^1\d{2}\.\d{1,3}$/.test(f)) add("", { name: stationName(p[0]), freq: Number(f).toFixed(3) });
+      });
+    }
+    return groups.length ? { groups: groups } : { raw: String(payload) };
+  }
+
+  var GEAR = '<svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="8" cy="8" r="2.3"/>' +
+    '<path d="M8 1.5v2M8 12.5v2M1.5 8h2M12.5 8h2M3.4 3.4l1.4 1.4M11.2 11.2l1.4 1.4M3.4 12.6l1.4-1.4M11.2 4.8l1.4-1.4"/></svg>';
+  var CROSS = '<svg viewBox="0 0 10 10" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round">' +
+    '<path d="M2 2l6 6M8 2l-6 6"/></svg>';
+
+  function toggleHtml(label, attr, value, on) {
+    return '<span class="bm-tog' + (on ? " is-on" : "") + '" ' + attr + '="' + value + '">' + label +
+      '<span class="bm-sw"><i></i></span></span>';
+  }
+
+  function freqTab() {
+    var f = state.freqs, h = "";
+    if (contactPending()) {
+      h += '<div class="bm-contact"><span class="bm-grow">ATC: contact ' + esc(state.contact.name) + " " +
+        esc(state.contact.freq) + '</span><span class="bm-go" data-tune="' + esc(state.contact.freq) + '">Tune COM1</span></div>';
+    }
+    if (!f) return h + '<div class="bm-note">Waiting for BeyondATC\'s frequencies…</div>';
+    if (f.raw) {
+      return h + '<div class="bm-note">BeyondATC sent its frequencies in a form the pill can\'t read yet:</div>' +
+        '<div class="bm-raw">' + esc(f.raw.slice(0, 600)) + "</div>";
+    }
+    var i = Math.min(state.freqSide, f.groups.length - 1), g = f.groups[i];
+    var com2 = state.com2 ? state.com2.split("|")[1] : "";
+    if (f.groups.length > 1) {
+      h += '<div class="bm-seg">' + f.groups.map(function (x, j) {
+        return '<span class="bm-tab' + (j === i ? " is-on" : "") + '" data-side="' + j + '">' + esc(x.title || "Stations") + "</span>";
+      }).join("") + "</div>";
+    } else if (g.title) {
+      h += '<div class="bm-grp">' + esc(g.title) + "</div>";
+    }
+    h += '<div class="bm-rows">' + g.rows.map(function (r) {
+      var on1 = sameFreq(r.freq, state.facility.freq);
+      return '<div class="bm-row' + (on1 ? " is-active" : "") + '" data-tune="' + esc(r.freq) + '"><span class="bm-grow">' +
+        esc(r.name) + "</span>" +
+        (contactPending() && sameFreq(r.freq, state.contact.freq) ? '<span class="bm-tag is-ask">ATC</span>' : "") +
+        (on1 ? '<span class="bm-tag is-com1">COM1</span>' : "") +
+        (sameFreq(r.freq, com2) ? '<span class="bm-tag is-com2">COM2</span>' : "") +
+        '<span class="bm-f">' + esc(r.freq) + "</span></div>";
+    }).join("") + "</div>";
+    return h;
+  }
+
+  function hhmm(t) {
+    var d = new Date(t), h = d.getHours(), m = d.getMinutes();
+    return (h < 10 ? "0" : "") + h + ":" + (m < 10 ? "0" : "") + m;
+  }
+
+  function logTab() {
+    var lines = state.log.filter(function (l) { return CONFIG.showTraffic || l.who !== "traffic"; });
+    return '<div class="bm-bar"><span class="bm-sec">' + lines.length + " lines</span>" +
+      toggleHtml("AI traffic", "data-act", "traffic", CONFIG.showTraffic) + "</div>" +
+      (lines.length ? '<div class="bm-log">' + lines.map(function (l) {
+        return '<div class="bm-ln bm-' + l.who + '"><span class="bm-t">' + hhmm(l.at) + '</span><span class="bm-x">' +
+          '<span class="bm-w">' + esc(l.label) + "</span>" + esc(l.text) + "</span></div>";
+      }).join("") + "</div>" : '<div class="bm-note">No radio calls yet.</div>');
+  }
+
+  function renderPanel() {
+    var open = state.panel && commsShown();
+    panel.className = open ? "" : "is-closed";
+    if (!open) { panel.removeAttribute("data-input-group"); return; }
+    var tabs = [["freq", "Frequencies"], ["log", "Log"]].map(function (t) {
+      var badge = t[0] === "freq" && contactPending() && state.panelTab !== "freq";
+      return '<span class="bm-tab' + (state.panelTab === t[0] ? " is-on" : "") + '" data-tab="' + t[0] + '">' + t[1] +
+        (badge ? '<i class="bm-badge"></i>' : "") + "</span>";
+    }).join("");
+    var html = '<div class="bm-head"><span class="bm-tabs">' + tabs + "</span>" +
+      '<span class="bm-icon" data-act="settings">' + GEAR + '</span><span class="bm-icon" data-act="close">' + CROSS + "</span></div>" +
+      (state.panelTab === "log" ? logTab() : freqTab()) +
+      '<div class="bm-foot">' + toggleHtml("Auto Respond", "data-sw", "autorespond", state.autoRespond) +
+      toggleHtml("Auto Tune", "data-sw", "autotune", state.autoTune) + "</div>";
+    if (html === panelHtml && panel.firstChild) return; // unchanged: keep the DOM and the Log's scroll position
+    // keep the Log where you scrolled it; follow new lines only while you're at its bottom
+    var old = panel.querySelector(".bm-log"), top = old ? old.scrollTop : 0;
+    var atBottom = !old || old.scrollHeight - old.scrollTop - old.clientHeight < 4;
+    panel.innerHTML = panelHtml = html;
+    var log = panel.querySelector(".bm-log");
+    if (log) log.scrollTop = atBottom || state.logReset ? log.scrollHeight : top;
+    state.logReset = false;
+    // the sim checks data-input-group on the exact element under the cursor
+    var els = [panel].concat([].slice.call(panel.querySelectorAll("*")));
+    for (var i = 0; i < els.length; i++) els[i].setAttribute("data-input-group", "BATC-PILL");
+  }
+
+  panel.addEventListener("click", function (e) {
+    var el = e.target, names = ["data-tab", "data-side", "data-tune", "data-act", "data-sw"];
+    function has(n) { for (var i = 0; i < names.length; i++) if (n.getAttribute(names[i])) return true; return false; }
+    while (el && el !== panel && !(el.getAttribute && has(el))) el = el.parentNode;
+    if (!el || el === panel) return;
+    var act = el.getAttribute("data-act");
+    if (el.getAttribute("data-tab")) { state.panelTab = el.getAttribute("data-tab"); state.logReset = true; }
+    else if (el.getAttribute("data-side")) state.freqSide = Number(el.getAttribute("data-side"));
+    else if (el.getAttribute("data-tune")) { tune(el.getAttribute("data-tune")); return; }
+    else if (el.getAttribute("data-sw")) { flip(el.getAttribute("data-sw")); return; }
+    else if (act === "close") { openPanel(false); return; }
+    else if (act === "settings") { state.panel = false; openCard(true); return; }
+    else if (act === "traffic") { set({ showTraffic: !CONFIG.showTraffic }); return; }
+    renderPanel();
+  });
+
+  // under the pill, toward the screen center; bottom corners stack upward (see place)
+  function placeComms(v, h) {
+    var s = Number(CONFIG.scale || 1);
+    [[msgs, 34], [panel, 34], [list, 32]].forEach(function (p) {
+      var st = p[0].style;
+      st.top = st.bottom = st.left = st.right = "";
+      // the pill's height (26) and a gap, in 1080p pixels at this scale; cardShift: the clearance boxes' extra height
+      st[v] = "calc(" + (Number(CONFIG.y) + p[1] * s) + " * 0.0926vh + " + cardShift + "px)";
+      st[h] = "calc(" + Number(CONFIG.x) + " * 0.0926vh)";
+      st.setProperty("--u", 0.0926 * s + "vh");
+      p[0].setAttribute("data-side", h);
+      p[0].setAttribute("data-edge", v);
+    });
+  }
 
   // ---- flight detection -----------------------------------------------
 
@@ -1163,6 +1722,7 @@
     // measurement ran before layout settled
     render();
     resize();
+    renderComms();
   }
 
   // ---- PTT ----------------------------------------------------------------
@@ -1230,6 +1790,7 @@
     if (root.parentNode) root.parentNode.removeChild(root);
     if (card.parentNode) card.parentNode.removeChild(card);
     if (switches.parentNode) switches.parentNode.removeChild(switches);
+    [msgs, list, panel].forEach(function (el) { if (el.parentNode) el.parentNode.removeChild(el); });
     document.removeEventListener("mousemove", onMouseMove);
     if (shade.parentNode) shade.parentNode.removeChild(shade);
     if (style.parentNode) style.parentNode.removeChild(style);
@@ -1247,6 +1808,7 @@
     if (moved) current = null; // re-enter from the new side
     render();
     resize(); // same content at a new scale keeps its old pixel width otherwise
+    renderComms();
     return CONFIG;
   }
 
@@ -1256,6 +1818,7 @@
     state: state,
     config: CONFIG,
     feed: onMessage, // test hook: batcPill.feed('CommsState: {"mode":"awaiting","text":""}')
+    sent: sent,      // the last commands sent to BeyondATC, newest last
   };
 
   poll();

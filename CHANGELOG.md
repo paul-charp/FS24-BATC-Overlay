@@ -1,5 +1,15 @@
 # Changelog
 
+## 1.2.0 (unreleased)
+
+- Added: ATC's messages under the pill (Messages: Off / Mine / All). An exchange's messages leave together 5 s after it closes.
+- Added: hovering the message ATC waits on, or the pill, shows its answers below it; a click sends the answer.
+- Added: hovering the pill with nothing pending shows BeyondATC's requests in a column under it; a click sends the request.
+- Added: with Auto Tune off, "Tune" after you acknowledge a handoff sets COM1 to the new station.
+- Added: clicking the pill opens a panel with Frequencies (click a station to tune COM1) and Log.
+- Changed: the settings card opens from the gear in the panel.
+- Changed: the Auto Respond / Auto Tune buttons sit beside the pill instead of under it.
+
 ## 1.1.0 (unreleased)
 
 - Added: readback hints. While ATC waits for your readback, acknowledgement or answer, the pill shows "Awaiting readback" or "Awaiting response" with a short hint, the toolbar's clearance boxes or their values (None / Short / Hint / Boxes).

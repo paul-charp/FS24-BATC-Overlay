@@ -1,7 +1,8 @@
 <!doctype html>
 <!-- Desktop preview of the pill against the live BeyondATC socket. Open in a browser:
      python -m http.server -d . 8765, then http://localhost:8765/tools/harness.html
-     Replay buttons feed captured messages through batcPill.feed(). -->
+     Replay buttons feed captured messages through batcPill.feed(). Add ?fake to run without BeyondATC: a
+     stand-in socket records what the pill sends (batcPill.sent). -->
 <meta charset="utf-8">
 <title>BATC pill harness</title>
 <style>
@@ -34,6 +35,16 @@
     emit(name, ...args) { (this.handlers[name] || []).forEach(f => f(...args)); },
   };
   // pill.js would add its own <link>; the harness already has one with a path that resolves here
+  // harness.html?fake: no BeyondATC needed; a stand-in socket that is open and records what the pill sends
+  // (batcPill.sent), so the answers, requests and Tune can be clicked through with the replays
+  if (/[?&]fake\b/.test(location.search)) {
+    window.WebSocket = function () {
+      this.readyState = 1;
+      setTimeout(() => this.onopen && this.onopen(), 0);
+    };
+    window.WebSocket.prototype.send = function (m) { console.log("pill sent:", m); };
+    window.WebSocket.prototype.close = function () {};
+  }
 </script>
 <script src="../src/html_ui/paul-batc-pill/pill.js"></script>
 <script>

@@ -6,9 +6,10 @@ screen corner during flight, with a click-to-open settings card. Windows only. U
 
 ## Layout
 
-- `src/html_ui/paul-batc-pill/pill.js`: the whole runtime. WebSocket client for BeyondATC (read-only but for the hover buttons)
+- `src/html_ui/paul-batc-pill/pill.js`: the whole runtime. WebSocket client for BeyondATC
   (`ws://127.0.0.1:41716`), state machine (`view()`), animated render (`render()` measures the new
-  content, then transitions width), settings card, `CONFIG` defaults. `pill.css`: the look; `--u` is
+  content, then transitions width), settings card, `CONFIG` defaults, and the comms section (messages under the
+  pill, answers/requests on hover, Frequencies/Log panel; design in `docs/design/comms-panel.html`). `pill.css`: the look; `--u` is
   one 1080p pixel times `CONFIG.scale`.
 - `injections.json` + `tools/build.py`: the build copies the stock `MasterPage_InGame` cooked component
   from the local sim install, appends a hidden `<img onerror>` that loads `pill.js` once, and writes
@@ -21,7 +22,7 @@ screen corner during flight, with a click-to-open settings card. Windows only. U
   the port (seen: WinWing's SimAppPro2.exe): `netstat -ano | findstr 19999` shows a second LISTENING PID.
   `tools/sniff_batc.py`: socket logger; `tools/batc_timeline.py` prints a log as a timeline with
   `Actions`/`InfoBoxes` changes as diffs. `tools/harness.html`: desktop preview with replays, a fake
-  `engine` and a "Hold PTT" button.
+  `engine` and a "Hold PTT" button; `?fake` swaps in a socket that records what the pill sends (`batcPill.sent`).
 - `docs/design/comms-panel.html`: clickable UX prototype (captions, reply tray, comms panel) for taking over the
   BeyondATC toolbar; standalone, scripted data, notes on the protocol gaps.
 - `docs/render/*.html` + `docs/render_images.py`: README/flightsim.to images via headless Edge (or
@@ -122,6 +123,12 @@ screen corner during flight, with a click-to-open settings card. Windows only. U
   then the pilot's "Wilco, Airfrans 1234.". `beyondATC.log` (CPDLC bridge) holds the Hoppie logon
   code: keep it private.
 - Nothing is sent while PTT is held. The PTT indicator instead listens to a sim binding (below).
+- Comms panel, not yet verified live: what `Frequencies:` holds (`parseFreqs` reads any JSON of objects with a
+  frequency and a name, grouped by the key above them, or `Name|freq` lines, and the panel shows anything else
+  raw); whether `set_frequency` sets COM1 active or standby (COM2 has no known command: right-click for COM2 is
+  not built); what `atc_log` returns (not sent; the Log is built from the stream); whether wheel events reach
+  mainUi (the Log scrolls); whether a reply sent with `set_action` gives the same `queued` / `Player:` sequence
+  as the toolbar's.
 
 ## Rules
 

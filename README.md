@@ -18,6 +18,18 @@ A small pill in a corner of the Microsoft Flight Simulator 2024 screen that show
 
 A muted COM1 adds a speaker icon; ATC calling you while it's muted turns the pill red-orange. AI traffic talking shows a neutral "Traffic" pill.
 
+## Messages, answers and requests
+
+Everything the BeyondATC toolbar does, around the pill:
+
+- **Messages**: ATC's lines (and yours) show under the pill. An exchange's messages stay until it closes, then leave together 5 s later; AI traffic's leave one by one. The message ATC waits on is outlined in amber.
+- **Answers**: hover that message, or the pill, and its answers open below it; the obvious one (a readback, an acknowledgement) is amber. A long list shows three and "+N" for the rest. With messages off, the answers open in a column under the pill instead.
+- **Requests**: with nothing pending, hovering the pill opens BeyondATC's requests in a column under it, the likely next one first. They close while the radio is busy and come back when it's quiet.
+- **Tune**: with Auto Tune off, once you've acknowledged a handoff, "Tune 118.775" sets COM1 to the new station (under the handoff message, or in the column).
+- **Panel**: click the pill for **Frequencies** (the flight's stations, Departure / Arrival; click one to tune COM1) and **Log** (every radio line, scrolling). The gear opens the settings. The panel isn't modal: leave it open and the cockpit stays clickable.
+
+In the bottom corners everything stacks upward from the pill; in the left corners it's mirrored.
+
 ## Install
 
 1. Download `paul-batc-pill-X.Y.Z.zip` from [Releases](https://github.com/paul-charp/FS24-BATC-Pill/releases).
@@ -28,11 +40,11 @@ Requires BeyondATC 3.x. The BeyondATC toolbar panel doesn't need to be open.
 
 ## Settings
 
-Click the pill in flight to open its settings card (two tabs: Display and Position); click the pill again, the ✕, or anywhere outside the card to close it. Changes apply immediately. While the card is open, the pill shows a sample so you can see its size and position; after a change, the sample shows what that setting does (a radio change, a readback hint, the traffic pill, ...).
+Click the pill in flight, then the gear in its panel, to open the settings card (two tabs: Display and Position); click the pill, the ✕, or anywhere outside the card to close it. Changes apply immediately. While the card is open, the pill shows a sample so you can see its size and position; after a change, the sample shows what that setting does (a radio change, a readback hint, the traffic pill, ...).
 
 <img src="docs/images/settings.png" alt="Settings card" width="340">
 
-Hovering the pill shows two buttons under it: BeyondATC's **Auto Respond** (speech bubble) and **Auto Tune** (radio waves). Lit means on, dimmed and struck through means off; a click flips it, as the toolbar's own switches do.
+Hovering the pill shows two buttons beside it: BeyondATC's **Auto Respond** (speech bubble) and **Auto Tune** (radio waves); the panel has them too. Lit means on, dimmed and struck through means off; a click flips it, as the toolbar's own switches do.
 
 **Display**
 
@@ -41,12 +53,13 @@ Hovering the pill shows two buttons under it: BeyondATC's **Auto Respond** (spee
 | Readback hints | show when ATC waits for your readback, acknowledgement or answer |
 | None / Short / Hint / Boxes | how much of it: status only, the clearance boxes' values ("30R · T1 · T1"), a short hint ("Taxi via T1 · Hold short 12L") or the toolbar's clearance boxes |
 | Keep last clearance | after ATC takes your reply, keep its hint on the pill (dimmed) instead of shrinking to the dot |
+| Messages: Off / Mine / All | ATC's messages under the pill: none, your exchanges, or also AI traffic (with AI traffic on) |
 | Radio changes | show the new station when COM1 or COM2 changes |
 | Contact reminders | with Auto Tune off, show whom to contact until COM1 is on it |
 | ATIS changes | show a new ATIS letter |
 | Warn when COM1 muted | red-orange pill when ATC calls you while COM1 is muted |
 | PTT indicator | show "Transmitting" while your PTT button is held (see below) |
-| AI traffic | show the "Traffic" pill while AI traffic talks |
+| AI traffic | show the "Traffic" pill while AI traffic talks, and its lines in the messages and Log |
 | Full station names | "Montpellier Ground" instead of "Ground" |
 | Hide when BATC is off | no pill at all while BeyondATC isn't running |
 
