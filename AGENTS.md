@@ -35,6 +35,9 @@ screen corner during flight, with a click-to-open settings card. Windows only. U
   `Toolbar_Trigger` renders in the toolbar's own small Panel.html view instead: don't hook it.
 - Clicks reach an element only if the element directly under the cursor has `data-input-group` and
   computed `pointer-events` isn't `none` (mainUi inherits `none`). Mousemove arrives regardless.
+  A click on no element of ours never reaches the page (a document `mousedown` listener saw nothing), so the
+  open settings card closes on outside clicks through a transparent full-screen `#batc-pill-shade` with
+  `data-input-group` (that click doesn't reach the sim).
 - `localStorage` is shared across all Coherent views; persistence across sim restarts is unverified.
 - mainUi has no `SimVar`, `GetStoredData` or `Coherent`; VCockpit views (e.g. VLogic) have `SimVar`.
 - mainUi fonts: only `Roboto-Regular` / `RobotoMono-Regular`; weights are synthesized.

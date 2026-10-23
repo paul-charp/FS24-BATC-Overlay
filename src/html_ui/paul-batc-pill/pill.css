@@ -298,6 +298,15 @@
 #batc-pill-sw .bs-btn.is-on .bs-slash { display: none; }
 #batc-pill-sw[data-edge="bottom"].is-closed { transform: translateY(calc(4 * var(--k))); }
 
+/* ---- click-catcher behind the open settings card: a click outside closes the card ---- */
+#batc-pill-shade {
+  position: absolute; top: 0; left: 0; width: 100vw; height: 100vh; /* the whole screen, whatever body's size */
+  z-index: 9998; /* under the pill and the card (9999) */
+  background-color: transparent;
+  pointer-events: auto;
+}
+#batc-pill-shade.is-closed { display: none; }
+
 /* ---- settings card (opens on pill click) ---- */
 #batc-pill-cfg {
   --k: 0.0926vh;

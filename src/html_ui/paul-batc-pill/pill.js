@@ -973,6 +973,9 @@
     state.editing = open;
     if (open) showSwitches(false);
     card.className = open ? "" : "is-closed";
+    shade.className = open ? "" : "is-closed";
+    if (open) shade.setAttribute("data-input-group", "BATC-PILL");
+    else shade.removeAttribute("data-input-group");
     // the sim checks data-input-group on the exact element under the cursor, so tag every element
     var els = [card].concat([].slice.call(cardEls));
     for (var i = 0; i < els.length; i++) {
@@ -997,18 +1000,14 @@
     openCard(!state.editing);
   });
 
-  // a click anywhere but the card or the pill closes the card. Worked out from the position: outside the pill's
-  // elements the click lands on the sim's page (or nowhere we see, in which case the card just stays open)
-  function onPageDown(e) {
-    if (!state.editing) return;
-    var x = e.clientX, y = e.clientY;
-    var inside = [card, root].some(function (el) {
-      var r = el.getBoundingClientRect();
-      return x >= r.left && x <= r.right && y >= r.top && y <= r.bottom;
-    });
-    if (!inside) openCard(false);
-  }
-  document.addEventListener("mousedown", onPageDown, true);
+  // While the card is open, a transparent layer behind it (and the pill) takes the clicks elsewhere and closes
+  // it: the sim keeps clicks that land on no element of ours, so the page never sees them otherwise.
+  var shade = document.createElement("div");
+  shade.id = "batc-pill-shade";
+  shade.className = "is-closed";
+  document.body.appendChild(shade);
+  shade.addEventListener("click", function () { openCard(false); });
+
 
   card.addEventListener("click", function (e) {
     var el = e.target;
@@ -1209,7 +1208,7 @@
     if (card.parentNode) card.parentNode.removeChild(card);
     if (switches.parentNode) switches.parentNode.removeChild(switches);
     document.removeEventListener("mousemove", onMouseMove);
-    document.removeEventListener("mousedown", onPageDown, true);
+    if (shade.parentNode) shade.parentNode.removeChild(shade);
     if (style.parentNode) style.parentNode.removeChild(style);
     if (window.batcPill && window.batcPill.destroy === destroy) delete window.batcPill;
   }
