@@ -339,7 +339,7 @@
       </ul>
       <h3>Sim constraints carried over</h3>
       <ul>
-        <li>Every clickable element needs <code>data-input-group</code> (as the settings card does today); hover comes from <code>mousemove</code> positions.</li>
+        <li>Every clickable element needs <code>data-input-group</code> (as the settings card does today); hover comes from <code>mousemove</code> positions, so it ends only when the cursor moves away, never because the layout changed under it (the zone remembers where the request column was while ATC or traffic talk).</li>
         <li>Roboto only; no <code>gap</code>, <code>color-mix</code> or <code>backdrop-filter</code>. The sim-side CSS in this page follows that.</li>
         <li>No keyboard or gamepad focus in mainUi: mouse (and VR laser) only, so targets are at least 26 px at 1080p.</li>
       </ul>
@@ -751,11 +751,35 @@
     }
     return false;
   }
-  var hoverTimer = 0;
-  anchor.addEventListener("mouseenter", function () { clearTimeout(hoverTimer); if (!S.hover) { S.hover = true; update(); } });
-  anchor.addEventListener("mouseleave", function () {
-    clearTimeout(hoverTimer);
-    hoverTimer = setTimeout(function () { S.hover = false; update(); }, 350);
+  // Hover is worked out from the cursor's position on mousemove only (as pill.js does in the sim), never from
+  // the layout changing under a still cursor. The zone is the pill plus whatever hangs off it; it also
+  // remembers where the request column was, so ATC or traffic talking (which closes the column) doesn't end
+  // the hover: the column comes back under the cursor when the radio is quiet again.
+  var hoverTimer = 0, hoverZone = null;
+  function hoverRects() {
+    var m = 8 * u(), z = null;
+    [pill, tray, trayList].forEach(function (el) {
+      if (el !== pill && el.className.indexOf(" open") < 0) return;
+      var r = el.getBoundingClientRect();
+      if (!r.width) return;
+      z = z ? { l: Math.min(z.l, r.left), t: Math.min(z.t, r.top), r: Math.max(z.r, r.right), b: Math.max(z.b, r.bottom) }
+        : { l: r.left, t: r.top, r: r.right, b: r.bottom };
+    });
+    return z && { l: z.l - m, t: z.t - m, r: z.r + m, b: z.b + m };
+  }
+  function within(z, x, y) { return z && x >= z.l && x <= z.r && y >= z.t && y <= z.b; }
+  document.addEventListener("mousemove", function (e) {
+    var cur = hoverRects();
+    if (within(cur, e.clientX, e.clientY)) {
+      // keep the larger remembered zone while the column is away (radio busy), else follow the layout
+      if (!(S.hover && radioBusy() && within(hoverZone, e.clientX, e.clientY))) hoverZone = cur;
+      clearTimeout(hoverTimer); hoverTimer = 0;
+      if (!S.hover) { S.hover = true; update(); }
+    } else if (S.hover && within(hoverZone, e.clientX, e.clientY)) {
+      clearTimeout(hoverTimer); hoverTimer = 0;
+    } else if (S.hover && !hoverTimer) {
+      hoverTimer = setTimeout(function () { hoverTimer = 0; hoverZone = null; S.hover = false; update(); }, 350);
+    }
   });
   function onTrayClick(e) {
     var el = e.target.closest("[data-reply],[data-req],[data-sw],[data-tunec]");
