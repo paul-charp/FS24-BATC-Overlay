@@ -49,7 +49,6 @@ Hovering the pill shows two buttons under it: BeyondATC's **Auto Respond** (spee
 | AI traffic | show the "Traffic" pill while AI traffic talks |
 | Full station names | "Montpellier Ground" instead of "Ground" |
 | Hide when BATC is off | no pill at all while BeyondATC isn't running |
-| Log flight (developers) | record the flight as the pill sees it (needs the logger, see Development); the note under it says whether it's recording |
 
 **Position**
 
@@ -101,15 +100,17 @@ Hot-reloads `pill.css` + `pill.js` into the running sim (Devmode on, inspector o
 python tools/sniff_batc.py --quiet-snapshot
 ```
 
-Logs every BeyondATC socket message with timestamps to `logs/`. Use it when BeyondATC changes its protocol.
+Logs every BeyondATC socket message with timestamps (see the logs folder below). Use it when BeyondATC changes its protocol.
 
 `tools/harness.html` previews the pill in a desktop browser against the live socket, with replay buttons for captured exchanges (wind check, voice request, IFR clearance and readback, runway question) and a "Hold PTT" button: run `python -m http.server 8765` in the repo root and open `http://localhost:8765/tools/harness.html`.
 
 ```bash
-python tools/build.py logger-install
+python tools/pill_log.py
 ```
 
-Once: the sim then starts `tools/pill_log.py` with itself, in the background (pythonw, no console window), and it quits when the sim does. Switching on **Log flight (developers)** in the pill's settings starts a recording, switching it off ends it: every BeyondATC message (the pill reconnects once so a recording starts with BeyondATC's snapshot), what the pill shows, and what you do (clicks, PTT, settings, the Auto Tune / Auto Respond commands). Each recording is a `pill-<date>.jsonl` in `%LOCALAPPDATA%\paul-batc-pill\logs`, written line by line, so a sim crash keeps it. `logger-install` backs up `exe.xml` first; `python tools/build.py logger-uninstall` removes the entry. `python tools/pill_log.py` runs the logger by hand, printing what it records.
+Records a flight as the pill sees it. Builds from `tools/build.py build` / `install` (and `inspect_ui.py --push`) look for this logger and stream to it while it runs; release builds never do. A recording holds every BeyondATC message (the pill reconnects once so it starts with BeyondATC's snapshot), what the pill shows, and what you do (clicks, PTT, settings, the Auto Tune / Auto Respond commands), written line by line so a sim crash keeps it. Stop it with Ctrl+C.
+
+All logs (`sniff_batc.py`'s `batc-*.jsonl`, `pill_log.py`'s `pill-*.jsonl`) go to `%LOCALAPPDATA%\paul-batc-pill\logs`.
 
 ```bash
 python tools/batc_timeline.py

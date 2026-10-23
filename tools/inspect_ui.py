@@ -115,6 +115,7 @@ def main():
         src = os.path.join(os.path.dirname(__file__), "..", "src", "html_ui", "paul-batc-pill")
         css = open(os.path.join(src, "pill.css"), encoding="utf-8").read()
         js = open(os.path.join(src, "pill.js"), encoding="utf-8").read()
+        js = js.replace("    devLog: false,", "    devLog: true,", 1)  # a dev build: streams to tools/pill_log.py
         args.expr = ("(function (css, js) {"
                      " if (window.batcPill) window.batcPill.destroy();"
                      " window.batcPillInlineCss = css; (0, eval)(js);"

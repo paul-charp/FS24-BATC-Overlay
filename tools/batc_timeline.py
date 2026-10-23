@@ -1,8 +1,8 @@
 """Print a readable timeline from a sniff_batc.py log, to see how BeyondATC's state messages move
 around an exchange (e.g. which pilot responses `Actions` offers while ATC waits for a readback). Stdlib only.
 
-    python tools/batc_timeline.py                  the latest log (sniff_batc.py's or a pill recording)
-    python tools/batc_timeline.py logs/batc-X.jsonl --types Actions,InfoBoxes
+    python tools/batc_timeline.py                  the latest log in %LOCALAPPDATA%\\paul-batc-pill\\logs (sniff or pill)
+    python tools/batc_timeline.py path\\to\\batc-X.jsonl --types Actions,InfoBoxes
 
 Speech (ATC:, Player:, ...), CommsState, Facility and QueuedAction lines are printed as they come, and so are
 the pill's own lines in a tools/pill_log.py log (PILL: what it showed, --: what you did).
@@ -41,7 +41,7 @@ def items(payload):
 
 def main():
     ap = argparse.ArgumentParser()
-    ap.add_argument("log", nargs="?", help="sniff log (default: latest in logs/)")
+    ap.add_argument("log", nargs="?", help="log file (default: the latest in the logs folder)")
     ap.add_argument("--types", default="Actions,InfoBoxes", help="state types to diff (comma-separated)")
     ap.add_argument("--all", action="store_true", help="also print every other message type once per change")
     args = ap.parse_args()
@@ -49,13 +49,12 @@ def main():
     if args.log:
         path = Path(args.log)
     else:
-        # sniffer logs in the repo's logs/, pill recordings in %LOCALAPPDATA%\paul-batc-pill\logs
         sys.path.insert(0, str(Path(__file__).resolve().parent))
-        import pill_log
-        dirs = (Path(__file__).resolve().parent.parent / "logs", pill_log.log_dir())
-        logs = sorted((p for d in dirs if d.exists() for p in d.glob("*.jsonl")), key=lambda p: p.stat().st_mtime)
+        import pill_log  # the logs folder all tools share
+        d = pill_log.log_dir()
+        logs = sorted(d.glob("*.jsonl"), key=lambda p: p.stat().st_mtime) if d.exists() else []
         if not logs:
-            sys.exit("timeline: no log yet: run tools/sniff_batc.py, or record a flight with the pill's Log flight switch")
+            sys.exit(f"timeline: no log in {d}: run tools/sniff_batc.py or tools/pill_log.py first")
         path = logs[-1]
     diffed = set(t for t in args.types.split(",") if t)
     seen = {}

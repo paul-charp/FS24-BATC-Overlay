@@ -1,6 +1,7 @@
 """Log every message from BeyondATC's toolbar socket (ws://127.0.0.1:41716) with timestamps. Stdlib only.
 
-    python tools/sniff_batc.py                 log until Ctrl+C to logs/batc-<date>.jsonl and the console
+    python tools/sniff_batc.py                 log until Ctrl+C to batc-<date>.jsonl in the logs folder
+                                               (%LOCALAPPDATA%\\paul-batc-pill\\logs) and the console
     python tools/sniff_batc.py --seconds 90 --quiet-snapshot
 
 Read-only: it sends no messages (only the protocol's pong replies to pings); BeyondATC pushes its
@@ -15,6 +16,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 import inspect_ui  # noqa: E402  (reuses its minimal WebSocket client)
+import pill_log  # noqa: E402  (the logs folder all tools share)
 
 NOISY = ("DATIS", "Settings", "Actions", "InfoBoxes", "Progress", "FrameSync", "Pong", "Frequencies")
 
@@ -28,8 +30,8 @@ def main():
     inspect_ui.HOST, inspect_ui.PORT = "127.0.0.1", 41716
     ws = inspect_ui.WS("/")
     ws.sock.settimeout(None)  # quiet stretches are normal; only --seconds sets a deadline
-    logs = Path(__file__).resolve().parent.parent / "logs"
-    logs.mkdir(exist_ok=True)
+    logs = pill_log.log_dir()
+    logs.mkdir(parents=True, exist_ok=True)
     out = logs / f"batc-{time.strftime('%Y%m%d-%H%M%S')}.jsonl"
     t0 = time.monotonic()
     print(f"sniff: logging to {out}")

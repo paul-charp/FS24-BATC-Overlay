@@ -1,16 +1,13 @@
-"""Record flights as the pill sees them. Stdlib only.
+"""Record a flight as the pill sees it. Stdlib only.
 
-The sim starts it in the background (`python tools/build.py logger-install` adds it to exe.xml, run with
-pythonw: no console). It waits on 127.0.0.1:41799 and records while the pill's "Log flight (developers)"
-switch is on: one file per recording in %LOCALAPPDATA%\\paul-batc-pill\\logs, written line by line, so a sim
-crash keeps everything up to it. It exits when the sim does.
+    python tools/pill_log.py         listen on 127.0.0.1:41799 until Ctrl+C
 
-    python tools/pill_log.py                   run by hand, printing what it records
-    python tools/pill_log.py --background      as exe.xml runs it: silent, exits when the sim closes
-
-The pill streams everything it gets from BeyondATC (reconnecting once, so a recording starts with
-BeyondATC's snapshot), what it shows, and what you do (clicks, PTT, settings, the Auto Tune / Auto Respond
-commands). Records:
+Your own builds of the pill (tools/build.py build or install, inspect_ui.py --push) look for this logger and
+stream to it while it runs: everything they get from BeyondATC (reconnecting once, so a recording starts with
+BeyondATC's snapshot), what they show, and what you do (clicks, PTT, settings, the Auto Tune / Auto Respond
+commands). Release builds never look for it. One file per recording, pill-<date>.jsonl in the logs folder
+(%LOCALAPPDATA%\\paul-batc-pill\\logs, shared with sniff_batc.py), written line by line, so a sim crash keeps
+everything up to it. Records:
 
     {"t": 12.345, "msg": "CommsState: {...}"}       as sniff_batc.py writes them (replays and batc_timeline.py read them)
     {"t": 12.351, "pill": "s-atc is-pulse | Awaiting readback · Taxi 30R"}
@@ -24,18 +21,15 @@ import os
 import re
 import socket
 import struct
-import subprocess
-import sys
-import threading
 import time
 from pathlib import Path
 
 PORT = 41799
-SIM_EXE = "FlightSimulator2024.exe"
 NOISY = ("DATIS", "Settings", "Actions", "InfoBoxes", "Progress", "Traffic:", "ATCTraffic:")
 
 
 def log_dir():
+    """Where every tool here writes its logs: %LOCALAPPDATA%\\paul-batc-pill\\logs."""
     base = os.environ.get("LOCALAPPDATA") or str(Path.home() / ".local" / "share")
     return Path(base) / "paul-batc-pill" / "logs"
 
@@ -90,25 +84,8 @@ def messages(conn):
                 parts = b""
 
 
-def sim_running():
-    """True while the sim runs (Windows only; elsewhere always True)."""
-    if sys.platform != "win32":
-        return True
-    out = subprocess.run(["tasklist", "/FI", f"IMAGENAME eq {SIM_EXE}", "/NH"], capture_output=True, text=True,
-                         creationflags=0x08000000)  # CREATE_NO_WINDOW
-    return SIM_EXE.lower() in out.stdout.lower()
-
-
-def watch_sim():
-    """Background mode: quit once the sim has closed (exe.xml starts us with it)."""
-    time.sleep(120)  # the sim may still be starting
-    while sim_running():
-        time.sleep(30)
-    os._exit(0)
-
-
 def record(conn, say):
-    """One recording: from the pill switching "Log flight" on (it connects) until off or the sim stops."""
+    """One recording: from the pill connecting until it goes (sim closed, pill reloaded) or Ctrl+C."""
     out_dir = log_dir()
     out_dir.mkdir(parents=True, exist_ok=True)
     out = out_dir / f"pill-{time.strftime('%Y%m%d-%H%M%S')}.jsonl"
@@ -142,10 +119,8 @@ def record(conn, say):
 
 
 def main():
-    ap = argparse.ArgumentParser()
-    ap.add_argument("--background", action="store_true", help="silent; exit when the sim closes (exe.xml)")
-    args = ap.parse_args()
-    say = (lambda s: None) if args.background else print
+    argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter).parse_args()
+    say = print
 
     server = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     try:
@@ -154,9 +129,7 @@ def main():
         say(f"pill_log: 127.0.0.1:{PORT} is taken, another pill_log is probably running")
         return  # one logger per PC
     server.listen(1)
-    if args.background:
-        threading.Thread(target=watch_sim, daemon=True).start()
-    say(f"pill_log: waiting on 127.0.0.1:{PORT}; turn on \"Log flight (developers)\" in the pill's settings")
+    say(f"pill_log: waiting for the pill on 127.0.0.1:{PORT} (a build from tools/build.py, or inspect_ui.py --push)")
     say(f"pill_log: logs go to {log_dir()}")
     try:
         while True:

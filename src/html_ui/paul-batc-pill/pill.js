@@ -33,7 +33,8 @@
     pttDelayMs: 250,     // PTT held this long before "Transmitting" shows. Under ~450 ms a click still shows briefly:
                          // the sim's first repeat comes at ~0.4 s, so a click looks held until then
     hideOffline: false,  // true: no pill at all while BeyondATC isn't running
-    devLog: false,       // developers: stream what the pill gets, shows and does to tools/pill_log.py
+    devLog: false,       // stream what the pill gets, shows and does to tools/pill_log.py when it runs. tools/build.py
+                         // turns it on in your own builds (build, install, inspect_ui.py --push), off in releases
     devLogUrl: "ws://127.0.0.1:41799",
     showTraffic: true,   // show a neutral "Traffic" pill while AI traffic talks
     facility: "short",   // "short": "Ground", "full": "Montpellier Ground"
@@ -46,7 +47,7 @@
 
   // What the settings card changes. Saved in localStorage, which every sim UI view shares.
   var USER_KEYS = ["corner", "x", "y", "scale", "showTuning", "showContact", "showAtis", "showReadback", "readbackDetail", "keepLast",
-    "warnMuted", "showPtt", "hideOffline", "devLog",
+    "warnMuted", "showPtt", "hideOffline",
     "showTraffic", "facility"];
   var STORE_KEY = "batcpill.settings";
   var DEFAULTS = {};
@@ -164,8 +165,6 @@
       '<div class="bc-note">Also bind your PTT button to "Toggle Speaker"</div>' +
       toggleRow("AI traffic", "showTraffic") + toggleRow("Full station names", "fullNames") +
       toggleRow("Hide when BATC is off", "hideOffline") +
-      toggleRow("Log flight (developers)", "devLog") +
-      '<div class="bc-note" data-lognote></div>' +
     "</div>" +
     '<div class="bc-pane" data-pane="position">' +
       '<div class="bc-row"><span class="bc-label">Corner</span><span class="bc-corners">' +
@@ -1017,9 +1016,6 @@
       choices[i].className = "bc-btn" + (String(CONFIG[c[0]]) === c[1] ? " is-on" : "");
     }
     // the detail only matters with readback hints on
-    // the developer log's state, under its switch
-    card.querySelector("[data-lognote]").innerHTML = !CONFIG.devLog ? "Logs go to<br>%LOCALAPPDATA%\\paul-batc-pill\\logs" :
-      logSock && logSock.readyState === 1 ? "Recording" : "Logger not running:<br>python tools/build.py logger-install";
     var detailRow = card.querySelector('[data-for="readbackDetail"]');
     detailRow.className = "bc-row bc-choice" + (CONFIG.showReadback ? "" : " is-off");
   }
@@ -1259,7 +1255,8 @@
   }
 
   // ---- developer log (tools/pill_log.py) --------------------------------
-  // With devLog on, the pill streams to a local logger: every BeyondATC message ("msg"), what it shows ("pill")
+  // With devLog on (your own builds), the pill streams to tools/pill_log.py whenever it runs, retrying quietly
+  // otherwise: every BeyondATC message ("msg"), what it shows ("pill")
   // and what you do ("event"). The logger writes them as they come, so a sim crash keeps the log.
 
   var logSock = null;
@@ -1270,7 +1267,6 @@
     clearTimeout(timers.log);
     if (!CONFIG.devLog || destroyed) {
       if (logSock) { logSock.onclose = null; logSock.close(); logSock = null; }
-      if (!destroyed) updateCard();
       return;
     }
     if (logSock) return;
@@ -1281,14 +1277,12 @@
       return;
     }
     logSock.onopen = function () {
-      updateCard();
       devLog("pill", shown || "(not rendered yet)");
       // reconnect to BeyondATC so the log starts with its snapshot
       if (socket) { resnapshot = true; socket.close(); }
     };
     logSock.onclose = function () {
       logSock = null;
-      updateCard();
       if (CONFIG.devLog && !destroyed) timers.log = setTimeout(logConnect, CONFIG.reconnectMs);
     };
     logSock.onerror = function () { /* onclose follows */ };
@@ -1322,7 +1316,6 @@
     for (var k in patch) CONFIG[k] = patch[k];
     saveSettings();
     devLog("event", "settings " + JSON.stringify(patch));
-    if ("devLog" in patch) logConnect();
     listenPtt(); // turning PTT on starts listening (off just ignores the events)
     place();
     updateCard();
