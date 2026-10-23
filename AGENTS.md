@@ -126,6 +126,8 @@ screen corner during flight, with a click-to-open settings card. Windows only. U
 ## Rules
 
 - Never commit Asobo files (cooked components, vanilla UI); the build copies them from the local install.
-- Never send anything on the BeyondATC socket except, on the user's click, the toolbar's own switch commands
-  `set_autotune: true|false` and `set_autorespond: true|false` (the hover buttons). WebSocket pongs aside.
+- Never send anything on the BeyondATC socket except, on the user's click, the toolbar's own commands:
+  `set_autotune: true|false`, `set_autorespond: true|false` (the hover buttons), and for the comms panel
+  (`docs/design/comms-panel.html`) `set_action: <label>` (an answer or request, exactly as `Actions` lists it),
+  `set_frequency: <f>`, and the tab requests `frequencies` / `atc_log`. WebSocket pongs aside.
 - Changelogs and release notes list what changed, not why.

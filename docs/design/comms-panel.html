@@ -71,6 +71,22 @@
     border: calc(1 * var(--u)) solid var(--edge); transition: background-color .2s, border-color .3s; }
   .pill:hover .bg { background: rgba(14,18,24,0.78); }
   .pill.is-dot { height: calc(14 * var(--u)); top: calc(6 * var(--u)); opacity: .85; }
+  /* other corners: everything hangs off the pill toward the screen center (bottom: upward; left: mirrored) */
+  .stage[data-v="bottom"] .pill { top: auto; bottom: 0; }
+  .stage[data-v="bottom"] .pill.is-dot { bottom: calc(6 * var(--u)); }
+  .stage[data-h="left"] .pill { right: auto; left: 0; justify-content: flex-start; }
+  .stage[data-v="bottom"] .tray { top: auto; bottom: 0; }
+  .stage[data-v="bottom"] .tray.below { bottom: calc(34 * var(--u)); }
+  .stage[data-h="left"] .tray { right: auto; flex-direction: row; }
+  .stage[data-h="left"] .tray .chip { margin: 0 0 0 calc(5 * var(--u)); }
+  .stage[data-h="left"] .tray .sep { margin: 0 calc(3 * var(--u)) 0 calc(8 * var(--u)); }
+  .stage[data-h="left"] .list { right: auto; left: 0; align-items: flex-start; }
+  .stage[data-v="bottom"] .list { flex-direction: column-reverse; } /* the first one nearest the pill */
+  .stage[data-v="bottom"] .list .chip { margin: calc(4 * var(--u)) 0 0 0; }
+  .stage[data-h="left"] .captions, .stage[data-h="left"] .cap { align-items: flex-start; }
+  .stage[data-h="left"] .cap .acts { justify-content: flex-start; }
+  .stage[data-h="left"] .cap .chip { margin: calc(3 * var(--u)) calc(4 * var(--u)) 0 0; }
+  .stage[data-h="left"] .screen-tag { left: auto; right: 14px; }
   .pill.is-dot .bg { border-radius: calc(7 * var(--u)); }
   .pill .body { position: relative; display: flex; align-items: center; flex: none;
     padding: 0 calc(12 * var(--u)) 0 calc(10 * var(--u)); transition: opacity .18s, transform .22s var(--ease); }
@@ -285,7 +301,7 @@
   </header>
 
   <div class="stage" id="stage">
-    <div class="screen-tag">MSFS 2024 · TOP-RIGHT CORNER</div>
+    <div class="screen-tag" id="screenTag">MSFS 2024 · TOP-RIGHT CORNER</div>
     <div class="anchor" id="anchor">
       <div class="pill is-dot" id="pill" role="button" tabindex="0" aria-label="BeyondATC status. Click to open the comms panel"><div class="bg"></div><div class="body" id="pillBody"></div></div>
       <div class="tray" id="tray"></div>
@@ -311,6 +327,7 @@
     <div class="group">
       <h2>Options</h2>
       <div class="opts">
+        <div class="opt"><span>Corner</span><span class="seg" id="optCorner"><button data-v="top-left" aria-label="Top left">↖</button><button data-v="top-right" aria-label="Top right">↗</button><button data-v="bottom-left" aria-label="Bottom left">↙</button><button data-v="bottom-right" aria-label="Bottom right">↘</button></span></div>
         <div class="opt"><span>Captions</span><span class="seg" id="optCaptions"><button data-v="off">Off</button><button data-v="mine">Mine</button><button data-v="all">All</button></span></div>
         <div class="opt"><span>Readback detail on the pill</span><span class="seg" id="optDetail"><button data-v="none">None</button><button data-v="short">Short</button><button data-v="hint">Hint</button><button data-v="boxes">Boxes</button></span></div>
         <div class="opt"><span>AI traffic (pill, captions, log)</span><span class="seg" id="optTraffic"><button data-v="off">Hide</button><button data-v="on">Show</button></span></div>
@@ -409,7 +426,23 @@
   function allFreqs() { return FREQS.dep.rows.concat(FREQS.arr.rows); }
 
   var S, epoch = 0;
-  var opt = { captions: "all", traffic: true, detail: "hint" };
+  var opt = { captions: "all", traffic: true, detail: "hint", corner: "top-right" };
+  function vSide() { return /^bottom/.test(opt.corner) ? "bottom" : "top"; }
+  function hSide() { return /left$/.test(opt.corner) ? "left" : "right"; }
+  // put el at distance d (px) from the corner's vertical edge, and dh from its side edge (null: leave it)
+  function pos(el, d, dh) {
+    var v = vSide(), h = hSide();
+    el.style[v] = d + "px"; el.style[v === "top" ? "bottom" : "top"] = "auto";
+    if (dh !== null && dh !== undefined) { el.style[h] = dh + "px"; el.style[h === "left" ? "right" : "left"] = "auto"; }
+  }
+  function placeAll() {
+    stage.setAttribute("data-v", vSide()); stage.setAttribute("data-h", hSide());
+    $("screenTag").textContent = "MSFS 2024 · " + opt.corner.toUpperCase() + " CORNER";
+    var extra = S ? S.pillExtra || 0 : 0;
+    pos(anchor, 40 * u(), 24 * u());
+    pos(capsEl, 74 * u() + extra, 24 * u());
+    pos(panel, 74 * u() + extra, 24 * u());
+  }
   function fresh() {
     return { facility: ST.gnd, mode: "ready", speaker: null, qtext: "", pending: null, confirm: null, tune: null,
       contact: null, com2: null, freqSide: "dep", lingerUntil: 0, requests: [], log: [], caps: [], autoTune: true, autoRespond: false,
@@ -665,7 +698,7 @@
       var msg = / is-msg/.test(" " + v.cls);
       pill.style.height = msg ? pillBody.offsetHeight + "px" : "";
       S.pillExtra = msg ? Math.max(0, pillBody.offsetHeight - 26 * u()) : 0;
-      capsEl.style.top = panel.style.top = 74 * u() + S.pillExtra + "px";
+      placeAll();
       placeTray();
       renderTray();
     }
@@ -732,7 +765,7 @@
     tray.className = "tray" + (html ? " open" : "");
     var below = placeTray();
     // small screens drop the switches under the pill: the column goes under them
-    trayList.style.top = below && html ? tray.offsetTop + tray.offsetHeight + 4 * u() + "px" : 32 * u() + (S.pillExtra || 0) + "px";
+    pos(trayList, below && html ? 34 * u() + tray.offsetHeight + 4 * u() : 32 * u() + (S.pillExtra || 0), 0);
     capsEl.className = "captions" + ((below && html) || list ? " behind" : "");
     capsEl.style.display = S.panel ? "none" : "";
   }
@@ -740,12 +773,12 @@
     var gap = 8 * u();
     // the pill's target width (its width animates): placing by the current width left the switches over it
     var pw = parseFloat(pill.style.width) || pill.offsetWidth;
-    tray.style.right = pw + gap + "px";
+    pos(tray, 0, pw + gap);
     tray.style.width = "";
     tray.className = tray.className.replace(" below", "");
     // not enough room beside the pill (small screens): drop it under the pill
     if (tray.offsetWidth + pw + gap + 30 * u() > stage.clientWidth) {
-      tray.style.right = "0px"; tray.className += " below";
+      pos(tray, 34 * u(), 0); tray.className += " below";
       tray.style.width = stage.clientWidth - 48 * u() + "px";
       return true;
     }
@@ -1073,6 +1106,7 @@
     paint();
     return paint;
   }
+  segInit("optCorner", "corner", { get: function () { return opt.corner; }, set: function (v) { opt.corner = v; placeAll(); pillSig = ""; } });
   segInit("optCaptions", "captions", { get: function () { return opt.captions; }, set: function (v) { opt.captions = v; if (v === "off") S.caps = []; } });
   segInit("optDetail", "detail", { get: function () { return opt.detail; }, set: function (v) { opt.detail = v; } });
   var paintTraffic = segInit("optTraffic", "traffic", { get: function () { return opt.traffic ? "on" : "off"; }, set: function (v) { opt.traffic = v === "on"; } });
