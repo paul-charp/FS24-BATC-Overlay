@@ -374,7 +374,18 @@
   }
 
   function pttLook() {
-    return { cls: "s-you", html: MIC + '<span class="bp-who">Transmitting</span>' };
+    return { cls: "s-you", html: MIC + '<span class="bp-who">Transmitting</span>' + replyDetail() };
+  }
+
+  // While you answer a pending readback (PTT, the toolbar's spoken reply, then BeyondATC processing it), the
+  // hint stays after the label: "Transmitting · Taxi 30R". One line whatever the detail mode.
+  function replyDetail() {
+    var rb = state.readback;
+    if (!CONFIG.showReadback || !rb || CONFIG.readbackDetail === "none") return "";
+    var w = waitingFor();
+    var d = detailFor(readbackHint(rb.text) || (rb.negative && correction(rb.text)) || w.kind,
+      w.choices.length ? [] : state.infoBoxes);
+    return d ? '<span class="bp-sep">·</span><span>' + esc(d) + "</span>" : "";
   }
 
   function mutedLook() {
@@ -450,7 +461,7 @@
     switch (state.mode) {
       case "processing":
       case "request":
-        v = { cls: "s-proc", html: DOTS + "<span>Processing</span>" };
+        v = { cls: "s-proc", html: DOTS + "<span>Processing</span>" + replyDetail() };
         break;
       case "queued":
         v = { cls: "s-proc", html: LAMP + "<span>Queued</span>" +
@@ -461,7 +472,9 @@
         break;
       case "speaking":
         // the reply BeyondATC speaks for you (toolbar or Auto Respond); your own voice is pttLook (mic icon)
-        if (state.speaker === "player") v = { cls: "s-you", html: BARS + '<span class="bp-who">Transmitting</span>' };
+        if (state.speaker === "player") {
+          v = { cls: "s-you", html: BARS + '<span class="bp-who">Transmitting</span>' + replyDetail() };
+        }
         else if (state.speaker === "traffic") {
           v = CONFIG.showTraffic ? { cls: "", html: BARS + "<span>Traffic</span>" } : readbackView();
         }
@@ -478,7 +491,8 @@
         }
         break;
       case "ready":
-        if (state.tune && now < state.tuneUntil) {
+        // a handoff's "Response OK" first: BeyondATC retunes COM1 right after your reply
+        if (state.tune && now < state.tuneUntil && !confirming()) {
           v = tuneLook(state.tune);
         } else if ((v = readbackView())) {
           // waiting for your readback
@@ -620,8 +634,9 @@
     ["confirm (?:new )?approach\\s+([A-Z][\\w-]*)[^.?]*?" + RWY, "Confirm $1 $2"],
     ["cleared[^.]*?approach[^.]*?" + RWY, "Approach $1"],
     ["cleared to (?!land)\\w[^.]*?(?:via|squawk|departure|climb|route)", "IFR clearance"],
-    ["push(?:back)?(?: and start(?:up)?)? approved", "Pushback"],
-    ["face\\s+(north|south|east|west)\\b", "Face $1"],
+    ["push(?:back)?(?: and (?:engine )?start(?:up)?)? approved", "Pushback"],
+    ["face\\s+((?:north|south)(?:east|west)?|east|west)\\b", "Face $1"],
+    ["exit (left|right)(?: at| via| onto)?\\s+([A-Z]{1,3}\\d{0,2})\\b", "Exit $1 $2"],
     ["taxi(?:(?!hold (?:short|position))[^.])*?" + RWY, "Taxi $1"],
     ["taxi\\s+to\\s+(ramp|gate|stand|apron|parking)\\s+(\\w+)", "Taxi to $1 $2"],
     // "taxi via M, T" / "via A and B": the words after each separator are one taxiway, so no backtracking
@@ -639,8 +654,11 @@
     ["(?:resume )?normal speed", "Normal speed"],
     ["squawk\\s+(\\d{4})", "Squawk $1"],
     ["(?:contact|monitor)[^.]*?(1\\d{2}\\.\\d{1,3})", "Contact $1"],
+    ["on\\s+(1\\d{2}\\.\\d{1,3})", "Contact $1"],
     ["(?:qnh|altimeter)\\s+(\\d{3,4}(?:\\.\\d{2})?)", "QNH $1"],
-    ["(?:proceed )?direct(?: to)?\\s+(?!at\\b|this\\b|the\\b)([A-Z]{2,5})\\b", "Direct $1"],
+    ["unable direct(?:\\s+[A-Z]{2,5}\\b)?", "Unable direct"],
+    ["(?:proceed )?direct(?: to)?\\s+(?!at\\b|this\\b|the\\b|to\\b)([A-Z]{2,5})\\b", "Direct $1"],
+    ["say (?:again )?(callsign|fix name|parking|gate number|altitude|heading|speed|intentions)", "Say $1"],
     ["report ([a-z][a-z ]{2,30}?)(?=[.,?]|$)", "Report $1"],
     ["continue\\s*\\.?\\s*$", "Continue"],
   ].map(function (r) { return [new RegExp("\\b" + r[0], "i"), r[1]]; });
@@ -671,6 +689,9 @@
   function onActions(payload) {
     var list = payload.replace(/^\[|\]$/g, "").split("¬").map(function (s) { return s.trim(); });
     var waiting = list.some(function (s) { return /^say again$/i.test(s); });
+    // checking in ("Announce On Frequency"), BeyondATC flashes "Say Callsign/Altitude¬Say Again¬" for a few ms
+    // while your own request is still out, before ATC has said anything: not ATC waiting for you
+    if (waiting && /^(request|processing|queued)$/.test(state.mode)) return;
     var replies = waiting ? list.filter(function (s) { return s && !/^(say again|cancel\b)/i.test(s); }) : [];
     var key = "¬" + replies.join("¬"); // never "", which means not waiting
     if (waiting && key !== state.repliesKey) {
@@ -683,7 +704,8 @@
       if (state.readback && state.replied) {
         // ATC took your reply (a correct readback gets no answer: the toolbar just drops "Say Again")
         var wc = waitingFor();
-        state.confirmed = { readback: wc.readback, detail: readbackHint(state.readback.text) || wc.kind,
+        state.confirmed = { readback: wc.readback,
+          detail: readbackHint(state.readback.text) || (state.readback.negative && correction(state.readback.text)) || wc.kind,
           boxes: wc.choices.length ? [] : state.infoBoxes };
         state.confirmedUntil = 0;
         state.kept = { detail: state.confirmed.detail, boxes: state.confirmed.boxes };

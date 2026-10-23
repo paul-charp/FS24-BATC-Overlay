@@ -101,10 +101,16 @@ screen corner during flight, with a click-to-open settings card. Windows only. U
   "Readback OK" when that follows a reply). A wrong one gets "Negative, <correction>." with the menu kept
   (Player.log, 2026-10-23: 9 times in one flight). `Player.log` also has `[PilotSpeakState] ... waiting 10s for a
   player transcription | action=Acknowledge Instruction` after a voice exchange.
+- Sniffs 2026-10-23 (LFMT-LIRF, LIRF-): a voice reply is `processing`, `ready`, then the request menu (no
+  "Say Again"): accepted. After "Negative, ..." the same reply menu comes back unchanged. Checking in on a new
+  frequency (`request` "Announce On Frequency"), BeyondATC flashes `Actions: [Say Callsign/Altitude¬Say Again¬]`
+  for a few ms before ATC answers; `pill.js` ignores reply menus while `mode` is `request`/`processing`/`queued`.
+  Right after an `Acknowledge Handoff` reply, BeyondATC retunes COM1 (`Facility`). Other types seen, unused:
+  `Progress: {from,to,pct}`, `Settings: {...}` (BeyondATC's options), `CPDLC_ATC:` / `CPDLC_Pilot:`, `Wipe:`,
+  `ToolbarVersion: 3.1`, `DATIS:` / `DATIS_END:`, `LoadState` stages `turnaround`, `download`.
 - Unverified live: what `waiting` means. Whether "Say Again" leaves the menu after a voice reply the recogniser
-  heard as nothing (`[VoiceRec] Empty final transcript ... Posting ParseFailed` in Player.log): in that flight ATC
-  repeated the instruction each time, but if BeyondATC ever drops it instead, `pill.js` shows "Readback OK"
-  wrongly. Check in a sniff log; whether the "Negative" menu is re-sent unchanged is also unverified.
+  heard as nothing (`[VoiceRec] Empty final transcript ... Posting ParseFailed` in Player.log): ATC repeated the
+  instruction each time so far, but if BeyondATC ever drops it instead, `pill.js` shows "Readback OK" wrongly.
 - BeyondATC's own logs (`%userprofile%\AppData\LocalLow\Skirmish Mode Games, Inc\BeyondATC`):
   `Player.log` has every exchange as `[Instruction]` lines (ATC and pilot alike) and the script
   that handled it (`[ControllerScript] ...WindCheckScript`, `...IFR.IfrEvaluatorScript`), but no
