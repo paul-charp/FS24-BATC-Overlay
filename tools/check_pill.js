@@ -31,6 +31,19 @@ const HINTS = [
   ["Wind 310 degrees, 8 knots.", ""],
   ["Airfrans 1234, readback correct. Call me back when ready for pushback or engine start.", ""],
   ["Airfrans 1234, Montpellier Ground?", ""],
+  // 2026-10-23 flight (Player.log)
+  ["Volotea 2NK, runway 30R, lineup and wait.", "Line up 30R"],
+  ["Volotea 2NK, go around. Fly the published missed approach procedure, climb to 4,000.", "Go around · Climb 4000"],
+  ["Volotea 2NK, reduce speed 270 kts.", "Speed 270"],
+  ["Volotea 2NK, minimum approach speed.", "Min approach speed"],
+  ["Volotea 2NK, resume normal speed.", "Normal speed"],
+  ["Volotea 2NK, cleared MANA1D arrival, runway 21.", "STAR MANA1D"],
+  ["Volotea 2NK, confirm new approach VORDME approach runway 21?", "Confirm VORDME 21"],
+  ["Volotea 2NK, report ready for descent.", "Report ready for descent"],
+  ["Volotea 2NK, taxi to Ramp 4L via A, R.", "Taxi to Ramp 4L"],
+  ["Negative, taxi via M, T.", "Taxi via M, T"],
+  ["Negative, QNH 1013.", "QNH 1013"],
+  ["Volotea 2NK, unable direct at this time.", ""],
 ];
 HINTS.forEach(([t, want]) => expect("hint    " + t.slice(0, 60), readbackHint(t), want));
 
@@ -49,6 +62,8 @@ const HOSTILE = [
   "contact " + "AB ".repeat(3000) + "x",
   "Airfrans 1234, contact " + "Montpellier Tower ".repeat(500) + "when ready.",
   "taxi " + "via T1 ".repeat(2000),
+  "taxi via " + "T1, ".repeat(3000) + "hold",
+  "report " + "ready ".repeat(2000),
   "cleared to " + "A ".repeat(3000),
   "CONTACT MONTPELLIER TOWER WHEN AT RUNWAY HOLD POINT ".repeat(100),
 ];

@@ -55,12 +55,12 @@ def shoot(page, size, scale, query=""):
 def main():
     OUT.mkdir(parents=True, exist_ok=True)
 
-    img = shoot("states.html", (1200, 758), 2)  # 5 rows of 150 px tiles
+    img = shoot("states.html", (1200, 910), 2)  # 6 rows of 150 px tiles
     img.save(OUT / "states.png", optimize=True)
     print(f"render: states.png {img.size}")
 
     # pill + open card in the top-right corner of a 1080p screen
-    img = shoot("settings.html", (1920, 1080), 2).crop((1600 * 2, 50 * 2, 1920 * 2, 580 * 2))
+    img = shoot("settings.html", (1920, 1080), 2).crop((1600 * 2, 50 * 2, 1920 * 2, 640 * 2))
     img.save(OUT / "settings.png", optimize=True)
     print(f"render: settings.png {img.size}")
 

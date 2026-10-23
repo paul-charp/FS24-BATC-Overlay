@@ -13,12 +13,14 @@
     lingerMs: 3000,      // label stays after an exchange ends, then shrinks to the dot
     tuneMs: 3000,        // how long a radio change is shown
     errorMs: 5000,
-    missedMs: 5000,
+    missedMs: 5000,      // "No readback" stays this long when BeyondATC stops waiting without your reply
     atisMs: 6000,        // how long a new ATIS letter is shown
-    demoMs: 4000,        // settings card: how long the sample shows the last change before going back      // "No readback" stays this long when BeyondATC stops waiting without your reply
+    demoMs: 4000,        // settings card: how long the sample shows the last change before going back
     showReadback: true,  // while BeyondATC waits for your readback, hint what it is ("Taxi 30R")
     readbackDetail: "hint", // with a readback pending: "none" (status only), "short" (the boxes' values:
                             // "30R · T1"), "hint" ("Taxi via T1"), "boxes" (the toolbar's clearance boxes)
+    readbackConfirm: "full", // when ATC takes your reply: "full" (green "Readback OK" with the hint), "tick" (the
+                             // lamp turns into a green tick), "pulse" (a green outline pulse), "off"
     showTuning: true,    // show the new station when COM1/COM2 changes
     showContact: true,   // Auto Tune off: after "contact <station> <freq>", remind you until COM1 is on it
     showAtis: true,      // show a new ATIS letter
@@ -37,10 +39,11 @@
     host: 'ui-resource-element[name="MasterPage_InGame"]', // only mounted in flight
   };
   var FADE_MS = 140;
+  var CONFIRM_MS = { full: 1500, tick: 1000, pulse: 900 }; // how long each confirmation shows
 
   // What the settings card changes. Saved in localStorage, which every sim UI view shares.
   var USER_KEYS = ["corner", "x", "y", "scale", "showTuning", "showContact", "showAtis", "showReadback", "readbackDetail",
-    "warnMuted", "showPtt", "hideOffline",
+    "readbackConfirm",     "warnMuted", "showPtt", "hideOffline",
     "showTraffic", "facility"];
   var STORE_KEY = "batcpill.settings";
   var DEFAULTS = {};
@@ -87,6 +90,8 @@
     replied: false,      // you spoke at all since the reply was asked for
     missed: null,        // { label, detail } after BeyondATC stopped waiting without a reply, until missedUntil
     missedUntil: 0,
+    confirmed: null,     // { readback, detail, boxes } after ATC took your reply, shown until confirmedUntil
+    confirmedUntil: 0,   // 0 while your reply still plays: the confirmation starts once the radio is quiet
     infoBoxes: [],       // the toolbar's clearance boxes: [{ title: "SID", info: "KELA8L" }, ...]
     seenFacility: false, // the first Facility after connecting is the snapshot, not a change
     editing: false,      // settings card open: the pill shows a sample so size/position are visible
@@ -103,7 +108,7 @@
     seenInfo: false,     // the first InfoBoxes after connecting is the snapshot, not a change
   };
   var socket = null;
-  var timers = { reconnect: 0, linger: 0, error: 0, tune: 0, missed: 0, atis: 0, demo: 0, ptt: 0, pttShow: 0, swap: 0, poll: 0 };
+  var timers = { reconnect: 0, linger: 0, error: 0, tune: 0, missed: 0, confirm: 0, atis: 0, demo: 0, ptt: 0, pttShow: 0, swap: 0, poll: 0 };
   var destroyed = false;
   var current = null;    // last rendered view signature
 
@@ -147,6 +152,7 @@
     '<div class="bc-pane" data-pane="display">' +
       toggleRow("Readback hints", "showReadback") +
       choiceRow("readbackDetail", [["none", "None"], ["short", "Short"], ["hint", "Hint"], ["boxes", "Boxes"]]) +
+      choiceRow("readbackConfirm", [["off", "Off"], ["pulse", "Pulse"], ["tick", "Tick"], ["full", "Full"]], "When OK") +
       toggleRow("Radio changes", "showTuning") + toggleRow("Contact reminders", "showContact") +
       toggleRow("ATIS changes", "showAtis") + toggleRow("Warn when COM1 muted", "warnMuted") +
       toggleRow("PTT indicator", "showPtt") +
@@ -172,8 +178,9 @@
   }
 
   // a sub-setting of the row above it: its choices fill the row, no label
-  function choiceRow(key, options) {
-    return '<div class="bc-row bc-choice" data-for="' + key + '"><span class="bc-seg">' + options.map(function (o) {
+  function choiceRow(key, options, label) {
+    return '<div class="bc-row bc-choice" data-for="' + key + '"><span class="bc-seg">' +
+      (label ? '<span class="bc-sub">' + label + "</span>" : "") + options.map(function (o) {
         return '<span class="bc-btn" data-choice="' + key + ":" + o[0] + '">' + o[1] + "</span>";
       }).join("") + "</span></div>";
   }
@@ -223,6 +230,8 @@
   var MIC = '<svg class="bp-ico bp-mic" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" ' +
     'stroke-linecap="round"><rect x="5.5" y="1.5" width="5" height="8.5" rx="2.5" fill="currentColor" stroke="none"/>' +
     '<path d="M3 8a5 5 0 0 0 10 0M8 13v2"/></svg>';
+  var CHECK = '<svg class="bp-ico bp-check" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2" ' +
+    'stroke-linecap="round" stroke-linejoin="round"><path d="M3.5 8.5l3 3 6-6.5"/></svg>';
   var MUTE = '<svg class="bp-ico" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" ' +
     'stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h2l3-2.5v9L5 10H3z"/><path d="M11 6l3.5 4M14.5 6L11 10"/></svg>';
 
@@ -247,27 +256,57 @@
     // what ATC waits for: "Readback IFR Clearance" -> "Awaiting readback" + "IFR Clearance";
     // "Acknowledge Instruction" -> "Awaiting response"; a question -> its answers ("Runway 12L / Runway 12R")
     var w = waitingFor();
+    if (rb.negative) {
+      // "Negative, QNH 1013.": your readback was wrong; the correction is the hint, whatever the detail mode
+      var fix = CONFIG.readbackDetail === "none" ? "" : readbackHint(rb.text) || correction(rb.text);
+      return readbackLook(w.readback, 1, fix, [], { cls: "s-insist is-pulse", label: "Negative", raw: true });
+    }
     var detail = readbackHint(rb.text) || w.choices.slice(0, 3).join(" / ") || w.kind;
     // a question's answers beat the clearance boxes
     return readbackLook(w.readback, rb.calls, detail, w.choices.length ? [] : state.infoBoxes);
   }
 
-  function readbackLook(readback, calls, detail, boxes) {
-    var label = readback ? "Awaiting readback" : "Awaiting response";
+  // "Negative, Nantes Approach on 124.25." -> "Nantes Approach on 124.25"
+  function correction(text) {
+    var t = String(text).replace(/^negative\b[,.]?\s*/i, "").replace(/[.\s]+$/, "");
+    return t.length > 40 ? t.slice(0, 39) + "…" : t;
+  }
+
+  // look: { cls, label, lamp, raw } overrides (raw: detail as given, not the detail mode's)
+  function readbackLook(readback, calls, detail, boxes, look) {
+    look = look || {};
+    var label = look.label || (readback ? "Awaiting readback" : "Awaiting response");
     // ATC called again for it: louder color, faster pulse, "Awaiting readback ×2"
-    var cls = calls > 1 ? "s-insist is-pulse" : "s-atc is-pulse";
+    var cls = look.cls || (calls > 1 ? "s-insist is-pulse" : "s-atc is-pulse");
+    var lamp = look.lamp || LAMP;
     if (calls > 1) label += " ×" + calls;
-    detail = detailFor(detail, boxes);
+    if (!look.raw) detail = detailFor(detail, boxes);
     if (CONFIG.readbackDetail === "boxes" && boxes.length) {
       // "Awaiting readback" over the boxes, as in the toolbar; their titles say what it's about
-      return { cls: cls + " is-msg", html: LAMP + '<span class="bp-who">' + label + "</span>",
+      return { cls: cls + " is-msg", html: lamp + '<span class="bp-who">' + label + "</span>",
         extra: '<span class="bp-boxes">' + boxes.map(function (b) {
           return '<span class="bp-box"><span class="bp-box-t">' + esc(b.title) + '</span><span class="bp-box-v">' +
             esc(b.info) + "</span></span>";
         }).join("") + "</span>" };
     }
-    return { cls: cls, html: LAMP + '<span class="bp-who">' + label + "</span>" +
+    return { cls: cls, html: lamp + '<span class="bp-who">' + label + "</span>" +
       (detail ? '<span class="bp-sep">·</span><span>' + esc(detail) + "</span>" : "") };
+  }
+
+  // ATC took your reply (BeyondATC says nothing back to a correct one): "full" turns the pill green with
+  // "Readback OK" and the hint; "tick" keeps the pill and turns its lamp into a green tick. "pulse" is a class
+  // added to whatever shows next (see view).
+  function confirmLook(c) {
+    if (CONFIG.readbackConfirm === "tick") {
+      return readbackLook(c.readback, 1, c.detail, c.boxes, { cls: "s-atc", lamp: CHECK });
+    }
+    return readbackLook(c.readback, 1, c.detail, c.boxes,
+      { cls: "s-ok", lamp: CHECK, label: c.readback ? "Readback OK" : "Response OK" });
+  }
+
+  function confirming() {
+    return state.confirmed && state.confirmedUntil && Date.now() < state.confirmedUntil &&
+      CONFIG.showReadback && CONFIG.readbackConfirm !== "off";
   }
 
   // the one-line detail for the chosen mode: the hint, or just the boxes' values ("30R · T1 · T1")
@@ -329,6 +368,13 @@
       case "readbackDetail":
         if (CONFIG.showReadback) return readbackLook(true, 1, "Taxi via T1 · Hold short 12L", DEMO_BOXES);
         break;
+      case "readbackConfirm":
+        if (!CONFIG.showReadback || CONFIG.readbackConfirm === "off") break;
+        if (CONFIG.readbackConfirm === "pulse") {
+          // replays the pulse every demo: the pill swaps to a fresh class so the animation restarts
+          return { cls: "is-dot is-okpulse", html: LAMP };
+        }
+        return confirmLook({ readback: true, detail: "Taxi via T1 · Hold short 12L", boxes: DEMO_BOXES });
       case "showAtis":
         if (CONFIG.showAtis) return atisLook("Z");
         break;
@@ -400,6 +446,8 @@
           v = tuneLook(state.tune);
         } else if ((v = readbackView())) {
           // waiting for your readback
+        } else if (confirming() && CONFIG.readbackConfirm !== "pulse") {
+          v = confirmLook(state.confirmed);
         } else if (state.missed && now < state.missedUntil) {
           var md = detailFor(state.missed.detail, state.missed.boxes);
           v = { cls: "s-insist", html: LAMP + '<span class="bp-who">' + state.missed.label + "</span>" +
@@ -417,7 +465,8 @@
         v = state.text ? { cls: "", html: LAMP + "<span>" + esc(state.text) + "</span>" } : null;
     }
     if (!v) v = { cls: "is-dot", html: LAMP };
-    if (state.muted && v.cls !== "is-dot") v.html += MUTE;
+    if (confirming() && CONFIG.readbackConfirm === "pulse" && state.mode === "ready") v.cls += " is-okpulse";
+    if (state.muted && !/\bis-dot\b/.test(v.cls)) v.html += MUTE;
     return withExtra(v);
   }
 
@@ -518,7 +567,7 @@
   // a readback is pending comes from the toolbar's Actions. $1/$2 are the pattern's groups. Each match
   // uses up its words, so "climb and maintain FL120" is one hint; the first two hints are shown.
   var RWY = "runway\\s+(\\d{1,2}\\s?[LRC]?)\\b";
-  var LEVEL = "(flight level\\s*\\d{2,3}|FL\\s?\\d{2,3}|\\d{1,3},?\\d{3}\\s*(?:feet|ft))";
+  var LEVEL = "(flight level\\s*\\d{2,3}|FL\\s?\\d{2,3}|\\d{1,3},?\\d{3}\\s*(?:feet|ft)|\\d{1,2},\\d{3}\\b)";
   var READBACKS = [
     [RWY + "[^.]*?cleared (?:to land|for (?:the )?(?:option|touch and go))", "Land $1"],
     ["cleared (?:to land|for (?:the )?(?:option|touch and go))[^.]*?" + RWY, "Land $1"],
@@ -526,13 +575,20 @@
     [RWY + "[^.]*?cleared (?:for )?take ?off", "Takeoff $1"],
     ["cleared (?:for )?take ?off[^.]*?" + RWY, "Takeoff $1"],
     ["cleared (?:for )?take ?off", "Takeoff"],
-    ["line up[^.]*?" + RWY, "Line up $1"],
+    [RWY + "[^.]*?line ?up", "Line up $1"],
+    ["line ?up[^.]*?" + RWY, "Line up $1"],
+    ["line ?up", "Line up"],
+    ["go around", "Go around"],
+    ["cleared\\s+([A-Z]{3,5}\\d[A-Z])\\s+arrival", "STAR $1"],
+    ["confirm (?:new )?approach\\s+([A-Z][\\w-]*)[^.?]*?" + RWY, "Confirm $1 $2"],
     ["cleared[^.]*?approach[^.]*?" + RWY, "Approach $1"],
     ["cleared to (?!land)\\w[^.]*?(?:via|squawk|departure|climb|route)", "IFR clearance"],
     ["push(?:back)?(?: and start(?:up)?)? approved", "Pushback"],
     ["face\\s+(north|south|east|west)\\b", "Face $1"],
     ["taxi(?:(?!hold (?:short|position))[^.])*?" + RWY, "Taxi $1"],
-    ["taxi\\s+via\\s+([A-Z]{1,2}\\d{0,2})\\b", "Taxi via $1"],
+    ["taxi\\s+to\\s+(ramp|gate|stand|apron|parking)\\s+(\\w+)", "Taxi to $1 $2"],
+    // "taxi via M, T" / "via A and B": the words after each separator are one taxiway, so no backtracking
+    ["taxi\\s+via\\s+([A-Z]{1,2}\\d{0,2}(?:,? (?:and )?[A-Z]{1,2}\\d{0,2}\\b)*)", "Taxi via $1"],
     ["taxi", "Taxi"],
     ["hold short[^.]*?" + RWY, "Hold short $1"],
     ["hold (?:short|position)", "Hold"],
@@ -541,11 +597,14 @@
     ["(climb|descend)[^.]*?" + LEVEL, "$1 $2"],
     ["maintain[^.]*?" + LEVEL, "Maintain $1"],
     ["heading\\s+(\\d{3})", "Heading $1"],
-    ["(?:speed|reduce|increase)[^.]*?(\\d{3})\\s*knots", "Speed $1"],
+    ["(?:speed|reduce|increase|maintain)[^.]*?(\\d{3})\\s*(?:knots|kts|kt)\\b", "Speed $1"],
+    ["minimum approach speed", "Min approach speed"],
+    ["(?:resume )?normal speed", "Normal speed"],
     ["squawk\\s+(\\d{4})", "Squawk $1"],
     ["(?:contact|monitor)[^.]*?(1\\d{2}\\.\\d{1,3})", "Contact $1"],
     ["(?:qnh|altimeter)\\s+(\\d{3,4}(?:\\.\\d{2})?)", "QNH $1"],
-    ["(?:proceed )?direct(?: to)?\\s+([A-Z]{2,5})\\b", "Direct $1"],
+    ["(?:proceed )?direct(?: to)?\\s+(?!at\\b|this\\b|the\\b)([A-Z]{2,5})\\b", "Direct $1"],
+    ["report ([a-z][a-z ]{2,30}?)(?=[.,?]|$)", "Report $1"],
   ].map(function (r) { return [new RegExp("\\b" + r[0], "i"), r[1]]; });
 
   function readbackHint(text) {
@@ -578,15 +637,23 @@
     var key = "¬" + replies.join("¬"); // never "", which means not waiting
     if (waiting && key !== state.repliesKey) {
       // the instruction or question is the last ATC line (empty when we connected mid-exchange)
-      state.readback = { text: clip(state.atcText), facility: state.facility, calls: 1 };
+      state.readback = { text: clip(state.atcText), facility: state.facility, calls: 1,
+        negative: /^negative\b/i.test(state.atcText) };
       state.answered = state.replied = false;
       state.missed = null;
     } else if (!waiting) {
-      if (state.readback && !state.replied) {
+      if (state.readback && state.replied) {
+        // ATC took your reply (a correct readback gets no answer: the toolbar just drops "Say Again")
+        var wc = waitingFor();
+        state.confirmed = { readback: wc.readback, detail: readbackHint(state.readback.text) || wc.kind,
+          boxes: wc.choices.length ? [] : state.infoBoxes };
+        state.confirmedUntil = 0;
+        if (state.mode === "ready") startConfirm();
+      } else if (state.readback && !state.replied) {
         // BeyondATC stopped waiting on its own (after ~18 s for taxi or acknowledge replies)
         var w = waitingFor();
         state.missed = { label: w.readback ? "No readback" : "No response",
-          detail: readbackHint(state.readback.text) || w.kind, boxes: w.choices.length ? [] : state.infoBoxes };
+          detail: readbackHint(state.readback.text) || (state.readback.negative && correction(state.readback.text)) || w.kind, boxes: w.choices.length ? [] : state.infoBoxes };
         state.missedUntil = Date.now() + CONFIG.missedMs;
         clearTimeout(timers.missed);
         timers.missed = setTimeout(render, CONFIG.missedMs + 20);
@@ -596,6 +663,13 @@
     state.replies = replies;
     state.repliesKey = waiting ? key : "";
     state.menuFresh = true;
+  }
+
+  function startConfirm() {
+    var ms = CONFIRM_MS[CONFIG.readbackConfirm] || 0;
+    state.confirmedUntil = Date.now() + ms;
+    clearTimeout(timers.confirm);
+    timers.confirm = setTimeout(function () { state.confirmed = null; render(); }, ms + 20);
   }
 
   // "contact Marseille Approach on 120.100" -> { name: "Marseille Approach", freq: "120.100" };
@@ -643,6 +717,12 @@
         var mode = cs.mode || "ready";
         // you're talking (a voice reply gives processing then ready, with no Player: line)
         if (mode === "processing" || mode === "request" || mode === "queued") state.answered = state.replied = true;
+        if (mode !== "ready") {
+          // talking again: an older confirmation is stale
+          if (state.confirmedUntil) state.confirmed = null;
+        } else if (state.confirmed && !state.confirmedUntil) {
+          startConfirm(); // your reply finished playing
+        }
         if (cs.mode === "ready" && state.mode !== "ready") {
           state.lingerUntil = Date.now() + CONFIG.lingerMs;
           clearTimeout(timers.linger);
@@ -662,8 +742,14 @@
         if (state.readback) {
           // ATC calls you again before you replied: "Airfrans 1234, Montpellier Tower?" or the clearance
           // again (the toolbar's "Say Again" would have sent a Player: line first)
-          if (!state.answered) state.readback.calls++;
-          if (readbackHint(payload)) state.readback.text = clip(payload);
+          // "Negative, QNH 1013.": ATC answers a wrong readback with the correction
+          var negative = /^negative\b/i.test(payload);
+          if (!state.answered && !negative) state.readback.calls++;
+          if (negative || readbackHint(payload)) {
+            state.readback.text = clip(payload);
+            state.readback.negative = negative;
+          }
+          if (negative) state.replied = false; // that reply didn't count
           state.answered = false;
         }
         return;
@@ -826,8 +912,9 @@
       choices[i].className = "bc-btn" + (String(CONFIG[c[0]]) === c[1] ? " is-on" : "");
     }
     // the detail only matters with readback hints on
-    var detailRow = card.querySelector('[data-for="readbackDetail"]');
-    detailRow.className = "bc-row bc-choice" + (CONFIG.showReadback ? "" : " is-off");
+    ["readbackDetail", "readbackConfirm"].forEach(function (k) {
+      card.querySelector('[data-for="' + k + '"]').className = "bc-row bc-choice" + (CONFIG.showReadback ? "" : " is-off");
+    });
   }
 
   function openCard(open) {

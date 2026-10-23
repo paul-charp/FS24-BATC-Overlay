@@ -11,6 +11,8 @@ var BP = (function () {
     '<path d="M3 8a5 5 0 0 0 10 0M8 13v2"/></svg>';
   var MUTE = '<svg class="bp-ico" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" ' +
     'stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h2l3-2.5v9L5 10H3z"/><path d="M11 6l3.5 4M14.5 6L11 10"/></svg>';
+  var CHECK = '<svg class="bp-ico bp-check" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2" ' +
+    'stroke-linecap="round" stroke-linejoin="round"><path d="M3.5 8.5l3 3 6-6.5"/></svg>';
   var FREQ = '<span class="bp-freq">121.955</span>';
   var SEP = '<span class="bp-sep">·</span>';
   var STATES = [
@@ -23,6 +25,12 @@ var BP = (function () {
     ["readback", "s-atc is-pulse", LAMP + '<span class="bp-who">Awaiting readback</span>' + SEP + "<span>Taxi 12L</span>",
       "Awaiting readback", "ATC waits for your reply"],
     ["insist", "s-insist is-pulse", LAMP + '<span class="bp-who">Awaiting readback ×2</span>', "ATC calls again", "Still no reply"],
+    ["negative", "s-insist is-pulse", LAMP + '<span class="bp-who">Negative</span>' + SEP + "<span>QNH 1013</span>",
+      "Negative", "ATC corrects your readback"],
+    ["ok", "s-ok", CHECK + '<span class="bp-who">Readback OK</span>' + SEP + "<span>Taxi 12L</span>",
+      "Readback OK", "ATC took your reply"],
+    ["tick", "s-atc", CHECK + '<span class="bp-who">Awaiting readback</span>' + SEP + "<span>Taxi 12L</span>",
+      "Readback OK (Tick)", "Quieter confirmation option"],
     ["missed", "s-insist", LAMP + '<span class="bp-who">No readback</span>' + SEP + "<span>Taxi 12L</span>",
       "No readback", "BeyondATC stopped waiting"],
     ["tune", "s-tune", RADIO + '<span class="bp-who">Tower</span><span class="bp-freq">118.700</span>', "Radio change", "New station on COM1 or COM2"],

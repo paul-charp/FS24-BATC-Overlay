@@ -87,7 +87,14 @@ screen corner during flight, with a click-to-open settings card. Windows only. U
 - `AppError: {"text","fatal","kicked"}` (text may span lines; empty clears). `Callsign: {full,shortForm}`.
 - The server pings (an empty frame); `sniff_batc.py` lost the connection after each one until it
   answered with a pong. Browsers pong on their own.
-- Unverified live: what `waiting` means.
+- A correct voice readback gets no answer from ATC: the toolbar just drops "Say Again" (`pill.js` shows
+  "Readback OK" when that follows a reply). A wrong one gets "Negative, <correction>." with the menu kept
+  (Player.log, 2026-10-23: 9 times in one flight). `Player.log` also has `[PilotSpeakState] ... waiting 10s for a
+  player transcription | action=Acknowledge Instruction` after a voice exchange.
+- Unverified live: what `waiting` means. Whether "Say Again" leaves the menu after a voice reply the recogniser
+  heard as nothing (`[VoiceRec] Empty final transcript ... Posting ParseFailed` in Player.log): in that flight ATC
+  repeated the instruction each time, but if BeyondATC ever drops it instead, `pill.js` shows "Readback OK"
+  wrongly. Check in a sniff log; whether the "Negative" menu is re-sent unchanged is also unverified.
 - BeyondATC's own logs (`%userprofile%\AppData\LocalLow\Skirmish Mode Games, Inc\BeyondATC`):
   `Player.log` has every exchange as `[Instruction]` lines (ATC and pilot alike) and the script
   that handled it (`[ControllerScript] ...WindCheckScript`, `...IFR.IfrEvaluatorScript`), but no
