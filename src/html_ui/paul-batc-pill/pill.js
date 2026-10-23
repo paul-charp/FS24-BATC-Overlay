@@ -122,7 +122,10 @@
     sentAt: 0,           // an answer or request was just sent: hide them until BeyondATC reacts
     panel: false,        // comms panel open (click the pill)
     panelTab: "freq",    // "freq" | "log"
-    freqs: null,         // from "Frequencies:": { rows: [{ name, type, freq }] }, or { raw } if it can't be read
+    freqs: null,         // the last "Frequencies:": { rows: [{ name, type, freq }] }, or { raw } if it can't be read
+    freqBook: { dep: [], arr: [] }, // every station heard of this flight, filed by Progress (see fileFreqs)
+    freqSide: "dep",     // the Frequencies tab shown: "dep" | "arr"
+    progress: null,      // "Progress: {from,to,pct}": the flight's airports and how far along it is
     logReset: true,      // open the Log at its newest line
   };
   var socket = null;
@@ -879,7 +882,16 @@
         return;
       case "Frequencies":
         state.freqs = parseFreqs(payload);
+        if (state.freqs.rows) fileFreqs(state.freqs.rows);
         break;
+      case "Progress": {
+        var pg = parseJson(payload);
+        if (!pg || typeof pg !== "object") break;
+        // a new route: the stations filed for the last one don't apply
+        if (state.progress && (pg.from !== state.progress.from || pg.to !== state.progress.to)) state.freqBook = { dep: [], arr: [] };
+        state.progress = pg;
+        break;
+      }
       case "Facility": {
         // "Montpellier Ground (30R, 30L)|121.955", or "Nothing Tuned" without a frequency
         var parts = payload.split("|");
@@ -1542,7 +1554,13 @@
     state.panel = open;
     if (open) {
       showSwitches(false);
-      if (contactPending()) state.panelTab = "freq"; // the station ATC handed you to
+      state.freqSide = flightHalf();
+      if (contactPending()) {
+        state.panelTab = "freq"; // the station ATC handed you to, on the side that holds it
+        ["dep", "arr"].forEach(function (k) {
+          if (state.freqBook[k].some(function (r) { return sameFreq(r.freq, state.contact.freq); })) state.freqSide = k;
+        });
+      }
       state.logReset = true;
       send("frequencies"); // as the toolbar's Frequencies tab: BeyondATC answers only when asked
     }
@@ -1556,6 +1574,25 @@
   // Clearance, Ground, Tower, ApproachDeparture, Center or UNICOM. Listed in the order you call them. Anything
   // else is kept raw, so the panel shows it instead of guessing.
   var FREQ_ORDER = ["atis", "clearance", "ground", "tower", "approachdeparture", "center", "unicom"];
+  var ARR_ORDER = ["atis", "center", "approachdeparture", "tower", "ground", "clearance", "unicom"]; // arriving
+
+  // BeyondATC only lists the stations around you, so the Departure and Arrival tabs are built up over the
+  // flight: each reply is filed under the half of the flight it came in (Progress), merged by frequency.
+  function flightHalf() {
+    var pct = state.progress ? Number(state.progress.pct) : NaN;
+    if (pct > 1) pct /= 100; // 0..1 or 0..100: not seen live yet
+    return pct >= 0.5 ? "arr" : "dep";
+  }
+
+  function fileFreqs(rows) {
+    var half = flightHalf(), book = state.freqBook[half];
+    rows.forEach(function (r) {
+      for (var i = 0; i < book.length; i++) if (sameFreq(book[i].freq, r.freq)) { book[i] = r; return; }
+      book.push(r);
+    });
+    // in the order you call them: on the way out, or on the way in
+    book.sort(function (a, b) { return half === "arr" ? a.arrRank - b.arrRank : a.rank - b.rank; });
+  }
 
   function parseFreqs(payload) {
     var data = parseJson(payload), rows = [];
@@ -1564,8 +1601,9 @@
       if (!f || f < 100 || f > 200) return;
       var t = String(o.type || "").toLowerCase().replace(/[^a-z]/g, "");
       var rank = FREQ_ORDER.indexOf(t);
+      var arr = ARR_ORDER.indexOf(t);
       rows.push({ name: stationName(o.name) || String(o.type || ""), type: String(o.type || ""), freq: f.toFixed(3),
-        rank: (rank < 0 ? FREQ_ORDER.length : rank) * 1000 + i });
+        rank: (rank < 0 ? FREQ_ORDER.length : rank) * 1000 + i, arrRank: (arr < 0 ? ARR_ORDER.length : arr) * 1000 + i });
     });
     rows.sort(function (a, b) { return a.rank - b.rank; });
     return rows.length ? { rows: rows } : { raw: String(payload) };
@@ -1593,7 +1631,20 @@
         '<div class="bm-raw">' + esc(f.raw.slice(0, 600)) + "</div>";
     }
     var com2 = state.com2 ? state.com2.split("|")[1] : "";
-    h += '<div class="bm-rows">' + f.rows.map(function (r) {
+    var rows = f.rows, pg = state.progress;
+    if (pg) {
+      // Departure / Arrival, each with what was heard on that half of the flight
+      h += '<div class="bm-seg">' + [["dep", "Departure", pg.from], ["arr", "Arrival", pg.to]].map(function (t) {
+        return '<span class="bm-tab' + (state.freqSide === t[0] ? " is-on" : "") + '" data-side="' + t[0] + '">' + t[1] +
+          (t[2] ? " · " + esc(t[2]) : "") + "</span>";
+      }).join("") + "</div>";
+      rows = state.freqBook[state.freqSide];
+      if (!rows.length) {
+        return h + '<div class="bm-note">' + (state.freqSide === "arr" ? "The arrival's stations show once you're past halfway."
+          : "No departure stations heard yet.") + "</div>";
+      }
+    }
+    h += '<div class="bm-rows">' + rows.map(function (r) {
       var on1 = sameFreq(r.freq, state.facility.freq);
       return '<div class="bm-row' + (on1 ? " is-active" : "") + '" data-tune="' + esc(r.freq) + '"><span class="bm-grow">' +
         esc(r.name) + "</span>" +
@@ -1648,12 +1699,13 @@
   }
 
   panel.addEventListener("click", function (e) {
-    var el = e.target, names = ["data-tab", "data-tune", "data-act", "data-sw"];
+    var el = e.target, names = ["data-tab", "data-side", "data-tune", "data-act", "data-sw"];
     function has(n) { for (var i = 0; i < names.length; i++) if (n.getAttribute(names[i])) return true; return false; }
     while (el && el !== panel && !(el.getAttribute && has(el))) el = el.parentNode;
     if (!el || el === panel) return;
     var act = el.getAttribute("data-act");
     if (el.getAttribute("data-tab")) { state.panelTab = el.getAttribute("data-tab"); state.logReset = true; }
+    else if (el.getAttribute("data-side")) state.freqSide = el.getAttribute("data-side");
     else if (el.getAttribute("data-tune")) { tune(el.getAttribute("data-tune")); return; }
     else if (el.getAttribute("data-sw")) { flip(el.getAttribute("data-sw")); return; }
     else if (act === "close") { openPanel(false); return; }

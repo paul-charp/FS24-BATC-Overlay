@@ -610,7 +610,9 @@
 }
 #batc-pill-panel[data-edge="bottom"].is-closed { transform: translateY(calc(6 * var(--u))) scale(0.97); }
 .bm-head { display: flex; align-items: center; margin-bottom: calc(8 * var(--u)); }
-.bm-tabs { display: flex; flex: 1 1 auto; }
+.bm-tabs, .bm-seg { display: flex; flex: 1 1 auto; }
+.bm-seg { margin-bottom: calc(4 * var(--u)); }
+.bm-seg .bm-tab { padding: calc(4 * var(--u)) 0; font-size: calc(11 * var(--u)); }
 .bm-tab {
   position: relative;
   flex: 1 1 0;
