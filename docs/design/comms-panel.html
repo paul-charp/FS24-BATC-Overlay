@@ -310,7 +310,6 @@
       <h2>Options</h2>
       <div class="opts">
         <div class="opt"><span>Captions</span><span class="seg" id="optCaptions"><button data-v="off">Off</button><button data-v="mine">Mine</button><button data-v="all">All</button></span></div>
-        <div class="opt"><span>Answers</span><span class="seg" id="optAnswers"><button data-v="message">Below the message</button><button data-v="hover">Beside the pill</button></span></div>
         <div class="opt"><span>AI traffic (pill, captions, log)</span><span class="seg" id="optTraffic"><button data-v="off">Hide</button><button data-v="on">Show</button></span></div>
       </div>
     </div>
@@ -323,7 +322,7 @@
       <ul>
         <li><b>Glance</b>: the pill, unchanged. It stays the status line and the title of everything below it.</li>
         <li><b>Read</b>: captions under the pill. Each ATC line shows for about 9 s; the instruction ATC waits on stays, outlined, until you answer. "Mine" drops lines to other aircraft.</li>
-        <li><b>Answer</b>: hover ATC's message (or the pill) and its answers slide out as a row of chips below it, outside its box: the obvious one filled amber, up to three, "+N" for the rest (opens the panel), Say Again as an icon. At rest only the message shows. With captions off (or "Beside the pill"), they open beside the pill on hover instead, with the Auto Respond / Auto Tune switches at the far end.</li>
+        <li><b>Answer</b>: the answers open where you point. Hover ATC's message and they slide out as a row of chips below it, outside its box; hover the pill and they open beside it, with the Auto Respond / Auto Tune switches at the far end. The obvious one filled amber, up to three, "+N" for the rest (opens the panel), Say Again as an icon. At rest only the message shows.</li>
         <li><b>Everything else</b>: clicking the pill opens the comms panel with Radio (pending reply, requests), Log and Frequencies tabs. It opens on the tab that matters: Radio while ATC waits, Frequencies while a contact is pending.</li>
       </ul>
       <h3>Decisions to make</h3>
@@ -373,7 +372,6 @@
       <h3>New settings</h3>
       <ul>
         <li>Captions: Off / Mine / All, and how long they stay.</li>
-        <li>Answers on hover: below the message / beside the pill.</li>
         <li>AI traffic (exists) also filters captions and the log.</li>
       </ul>
     </section>
@@ -404,7 +402,7 @@
   function allFreqs() { return FREQS.dep.rows.concat(FREQS.arr.rows); }
 
   var S, epoch = 0;
-  var opt = { captions: "all", answers: "message", traffic: true };
+  var opt = { captions: "all", traffic: true };
   function fresh() {
     return { facility: ST.gnd, mode: "ready", speaker: null, qtext: "", pending: null, confirm: null, tune: null,
       contact: null, freqSide: "dep", lingerUntil: 0, requests: [], log: [], caps: [], autoTune: true, autoRespond: false,
@@ -664,16 +662,11 @@
     if (cut < reps.length) html += '<span class="chip quiet" data-more="1" title="All answers">+' + (reps.length - cut) + "</span>";
     return html + '<span class="chip round quiet' + busy + '" data-reply="Say Again" title="Say again">' + ICON_AGAIN + "</span>";
   }
-  // answers go under ATC's message when it's on screen; otherwise (captions off, or "On hover") in the hover row
-  function answersUnderMessage() {
-    return opt.answers === "message" && opt.captions !== "off" && S.pending && !S.panel &&
-      S.caps.some(function (c) { return c.id === S.pending.capId; });
-  }
   function renderTray() {
     var p = S.pending, show = S.hover && !S.panel;
     var html = "";
     // the tray lays out right to left from the pill, so the first answer sits nearest it
-    if (p && show && !answersUnderMessage()) html = answerChips(p);
+    if (p && show) html = answerChips(p);
     if (show) {
       if (html) html += '<span class="sep"></span>';
       html += '<span class="chip round' + (S.autoRespond ? " on" : "") + '" data-sw="ar" title="Auto Respond">' + ICON_AR + "</span>";
@@ -757,7 +750,8 @@
   }
   function capActs(c) {
     var p = S.pending;
-    return c.pinned && p && p.capId === c.id && answersUnderMessage() && (S.hover || S.capHover === c.id) ? answerChips(p) : "";
+    // answers open where you point: under the message while you hover it (the pill opens its own row)
+    return c.pinned && p && p.capId === c.id && !S.panel && S.capHover === c.id ? answerChips(p) : "";
   }
   // show or hide the answers row under a caption and glide its slot to the new height
   function capSet(n, c, acts) {
@@ -995,7 +989,6 @@
     return paint;
   }
   segInit("optCaptions", "captions", { get: function () { return opt.captions; }, set: function (v) { opt.captions = v; if (v === "off") S.caps = []; } });
-  segInit("optAnswers", "answers", { get: function () { return opt.answers; }, set: function (v) { opt.answers = v; } });
   var paintTraffic = segInit("optTraffic", "traffic", { get: function () { return opt.traffic ? "on" : "off"; }, set: function (v) { opt.traffic = v === "on"; } });
   function setTraffic(on) { opt.traffic = on; if (!on) S.caps = S.caps.filter(function (c) { return c.who !== "traffic"; }); paintTraffic(); update(); }
 
