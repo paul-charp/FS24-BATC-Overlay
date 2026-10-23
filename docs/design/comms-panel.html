@@ -205,14 +205,16 @@
   .seg2 .tab { padding: calc(4 * var(--k)) 0; font-size: calc(11 * var(--k)); }
   .grp { font: 500 calc(10.5 * var(--k)) var(--sim); color: var(--dimk); margin: calc(8 * var(--k)) 0 calc(2 * var(--k)); }
   .grp:first-child { margin-top: 0; }
-  .log { margin: 0 calc(-2 * var(--k)); }
+  /* the whole history scrolls with the wheel; newest at the bottom, where it opens */
+  .log { margin: 0 calc(-2 * var(--k)); max-height: calc(300 * var(--k)); overflow-y: auto; padding-right: calc(4 * var(--k));
+    scrollbar-width: thin; scrollbar-color: rgba(255,255,255,0.18) transparent; }
+  .log::-webkit-scrollbar { width: calc(4 * var(--k)); }
+  .log::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.18); border-radius: calc(2 * var(--k)); }
   .ln { display: flex; padding: calc(4 * var(--k)) calc(2 * var(--k)); font: 400 calc(12 * var(--k))/1.38 var(--sim); }
   .ln .t { flex: none; width: calc(38 * var(--k)); color: rgba(236,241,246,0.4); font-size: calc(10.5 * var(--k)); font-variant-numeric: tabular-nums; padding-top: calc(1 * var(--k)); }
   .ln .x { flex: 1; min-width: 0; }
   .ln .w { font-weight: 600; margin-right: calc(4 * var(--k)); }
   .ln.atc .w { color: #ffb547; } .ln.you .w { color: #5fd38d; } .ln.traffic { color: rgba(236,241,246,0.6); } .ln.traffic .w { color: rgba(236,241,246,0.5); }
-  .more { text-align: center; padding: calc(5 * var(--k)); margin-bottom: calc(4 * var(--k)); border-radius: calc(6 * var(--k)); background: var(--btn); color: var(--dimk); cursor: pointer; }
-  .more:hover { background: var(--btn-h); color: #fff; }
   .bar2 { display: flex; align-items: center; justify-content: space-between; margin-bottom: calc(6 * var(--k)); }
   .tog { display: flex; align-items: center; cursor: pointer; color: rgba(236,241,246,0.85); }
   .tog .sw { position: relative; width: calc(26 * var(--k)); height: calc(15 * var(--k)); border-radius: calc(8 * var(--k)); background: var(--btn-h); margin-left: calc(7 * var(--k)); transition: background-color .2s; }
@@ -315,7 +317,7 @@
       <ul>
         <li><b>Click = panel, settings behind a gear.</b> Today a click opens the settings card. Settings are visited once; comms are used every few minutes.</li>
         <li><b>The panel is non-modal.</b> The settings card closes on outside clicks through a full-screen shade, which also swallows clicks meant for the cockpit. A panel left open during a flight can't do that, so it closes only with its ✕ or a click on the pill.</li>
-        <li><b>No scrolling.</b> Wheel events in mainUi are unverified; mousemove and clicks are. The log pages with "Show earlier", lists are short enough to fit.</li>
+        <li><b>The log scrolls.</b> It opens at the newest line and follows new ones while you're at the bottom; scroll up and it stays put. Wheel events in mainUi are still unverified (mousemove and clicks are); if they don't arrive, the fallback is "Show earlier" paging.</li>
         <li><b>Buttons go quiet while the radio is busy.</b> BeyondATC queues requests, but a reply clicked while ATC is still talking reads as a mistake. Greyed rows say "wait".</li>
         <li><b>Auto Respond on:</b> the tray and the panel still show the replies (you can answer first), with a note that BeyondATC will answer.</li>
       </ul>
@@ -394,7 +396,7 @@
   function fresh() {
     return { facility: ST.gnd, mode: "ready", speaker: null, qtext: "", pending: null, confirm: null, tune: null,
       contact: null, com2: null, freqSide: "dep", lingerUntil: 0, requests: [], log: [], caps: [], autoTune: true, autoRespond: false,
-      lock: false, panel: false, tab: "freq", logShown: 8, hover: false, clock: 14 * 3600 + 32 * 60 };
+      lock: false, panel: false, tab: "freq", logReset: true, hover: false, clock: 14 * 3600 + 32 * 60 };
   }
 
   // ---------- helpers ----------
@@ -809,7 +811,7 @@
     if (open) {
       // the station ATC handed you to is on Frequencies; otherwise the tab you used last
       if (S.contact && !S.autoTune) S.tab = "freq";
-      S.logShown = 8;
+      S.logReset = true;
     }
     panel.className = "panel" + (open ? " open" : "");
     update();
@@ -819,11 +821,9 @@
 
   function logTab() {
     var lines = S.log.filter(function (l) { return opt.traffic || l.who !== "traffic"; });
-    var shown = lines.slice(-S.logShown), more = lines.length - shown.length;
     var h = '<div class="bar2"><span class="sec" style="margin:0">' + lines.length + ' lines</span><span class="tog' + (opt.traffic ? " on" : "") +
       '" data-act="traffic">AI traffic<span class="sw"><i></i></span></span></div>';
-    if (more > 0) h += '<div class="more" data-act="more">Show earlier (' + more + ")</div>";
-    h += '<div class="log">' + shown.map(function (l) {
+    h += '<div class="log">' + lines.map(function (l) {
       return '<div class="ln ' + l.who + '"><span class="t">' + clockStr(l.t) + '</span><span class="x"><span class="w">' + esc(l.label) + "</span>" + esc(l.text) + "</span></div>";
     }).join("") + "</div>";
     if (!lines.length) h += '<div class="note">No radio calls yet.</div>';
@@ -855,11 +855,20 @@
       return '<span class="tab' + (S.tab === t[0] ? " on" : "") + '" data-tab="' + t[0] + '">' + t[1] + (badge ? '<i class="badge"></i>' : "") + "</span>";
     }).join("");
     var body = S.tab === "log" ? logTab() : freqTab();
-    panel.innerHTML = '<div class="pn-head"><span class="tabs">' + tabs + '</span><span class="icon-btn" data-act="settings" title="Settings">' + ICON_GEAR +
+    var html = '<div class="pn-head"><span class="tabs">' + tabs + '</span><span class="icon-btn" data-act="settings" title="Settings">' + ICON_GEAR +
       '</span><span class="icon-btn" data-act="close" title="Close">' + ICON_X + "</span></div>" + body +
       '<div class="pn-foot"><span class="tog' + (S.autoRespond ? " on" : "") + '" data-sw="ar">Auto Respond<span class="sw"><i></i></span></span>' +
       '<span class="tog' + (S.autoTune ? " on" : "") + '" data-sw="at">Auto Tune<span class="sw"><i></i></span></span></div>';
+    if (html === panelHtml) return; // unchanged: keep the DOM, and the log's scroll position with it
+    // keep the log where you scrolled it; follow new lines only while you're at the bottom
+    var old = panel.querySelector(".log"), top = old ? old.scrollTop : 0;
+    var atBottom = !old || old.scrollHeight - old.scrollTop - old.clientHeight < 4;
+    panel.innerHTML = panelHtml = html;
+    var log = panel.querySelector(".log");
+    if (log) log.scrollTop = atBottom || S.logReset ? log.scrollHeight : top;
+    S.logReset = false;
   }
+  var panelHtml = "";
   // right-click a station: COM2 (monitor ATIS or the next sector without leaving COM1)
   panel.addEventListener("contextmenu", function (e) {
     var el = e.target.closest("[data-tune]");
@@ -873,7 +882,7 @@
     var el = e.target.closest("[data-tab],[data-act],[data-reply],[data-req],[data-tune],[data-sw],[data-side]");
     if (!el) return;
     if (el.hasAttribute("data-side")) { S.freqSide = el.getAttribute("data-side"); update(); return; }
-    if (el.hasAttribute("data-tab")) { S.tab = el.getAttribute("data-tab"); S.logShown = 8; update(); return; }
+    if (el.hasAttribute("data-tab")) { S.tab = el.getAttribute("data-tab"); S.logReset = true; update(); return; }
     if (el.hasAttribute("data-sw")) { toggleSwitch(el.getAttribute("data-sw")); return; }
     if (el.hasAttribute("data-reply")) { go(function () { return reply(el.getAttribute("data-reply")); }); return; }
     if (el.hasAttribute("data-req")) { go(function () { return request(el.getAttribute("data-req")); }); return; }
@@ -886,7 +895,6 @@
     var act = el.getAttribute("data-act");
     if (act === "close") openPanel(false);
     else if (act === "settings") toast("Opens today's settings card (Display, Position, plus Captions and Replies).");
-    else if (act === "more") { S.logShown += 8; update(); }
     else if (act === "traffic") { setTraffic(!opt.traffic); }
   });
 
