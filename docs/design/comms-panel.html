@@ -122,6 +122,9 @@
   .chip:hover { background: rgba(30,36,44,0.92); }
   .chip.primary { background: #ffb547; border-color: #ffb547; color: #15110a; }
   .chip.primary:hover { background: #ffc56e; }
+  /* Auto Tune off and ATC handed you over: tune COM1 from the same row (radio cyan, like the Contact pill) */
+  .chip.tune { color: #63d3e6; border-color: rgba(99,211,230,0.55); }
+  .chip.tune:hover { background: rgba(20,52,60,0.9); }
   .chip.quiet { color: rgba(236,241,246,0.6); }
   .round { width: calc(26 * var(--u)); padding: 0; justify-content: center; color: rgba(236,241,246,0.45); }
   .round svg { width: calc(14 * var(--u)); height: calc(14 * var(--u)); }
@@ -309,7 +312,7 @@
       <ul>
         <li><b>Glance</b>: the pill, unchanged. It stays the status line and the title of everything below it.</li>
         <li><b>Read</b>: captions under the pill. The lines of an exchange stay until it closes, then leave together about 5 s later; the instruction ATC waits on is outlined until you answer. Other aircraft's lines leave one by one. "Mine" drops lines to other aircraft.</li>
-        <li><b>Answer</b>: hover ATC's message or the pill and the answers slide out as a row of chips below the message, outside its box. They show in one place only: beside the pill when the message isn't on screen (captions off), with the Auto Respond / Auto Tune switches at the far end. The obvious one filled amber, up to three, "+N" shows the rest in place. No Say Again: the message is there to read again. At rest only the message shows.</li>
+        <li><b>Answer</b>: hover ATC's message or the pill and the answers slide out as a row of chips below the message, outside its box. They show in one place only: beside the pill when the message isn't on screen (captions off), with the Auto Respond / Auto Tune switches at the far end. The obvious one filled amber, up to three, "+N" shows the rest in place. No Say Again: the message is there to read again. With Auto Tune off, a handoff adds a cyan "Tune 118.775" that sets COM1; once you've replied it heads the requests column until COM1 is on it. At rest only the message shows.</li>
         <li><b>Request</b>: with nothing pending, hovering the pill offers BeyondATC's requests as a column under it, in BeyondATC's order (the likely next one on top). The switches stay on the pill's row.</li>
         <li><b>Look up</b>: clicking the pill opens a panel with Frequencies (Departure / Arrival) and Log. It opens on Frequencies while ATC's handoff is pending, else on the tab used last. Settings sit behind the gear.</li>
       </ul>
@@ -655,7 +658,18 @@
   }
   function answerChips(p, all) {
     var cancels = p.replies.filter(function (r) { return /^cancel\b/i.test(r); });
-    return chipList(answersOf(p).concat(cancels), "data-reply", p.kind !== "question", all);
+    return chipList(answersOf(p).concat(cancels), "data-reply", p.kind !== "question", all) + tuneChip();
+  }
+  // Auto Tune off and ATC said "contact <station> <freq>": tune COM1 there. Never greyed: tuning doesn't
+  // wait for the radio to be quiet.
+  function tuneChip() {
+    return S.contact && !S.autoTune ? '<span class="chip tune" data-tunec="1">Tune ' + esc(S.contact.freq) + "</span>" : "";
+  }
+  function tuneContact() {
+    var c = S.contact, st = { name: c.name, freq: c.freq };
+    allFreqs().forEach(function (f) { if (f.freq === c.freq) st = f; });
+    toast("Sent set_frequency: " + st.freq);
+    tuneCom1(st);
   }
   function messageShown(p) {
     return !S.panel && opt.captions !== "off" && S.caps.some(function (c) { return c.pinned && c.id === p.capId; });
@@ -668,7 +682,8 @@
     if (show && p && !messageShown(p)) list = answerChips(p, true);
     // requests only while the radio is quiet: once an exchange starts (yours or ATC's) the column closes, so
     // it never sits greyed out over the new messages
-    else if (show && !p && !radioBusy() && S.requests.length) list = chipList(S.requests, "data-req", false, true);
+    // the reply is done but COM1 isn't on the new station yet: "Tune" heads the column
+    else if (show && !p) list = tuneChip() + (!radioBusy() && S.requests.length ? chipList(S.requests, "data-req", false, true) : "");
     if (trayList.innerHTML !== list) trayList.innerHTML = list;
     trayList.className = "list" + (list ? " open" : "");
     // the switches stay on the pill's row
@@ -706,8 +721,9 @@
     hoverTimer = setTimeout(function () { S.hover = false; update(); }, 350);
   });
   function onTrayClick(e) {
-    var el = e.target.closest("[data-reply],[data-req],[data-sw]");
+    var el = e.target.closest("[data-reply],[data-req],[data-sw],[data-tunec]");
     if (!el) return;
+    if (el.hasAttribute("data-tunec")) { tuneContact(); return; }
     if (el.hasAttribute("data-reply")) { go(function () { return reply(el.getAttribute("data-reply")); }); return; }
     if (el.hasAttribute("data-req")) { go(function () { return request(el.getAttribute("data-req")); }); return; }
     toggleSwitch(el.getAttribute("data-sw"));
@@ -972,8 +988,9 @@
     if (S.panel) openPanel(true); else update();
   }
   capsEl.addEventListener("click", function (e) {
-    var el = e.target.closest("[data-reply],[data-more]");
+    var el = e.target.closest("[data-reply],[data-more],[data-tunec]");
     if (!el) return;
+    if (el.hasAttribute("data-tunec")) { tuneContact(); return; }
     if (el.hasAttribute("data-more")) { S.capAll = true; update(); return; }
     S.capAll = false;
     go(function () { return reply(el.getAttribute("data-reply")); });
