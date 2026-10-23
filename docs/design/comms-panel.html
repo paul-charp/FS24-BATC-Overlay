@@ -104,8 +104,11 @@
     opacity: 0; transform: translateX(calc(6 * var(--u))); pointer-events: none; transition: opacity .18s, transform .25s cubic-bezier(.22,.8,.24,1); }
   .tray.open { opacity: 1; transform: none; pointer-events: auto; }
   .tray.below { top: calc(34 * var(--u)); flex-wrap: wrap; }
-  .tray.all { flex-wrap: wrap; align-content: flex-start; }
-  .tray.all > * { margin-bottom: calc(5 * var(--u)); }
+  /* the requests (or answers, captions off): a column under the pill, right-aligned, first one on top */
+  .list { position: absolute; top: calc(32 * var(--u)); right: 0; display: flex; flex-direction: column; align-items: flex-end;
+    opacity: 0; transform: translateY(calc(-4 * var(--u))); pointer-events: none; transition: opacity .18s, transform .25s cubic-bezier(.22,.8,.24,1); }
+  .list.open { opacity: 1; transform: none; pointer-events: auto; }
+  .list .chip { margin: 0 0 calc(4 * var(--u)) 0; }
   .tray.below > * { margin-bottom: calc(5 * var(--u)); }
   .chip {
     height: calc(26 * var(--u)); padding: 0 calc(11 * var(--u)); margin-right: calc(5 * var(--u));
@@ -266,6 +269,7 @@
     <div class="anchor" id="anchor">
       <div class="pill is-dot" id="pill" role="button" tabindex="0" aria-label="BeyondATC status. Click to open the comms panel"><div class="bg"></div><div class="body" id="pillBody"></div></div>
       <div class="tray" id="tray"></div>
+      <div class="list" id="trayList"></div>
     </div>
     <div class="captions" id="captions" aria-live="polite"></div>
     <div class="panel" id="panel"></div>
@@ -301,7 +305,7 @@
         <li><b>Glance</b>: the pill, unchanged. It stays the status line and the title of everything below it.</li>
         <li><b>Read</b>: captions under the pill. The lines of an exchange stay until it closes, then leave together about 5 s later; the instruction ATC waits on is outlined until you answer. Other aircraft's lines leave one by one. "Mine" drops lines to other aircraft.</li>
         <li><b>Answer</b>: hover ATC's message or the pill and the answers slide out as a row of chips below the message, outside its box. They show in one place only: beside the pill when the message isn't on screen (captions off), with the Auto Respond / Auto Tune switches at the far end. The obvious one filled amber, up to three, "+N" shows the rest in place. No Say Again: the message is there to read again. At rest only the message shows.</li>
-        <li><b>Request</b>: with nothing pending, hovering the pill offers BeyondATC's requests in the same row, in its own order (the likely next one first), three at a time and "+N" for the rest.</li>
+        <li><b>Request</b>: with nothing pending, hovering the pill offers BeyondATC's requests as a column under it, in BeyondATC's order (the likely next one on top). The switches stay on the pill's row.</li>
         <li><b>Look up</b>: clicking the pill opens a panel with Frequencies (Departure / Arrival) and Log. It opens on Frequencies while ATC's handoff is pending, else on the tab used last. Settings sit behind the gear.</li>
       </ul>
       <h3>Decisions to make</h3>
@@ -363,7 +367,7 @@
 (function () {
   "use strict";
   var $ = function (id) { return document.getElementById(id); };
-  var stage = $("stage"), pill = $("pill"), pillBody = $("pillBody"), tray = $("tray"), anchor = $("anchor");
+  var stage = $("stage"), pill = $("pill"), pillBody = $("pillBody"), tray = $("tray"), trayList = $("trayList"), anchor = $("anchor");
   var capsEl = $("captions"), panel = $("panel"), toastEl = $("toast");
 
   var CALLSIGN = "Airfrans 1234";
@@ -651,21 +655,24 @@
   }
   function renderTray() {
     var p = S.pending, show = S.hover && !S.panel;
-    var html = "";
-    // the tray lays out right to left from the pill, so the first item sits nearest it. ATC waiting: the
-    // answers; otherwise the requests BeyondATC offers now (its own order: the likely next one first)
-    // answers show in one place only: under ATC's message while it's on screen, else here
-    if (show && p && !messageShown(p)) html = answerChips(p, S.trayAll);
-    else if (show && !p && S.requests.length) html = chipList(S.requests, "data-req", false, S.trayAll);
+    var html = "", list = "";
+    // a column under the pill: ATC waiting, the answers (only when its message isn't on screen: they show in
+    // one place); otherwise the requests BeyondATC offers now, in its order (the likely next one on top)
+    if (show && p && !messageShown(p)) list = answerChips(p, true);
+    else if (show && !p && S.requests.length) list = chipList(S.requests, "data-req", false, true);
+    if (trayList.innerHTML !== list) trayList.innerHTML = list;
+    trayList.className = "list" + (list ? " open" : "");
+    // the switches stay on the pill's row
     if (show) {
-      if (html) html += '<span class="sep"></span>';
       html += '<span class="chip round' + (S.autoRespond ? " on" : "") + '" data-sw="ar" title="Auto Respond">' + ICON_AR + "</span>";
       html += '<span class="chip round' + (S.autoTune ? " on" : "") + '" data-sw="at" title="Auto Tune">' + ICON_AT + "</span>";
     }
     if (tray.innerHTML !== html) tray.innerHTML = html;
-    tray.className = "tray" + (html ? " open" : "") + (S.trayAll && show ? " all" : "");
+    tray.className = "tray" + (html ? " open" : "");
     var below = placeTray();
-    capsEl.className = "captions" + ((below || S.trayAll) && html ? " behind" : "");
+    // small screens drop the switches under the pill: the column goes under them
+    trayList.style.top = below && html ? tray.offsetTop + tray.offsetHeight + 4 * u() + "px" : "";
+    capsEl.className = "captions" + ((below && html) || list ? " behind" : "");
     capsEl.style.display = S.panel ? "none" : "";
   }
   function placeTray() {
@@ -673,11 +680,6 @@
     tray.style.right = pill.offsetWidth + gap + "px";
     tray.style.width = "";
     tray.className = tray.className.replace(" below", "");
-    if (tray.className.indexOf(" all") >= 0) {
-      // everything shown: the row keeps its width and wraps the rest below, so the cursor stays on it
-      tray.style.width = S.trayWidth + "px";
-      return false;
-    }
     // not enough room beside the pill (small screens): drop it under the pill
     if (tray.offsetWidth + pill.offsetWidth + gap + 30 * u() > stage.clientWidth) {
       tray.style.right = "0px"; tray.className += " below";
@@ -690,17 +692,17 @@
   anchor.addEventListener("mouseenter", function () { clearTimeout(hoverTimer); if (!S.hover) { S.hover = true; update(); } });
   anchor.addEventListener("mouseleave", function () {
     clearTimeout(hoverTimer);
-    hoverTimer = setTimeout(function () { S.hover = false; S.trayAll = false; update(); }, 350);
+    hoverTimer = setTimeout(function () { S.hover = false; update(); }, 350);
   });
-  tray.addEventListener("click", function (e) {
-    var el = e.target.closest("[data-reply],[data-req],[data-sw],[data-more]");
+  function onTrayClick(e) {
+    var el = e.target.closest("[data-reply],[data-req],[data-sw]");
     if (!el) return;
-    if (el.hasAttribute("data-more")) { S.trayWidth = tray.offsetWidth; S.trayAll = true; update(); return; }
-    S.trayAll = false;
     if (el.hasAttribute("data-reply")) { go(function () { return reply(el.getAttribute("data-reply")); }); return; }
     if (el.hasAttribute("data-req")) { go(function () { return request(el.getAttribute("data-req")); }); return; }
     toggleSwitch(el.getAttribute("data-sw"));
-  });
+  }
+  tray.addEventListener("click", onTrayClick);
+  trayList.addEventListener("click", onTrayClick);
   function toggleSwitch(which) {
     if (which === "ar") { S.autoRespond = !S.autoRespond; toast("Sent set_autorespond: " + S.autoRespond); if (S.autoRespond && S.pending) go(autoAnswer); }
     else { S.autoTune = !S.autoTune; toast("Sent set_autotune: " + S.autoTune); if (S.autoTune && S.contact) { var c = S.contact; S.contact = null; tuneCom1(c); } }
