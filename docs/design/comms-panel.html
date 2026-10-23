@@ -132,11 +132,11 @@
     transition: height .42s cubic-bezier(.22,.8,.24,1), padding-top .42s cubic-bezier(.22,.8,.24,1);
   }
   .cap .card {
-    /* light: a faint veil and a soft text shadow keep it readable over sky or cockpit without a heavy box */
+    /* light: a faint veil and a wide, faint halo keep it readable over sky or cockpit without a heavy box */
     padding: calc(5 * var(--u)) calc(9 * var(--u)) calc(6 * var(--u));
     border-radius: calc(7 * var(--u)); background: rgba(14,18,24,0.4); border: calc(1 * var(--u)) solid transparent;
     color: rgba(236,241,246,0.9); font: 400 calc(12.5 * var(--u))/1.36 var(--sim);
-    text-shadow: 0 0 calc(3 * var(--u)) rgba(0,0,0,0.55), 0 calc(1 * var(--u)) calc(1 * var(--u)) rgba(0,0,0,0.35);
+    text-shadow: 0 0 calc(10 * var(--u)) rgba(0,0,0,0.22);
     transition: opacity .3s ease, transform .42s cubic-bezier(.22,.8,.24,1), border-color .3s ease, background-color .3s ease;
   }
   .cap.out { padding-top: 0; }
