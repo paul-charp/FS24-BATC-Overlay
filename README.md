@@ -46,7 +46,6 @@ Hovering the pill shows two buttons under it: BeyondATC's **Auto Tune** (radio w
 | ATIS changes | show a new ATIS letter |
 | Warn when COM1 muted | red-orange pill when ATC calls you while COM1 is muted |
 | PTT indicator | show "Transmitting" while your PTT button is held (see below) |
-| Auto Tune / Respond on hover | show the Auto Tune and Auto Respond buttons while the mouse is over the pill |
 | AI traffic | show the "Traffic" pill while AI traffic talks |
 | Full station names | "Montpellier Ground" instead of "Ground" |
 | Hide when BATC is off | no pill at all while BeyondATC isn't running |

@@ -32,7 +32,6 @@
     pttBlock: false,     // also stop the sim acting on it
     pttDelayMs: 250,     // PTT held this long before "Transmitting" shows. Under ~450 ms a click still shows briefly:
                          // the sim's first repeat comes at ~0.4 s, so a click looks held until then
-    hoverSwitches: true, // hovering the pill shows BeyondATC's Auto Tune and Auto Respond buttons
     hideOffline: false,  // true: no pill at all while BeyondATC isn't running
     showTraffic: true,   // show a neutral "Traffic" pill while AI traffic talks
     facility: "short",   // "short": "Ground", "full": "Montpellier Ground"
@@ -45,7 +44,7 @@
 
   // What the settings card changes. Saved in localStorage, which every sim UI view shares.
   var USER_KEYS = ["corner", "x", "y", "scale", "showTuning", "showContact", "showAtis", "showReadback", "readbackDetail", "keepLast",
-    "warnMuted", "showPtt", "hoverSwitches", "hideOffline",
+    "warnMuted", "showPtt", "hideOffline",
     "showTraffic", "facility"];
   var STORE_KEY = "batcpill.settings";
   var DEFAULTS = {};
@@ -161,7 +160,6 @@
       toggleRow("ATIS changes", "showAtis") + toggleRow("Warn when COM1 muted", "warnMuted") +
       toggleRow("PTT indicator", "showPtt") +
       '<div class="bc-note">Also bind your PTT button to "Toggle Speaker"</div>' +
-      toggleRow("Auto Tune / Respond on hover", "hoverSwitches") +
       toggleRow("AI traffic", "showTraffic") + toggleRow("Full station names", "fullNames") +
       toggleRow("Hide when BATC is off", "hideOffline") +
     "</div>" +
@@ -1046,7 +1044,7 @@
   // buttons open over the pill and stay while the mouse is over the pill, the buttons or the gap between.
 
   function canSwitch() {
-    return CONFIG.hoverSwitches && state.connected && state.inFlight && !state.editing && current !== null &&
+    return state.connected && state.inFlight && !state.editing && current !== null &&
       current !== "hidden";
   }
 
