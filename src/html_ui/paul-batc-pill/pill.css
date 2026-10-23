@@ -229,6 +229,7 @@
   position: absolute;
   z-index: 9999;
   display: flex;
+  flex-direction: column;
   pointer-events: auto;
   opacity: 1;
   transform: translateY(0);
@@ -249,7 +250,7 @@
   box-sizing: border-box;
   width: calc(26 * var(--k));
   height: calc(26 * var(--k));
-  margin-left: calc(4 * var(--k));
+  margin-top: calc(4 * var(--k));
   border-radius: 50%;
   border: calc(1 * var(--k)) solid rgba(255, 255, 255, 0.08);
   background-color: rgba(14, 18, 24, 0.78);
@@ -257,7 +258,7 @@
   cursor: pointer;
   transition: background-color 0.15s ease, color 0.15s ease, border-color 0.15s ease;
 }
-#batc-pill-sw .bs-btn:first-child { margin-left: 0; }
+#batc-pill-sw .bs-btn:first-child { margin-top: 0; }
 #batc-pill-sw .bs-btn:hover { background-color: rgba(30, 36, 44, 0.9); }
 #batc-pill-sw .bs-btn svg { width: calc(14 * var(--k)); height: calc(14 * var(--k)); }
 #batc-pill-sw .bs-btn.is-on { color: var(--on); border-color: rgba(99, 211, 230, 0.55); }
