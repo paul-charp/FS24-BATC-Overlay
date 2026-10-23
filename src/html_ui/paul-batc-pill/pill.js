@@ -491,7 +491,6 @@
         }
         break;
       case "ready":
-        // a handoff's "Response OK" first: BeyondATC retunes COM1 right after your reply
         if (state.tune && now < state.tuneUntil && !confirming()) {
           v = tuneLook(state.tune);
         } else if ((v = readbackView())) {
@@ -701,9 +700,12 @@
       state.answered = state.replied = false;
       state.missed = null;
     } else if (!waiting) {
-      if (state.readback && state.replied) {
+      var wc = waitingFor();
+      if (state.readback && state.replied && state.autoTune && /^handoff$/i.test(wc.kind)) {
+        // a handoff with Auto Tune on: BeyondATC retunes COM1 at once, and the radio change says it all
+        state.confirmed = state.kept = null;
+      } else if (state.readback && state.replied) {
         // ATC took your reply (a correct readback gets no answer: the toolbar just drops "Say Again")
-        var wc = waitingFor();
         state.confirmed = { readback: wc.readback,
           detail: readbackHint(state.readback.text) || (state.readback.negative && correction(state.readback.text)) || wc.kind,
           boxes: wc.choices.length ? [] : state.infoBoxes };
@@ -712,9 +714,8 @@
         if (state.mode === "ready") startConfirm();
       } else if (state.readback && !state.replied) {
         // BeyondATC stopped waiting on its own (after ~18 s for taxi or acknowledge replies)
-        var w = waitingFor();
-        state.missed = { label: w.readback ? "No readback" : "No response",
-          detail: readbackHint(state.readback.text) || (state.readback.negative && correction(state.readback.text)) || w.kind, boxes: w.choices.length ? [] : state.infoBoxes };
+        state.missed = { label: wc.readback ? "No readback" : "No response",
+          detail: readbackHint(state.readback.text) || (state.readback.negative && correction(state.readback.text)) || wc.kind, boxes: wc.choices.length ? [] : state.infoBoxes };
         state.missedUntil = Date.now() + CONFIG.missedMs;
         state.kept = null; // a newer instruction went unanswered: the kept one is out of date
         clearTimeout(timers.missed);
