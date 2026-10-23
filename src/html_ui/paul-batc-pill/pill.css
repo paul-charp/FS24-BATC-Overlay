@@ -252,7 +252,7 @@
   height: calc(26 * var(--k));
   margin-top: calc(4 * var(--k));
   border-radius: 50%;
-  border: calc(1 * var(--k)) solid rgba(255, 255, 255, 0.08);
+  border: calc(1 * var(--k)) solid rgba(255, 255, 255, 0.14);
   background-color: rgba(14, 18, 24, 0.78);
   color: rgba(236, 241, 246, 0.45);
   cursor: pointer;
@@ -261,7 +261,9 @@
 #batc-pill-sw .bs-btn:first-child { margin-top: 0; }
 #batc-pill-sw .bs-btn:hover { background-color: rgba(30, 36, 44, 0.9); }
 #batc-pill-sw .bs-btn svg { width: calc(14 * var(--k)); height: calc(14 * var(--k)); }
-#batc-pill-sw .bs-btn.is-on { color: var(--on); border-color: rgba(99, 211, 230, 0.55); }
+/* same outline either way (a lit outline made the "on" button look bigger): the fill and icon say "on" */
+#batc-pill-sw .bs-btn.is-on { color: var(--on); background-color: rgba(20, 52, 60, 0.85); }
+#batc-pill-sw .bs-btn.is-on:hover { background-color: rgba(28, 66, 76, 0.9); }
 #batc-pill-sw .bs-btn.is-on .bs-slash { display: none; }
 #batc-pill-sw[data-edge="bottom"].is-closed { transform: translateY(calc(4 * var(--k))); }
 
