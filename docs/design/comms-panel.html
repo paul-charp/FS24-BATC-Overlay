@@ -104,6 +104,8 @@
     opacity: 0; transform: translateX(calc(6 * var(--u))); pointer-events: none; transition: opacity .18s, transform .25s cubic-bezier(.22,.8,.24,1); }
   .tray.open { opacity: 1; transform: none; pointer-events: auto; }
   .tray.below { top: calc(34 * var(--u)); flex-wrap: wrap; }
+  .tray.all { flex-wrap: wrap; align-content: flex-start; }
+  .tray.all > * { margin-bottom: calc(5 * var(--u)); }
   .tray.below > * { margin-bottom: calc(5 * var(--u)); }
   .chip {
     height: calc(26 * var(--u)); padding: 0 calc(11 * var(--u)); margin-right: calc(5 * var(--u));
@@ -181,38 +183,13 @@
   .icon-btn svg { width: calc(12 * var(--k)); height: calc(12 * var(--k)); }
   .sec { font: 600 calc(10 * var(--k))/1 var(--sim); color: var(--dimk); letter-spacing: .07em; text-transform: uppercase; margin: calc(10 * var(--k)) 0 calc(6 * var(--k)); }
   .sec:first-child { margin-top: 0; }
-  .await { padding: calc(9 * var(--k)) calc(10 * var(--k)) calc(10 * var(--k)); border-radius: calc(8 * var(--k));
-    background: rgba(255,181,71,0.09); border: calc(1 * var(--k)) solid rgba(255,181,71,0.45); }
-  .await .top { display: flex; align-items: flex-start; }
-  .await .txt { flex: 1; min-width: 0; font: 400 calc(12.5 * var(--k))/1.4 var(--sim); color: rgba(236,241,246,0.92); }
-  /* Say Again is offered with every answer list: a small icon by the text instead of a button in the list */
-  .again { flex: none; width: calc(22 * var(--k)); height: calc(22 * var(--k)); margin: calc(-3 * var(--k)) calc(-4 * var(--k)) 0 calc(6 * var(--k));
-    display: flex; align-items: center; justify-content: center; border-radius: 50%; color: var(--dimk); cursor: pointer; }
-  .again:hover { background: var(--btn-h); color: #fff; }
-  .again svg { width: calc(13 * var(--k)); height: calc(13 * var(--k)); }
-  .row.folded { cursor: default; color: var(--dimk); }
-  .row.folded:hover { background: none; }
-  .boxes { display: flex; margin-top: calc(8 * var(--k)); }
-  .box { flex: 1 1 auto; margin-left: calc(4 * var(--k)); padding: calc(4 * var(--k)) calc(6 * var(--k)) calc(5 * var(--k)); text-align: center;
-    border-radius: calc(5 * var(--k)); background: rgba(255,255,255,0.08); }
-  .box:first-child { margin-left: 0; }
-  .box b { display: block; font-weight: 500; font-size: calc(9 * var(--k)); color: var(--dimk); }
-  .box span { display: block; margin-top: calc(3 * var(--k)); font-size: calc(13 * var(--k)); }
-  /* answers flow as compact chips, several per row, so a long list of answers stays a few rows tall */
-  .replies { display: flex; flex-wrap: wrap; margin: calc(7 * var(--k)) calc(-2 * var(--k)) 0; }
-  .rbtn { flex: none; margin: calc(2 * var(--k)); padding: calc(6 * var(--k)) calc(10 * var(--k)); text-align: center; border-radius: calc(13 * var(--k));
-    background: var(--btn); cursor: pointer; }
-  .rbtn:hover { background: var(--btn-h); }
-  .rbtn.primary { background: #ffb547; color: #15110a; }
-  .rbtn.primary:hover { background: #ffc56e; }
-  .rbtn.quiet { color: var(--dimk); }
   .note { font: 500 calc(10.5 * var(--k))/1.35 var(--sim); color: var(--dimk); margin-top: calc(6 * var(--k)); }
   .rows { margin: 0 calc(-4 * var(--k)); }
   .row { display: flex; align-items: center; min-height: calc(28 * var(--k)); padding: 0 calc(6 * var(--k)); border-radius: calc(6 * var(--k)); cursor: pointer; }
   .row:hover { background: var(--btn-h); }
   .row .grow { flex: 1; min-width: 0; }
   .row .chev { color: var(--dimk); font-weight: 500; }
-  .row.busy, .rbtn.busy, .chip.busy, .again.busy { opacity: .4; pointer-events: none; }
+  .row.busy, .chip.busy { opacity: .4; pointer-events: none; }
   .row .f { font: 500 calc(12 * var(--k)) var(--sim); font-variant-numeric: tabular-nums; color: var(--dimk); margin-left: calc(8 * var(--k)); }
   .row .tag { font: 600 calc(9.5 * var(--k))/1 var(--sim); padding: calc(3 * var(--k)) calc(5 * var(--k)); border-radius: calc(4 * var(--k)); margin-left: calc(6 * var(--k)); }
   .tag.com1 { background: var(--on); color: #0e1218; }
@@ -280,7 +257,7 @@
   <header>
     <div class="eyebrow">Design exploration · branch off readback-hints</div>
     <h1>BATC Comms Panel</h1>
-    <p>A clickable sketch of what the pill could do if it took over the BeyondATC toolbar: ATC lines as captions, the replies one hover away, requests, the radio log and the flight's frequencies in a panel. Exchanges are scripted from captured BeyondATC traffic. Hover the pill, click it, and use the buttons under the screen.</p>
+    <p>A clickable sketch of what the pill could do if it took over the BeyondATC toolbar: ATC lines as captions, answers and requests one hover away, the flight's frequencies and the radio log in a panel. Exchanges are scripted from captured BeyondATC traffic. Hover the pill, click it, and use the buttons under the screen.</p>
   </header>
 
   <div class="stage" id="stage">
@@ -304,7 +281,7 @@
         <button data-sc="busy">Busy frequency</button>
         <button data-sc="handoff">Handoff, Auto Tune off</button>
       </div>
-      <p class="hint">Each scenario resets the radio. From "Parked", request a clearance, push and taxi from the panel to walk a whole departure.</p>
+      <p class="hint">Each scenario resets the radio. From "Parked", hover the pill to request a clearance, push and taxi, and walk a whole departure.</p>
     </div>
     <div class="group">
       <h2>Options</h2>
@@ -322,8 +299,9 @@
       <ul>
         <li><b>Glance</b>: the pill, unchanged. It stays the status line and the title of everything below it.</li>
         <li><b>Read</b>: captions under the pill. Each ATC line shows for about 9 s; the instruction ATC waits on stays, outlined, until you answer. "Mine" drops lines to other aircraft.</li>
-        <li><b>Answer</b>: the answers open where you point. Hover ATC's message and they slide out as a row of chips below it, outside its box; hover the pill and they open beside it, with the Auto Respond / Auto Tune switches at the far end. The obvious one filled amber, up to three, "+N" for the rest (opens the panel), Say Again as an icon. At rest only the message shows.</li>
-        <li><b>Everything else</b>: clicking the pill opens the comms panel with Radio (pending reply, requests), Log and Frequencies tabs. It opens on the tab that matters: Radio while ATC waits, Frequencies while a contact is pending.</li>
+        <li><b>Answer</b>: hover ATC's message or the pill and the answers slide out as a row of chips below the message, outside its box. They show in one place only: beside the pill when the message isn't on screen (captions off), with the Auto Respond / Auto Tune switches at the far end. The obvious one filled amber, up to three, "+N" shows the rest in place, Say Again as an icon. At rest only the message shows.</li>
+        <li><b>Request</b>: with nothing pending, hovering the pill offers BeyondATC's requests in the same row, in its own order (the likely next one first), three at a time and "+N" for the rest.</li>
+        <li><b>Look up</b>: clicking the pill opens a panel with Frequencies (Departure / Arrival) and Log. It opens on Frequencies while ATC's handoff is pending, else on the tab used last. Settings sit behind the gear.</li>
       </ul>
       <h3>Decisions to make</h3>
       <ul>
@@ -406,7 +384,7 @@
   function fresh() {
     return { facility: ST.gnd, mode: "ready", speaker: null, qtext: "", pending: null, confirm: null, tune: null,
       contact: null, freqSide: "dep", lingerUntil: 0, requests: [], log: [], caps: [], autoTune: true, autoRespond: false,
-      lock: false, panel: false, tab: "radio", logShown: 8, hover: false, clock: 14 * 3600 + 32 * 60 };
+      lock: false, panel: false, tab: "freq", logShown: 8, hover: false, clock: 14 * 3600 + 32 * 60 };
   }
 
   // ---------- helpers ----------
@@ -649,33 +627,45 @@
   }
 
   // ---------- hover tray ----------
-  // the answers, without Say Again and BeyondATC's "Cancel ..." items (the panel shows those apart)
+  // the answers, without Say Again and BeyondATC's "Cancel ..." items (those come last, quiet)
   function answersOf(p) { return p.replies.filter(function (r) { return !/^(say again|cancel\b)/i.test(r); }); }
-  var TRAY_MAX = 3;
-  // a long list of answers stays one short row: the first few, then "+N" opens the panel with all of them
-  function answerChips(p) {
-    var reps = answersOf(p), busy = radioBusy() ? " busy" : "", html = "";
-    var cut = reps.length > TRAY_MAX + 1 ? TRAY_MAX : reps.length;
-    reps.slice(0, cut).forEach(function (r, i) {
-      html += '<span class="chip' + (i === 0 && p.kind !== "question" ? " primary" : "") + busy + '" data-reply="' + esc(r) + '">' + esc(r) + "</span>";
+  var CHIP_MAX = 3;
+  // a long list stays one short row: the first few, then "+N" opens the rest in place (the row wraps)
+  function chipList(items, attr, primary, all) {
+    var busy = radioBusy() ? " busy" : "", html = "";
+    var cut = all || items.length <= CHIP_MAX + 1 ? items.length : CHIP_MAX;
+    items.slice(0, cut).forEach(function (r, i) {
+      var quiet = /^cancel\b/i.test(r);
+      html += '<span class="chip' + (i === 0 && primary ? " primary" : "") + (quiet ? " quiet" : "") + busy + '" ' + attr + '="' + esc(r) + '">' + esc(r) + "</span>";
     });
-    if (cut < reps.length) html += '<span class="chip quiet" data-more="1" title="All answers">+' + (reps.length - cut) + "</span>";
-    return html + '<span class="chip round quiet' + busy + '" data-reply="Say Again" title="Say again">' + ICON_AGAIN + "</span>";
+    if (cut < items.length) html += '<span class="chip quiet" data-more="1" title="Show all">+' + (items.length - cut) + "</span>";
+    return html;
+  }
+  function answerChips(p, all) {
+    var cancels = p.replies.filter(function (r) { return /^cancel\b/i.test(r); });
+    return chipList(answersOf(p).concat(cancels), "data-reply", p.kind !== "question", all) +
+      '<span class="chip round quiet' + (radioBusy() ? " busy" : "") + '" data-reply="Say Again" title="Say again">' + ICON_AGAIN + "</span>";
+  }
+  function messageShown(p) {
+    return !S.panel && opt.captions !== "off" && S.caps.some(function (c) { return c.pinned && c.id === p.capId; });
   }
   function renderTray() {
     var p = S.pending, show = S.hover && !S.panel;
     var html = "";
-    // the tray lays out right to left from the pill, so the first answer sits nearest it
-    if (p && show) html = answerChips(p);
+    // the tray lays out right to left from the pill, so the first item sits nearest it. ATC waiting: the
+    // answers; otherwise the requests BeyondATC offers now (its own order: the likely next one first)
+    // answers show in one place only: under ATC's message while it's on screen, else here
+    if (show && p && !messageShown(p)) html = answerChips(p, S.trayAll);
+    else if (show && !p && S.requests.length) html = chipList(S.requests, "data-req", false, S.trayAll);
     if (show) {
       if (html) html += '<span class="sep"></span>';
       html += '<span class="chip round' + (S.autoRespond ? " on" : "") + '" data-sw="ar" title="Auto Respond">' + ICON_AR + "</span>";
       html += '<span class="chip round' + (S.autoTune ? " on" : "") + '" data-sw="at" title="Auto Tune">' + ICON_AT + "</span>";
     }
     if (tray.innerHTML !== html) tray.innerHTML = html;
-    tray.className = "tray" + (html ? " open" : "");
+    tray.className = "tray" + (html ? " open" : "") + (S.trayAll && show ? " all" : "");
     var below = placeTray();
-    capsEl.className = "captions" + (below && html ? " behind" : "");
+    capsEl.className = "captions" + ((below || S.trayAll) && html ? " behind" : "");
     capsEl.style.display = S.panel ? "none" : "";
   }
   function placeTray() {
@@ -683,6 +673,11 @@
     tray.style.right = pill.offsetWidth + gap + "px";
     tray.style.width = "";
     tray.className = tray.className.replace(" below", "");
+    if (tray.className.indexOf(" all") >= 0) {
+      // everything shown: the row keeps its width and wraps the rest below, so the cursor stays on it
+      tray.style.width = S.trayWidth + "px";
+      return false;
+    }
     // not enough room beside the pill (small screens): drop it under the pill
     if (tray.offsetWidth + pill.offsetWidth + gap + 30 * u() > stage.clientWidth) {
       tray.style.right = "0px"; tray.className += " below";
@@ -695,13 +690,15 @@
   anchor.addEventListener("mouseenter", function () { clearTimeout(hoverTimer); if (!S.hover) { S.hover = true; update(); } });
   anchor.addEventListener("mouseleave", function () {
     clearTimeout(hoverTimer);
-    hoverTimer = setTimeout(function () { S.hover = false; update(); }, 350);
+    hoverTimer = setTimeout(function () { S.hover = false; S.trayAll = false; update(); }, 350);
   });
   tray.addEventListener("click", function (e) {
-    var el = e.target.closest("[data-reply],[data-sw],[data-more]");
+    var el = e.target.closest("[data-reply],[data-req],[data-sw],[data-more]");
     if (!el) return;
-    if (el.hasAttribute("data-more")) { S.hover = false; openPanel(true); return; }
+    if (el.hasAttribute("data-more")) { S.trayWidth = tray.offsetWidth; S.trayAll = true; update(); return; }
+    S.trayAll = false;
     if (el.hasAttribute("data-reply")) { go(function () { return reply(el.getAttribute("data-reply")); }); return; }
+    if (el.hasAttribute("data-req")) { go(function () { return request(el.getAttribute("data-req")); }); return; }
     toggleSwitch(el.getAttribute("data-sw"));
   });
   function toggleSwitch(which) {
@@ -728,7 +725,7 @@
     n.addEventListener("mouseenter", function () { clearTimeout(capHoverTimer); if (S.capHover !== c.id) { S.capHover = c.id; update(); } });
     n.addEventListener("mouseleave", function () {
       clearTimeout(capHoverTimer);
-      capHoverTimer = setTimeout(function () { S.capHover = null; update(); }, 350);
+      capHoverTimer = setTimeout(function () { S.capHover = null; S.capAll = false; update(); }, 350);
     });
     capsEl.appendChild(n);
     var h = n.firstChild.offsetHeight;
@@ -750,8 +747,8 @@
   }
   function capActs(c) {
     var p = S.pending;
-    // answers open where you point: under the message while you hover it (the pill opens its own row)
-    return c.pinned && p && p.capId === c.id && !S.panel && S.capHover === c.id ? answerChips(p) : "";
+    // hovering the message or the pill opens its answers here, under the message (never beside the pill too)
+    return c.pinned && p && p.capId === c.id && !S.panel && (S.hover || S.capHover === c.id) ? answerChips(p, S.capAll) : "";
   }
   // show or hide the answers row under a caption and glide its slot to the new height
   function capSet(n, c, acts) {
@@ -791,9 +788,8 @@
   function openPanel(open) {
     S.panel = open;
     if (open) {
-      // open where it matters: the reply ATC waits for, the station to contact, else the last tab
-      if (S.pending) S.tab = "radio";
-      else if (S.contact && !S.autoTune) S.tab = "freq";
+      // the station ATC handed you to is on Frequencies; otherwise the tab you used last
+      if (S.contact && !S.autoTune) S.tab = "freq";
       S.logShown = 8;
     }
     panel.className = "panel" + (open ? " open" : "");
@@ -802,39 +798,6 @@
   pill.addEventListener("click", function () { openPanel(!S.panel); });
   pill.addEventListener("keydown", function (e) { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); openPanel(!S.panel); } });
 
-  function radioTab() {
-    var p = S.pending, h = "";
-    if (p) {
-      // no status line: the pill right above says it
-      var busy = radioBusy() ? " busy" : "";
-      h += '<div class="await"><div class="top"><div class="txt">' + esc(p.text) + '</div><span class="again' + busy +
-        '" data-reply="Say Again" title="Say again">' + ICON_AGAIN + "</span></div>";
-      if (p.boxes) h += '<div class="boxes">' + p.boxes.map(function (b) { return "<div class=\"box\"><b>" + esc(b.t) + "</b><span>" + esc(b.v) + "</span></div>"; }).join("") + "</div>";
-      var answers = answersOf(p), cancels = p.replies.filter(function (r) { return /^cancel\b/i.test(r); });
-      h += '<div class="replies">' + answers.map(function (r, i) {
-        return '<span class="rbtn' + (i === 0 && p.kind !== "question" ? " primary" : "") + busy + '" data-reply="' + esc(r) + '">' + esc(r) + "</span>";
-      }).join("") + cancels.map(function (r) {
-        return '<span class="rbtn quiet' + busy + '" data-reply="' + esc(r) + '">' + esc(r) + "</span>";
-      }).join("") + "</div>";
-      if (S.autoRespond) h += '<div class="note">Auto Respond is on: BeyondATC answers in a moment unless you do.</div>';
-      h += "</div>";
-    }
-    if (p) {
-      // nothing can be requested until ATC has its answer: one folded line instead of the whole menu
-      if (S.requests.length) h += '<div class="rows" style="margin-top:calc(6 * var(--k))"><div class="row folded"><span class="grow">' +
-        S.requests.length + " requests after you answer</span></div></div>";
-      return h;
-    }
-    h += '<div class="sec">Requests to ' + esc(short(S.facility)) + "</div>";
-    if (!S.requests.length) h += '<div class="note">Nothing to request right now.</div>';
-    else {
-      h += '<div class="rows">' + S.requests.map(function (r) {
-        return '<div class="row' + (radioBusy() || p ? " busy" : "") + '" data-req="' + esc(r) + '"><span class="grow">' + esc(r) + '</span><span class="chev">›</span></div>';
-      }).join("") + "</div>";
-      if (radioBusy()) h += '<div class="note">Radio busy. Requests wait until it is quiet.</div>';
-    }
-    return h;
-  }
   function logTab() {
     var lines = S.log.filter(function (l) { return opt.traffic || l.who !== "traffic"; });
     var shown = lines.slice(-S.logShown), more = lines.length - shown.length;
@@ -868,11 +831,11 @@
   }
   function renderPanel() {
     if (!S.panel) return;
-    var tabs = [["radio", "Radio"], ["log", "Log"], ["freq", "Frequencies"]].map(function (t) {
-      var badge = (t[0] === "radio" && S.pending && S.tab !== "radio") || (t[0] === "freq" && S.contact && !S.autoTune && S.tab !== "freq");
+    var tabs = [["freq", "Frequencies"], ["log", "Log"]].map(function (t) {
+      var badge = t[0] === "freq" && S.contact && !S.autoTune && S.tab !== "freq";
       return '<span class="tab' + (S.tab === t[0] ? " on" : "") + '" data-tab="' + t[0] + '">' + t[1] + (badge ? '<i class="badge"></i>' : "") + "</span>";
     }).join("");
-    var body = S.tab === "radio" ? radioTab() : S.tab === "log" ? logTab() : freqTab();
+    var body = S.tab === "log" ? logTab() : freqTab();
     panel.innerHTML = '<div class="pn-head"><span class="tabs">' + tabs + '</span><span class="icon-btn" data-act="settings" title="Settings">' + ICON_GEAR +
       '</span><span class="icon-btn" data-act="close" title="Close">' + ICON_X + "</span></div>" + body +
       '<div class="pn-foot"><span class="tog' + (S.autoRespond ? " on" : "") + '" data-sw="ar">Auto Respond<span class="sw"><i></i></span></span>' +
@@ -975,7 +938,8 @@
   capsEl.addEventListener("click", function (e) {
     var el = e.target.closest("[data-reply],[data-more]");
     if (!el) return;
-    if (el.hasAttribute("data-more")) { openPanel(true); return; }
+    if (el.hasAttribute("data-more")) { S.capAll = true; update(); return; }
+    S.capAll = false;
     go(function () { return reply(el.getAttribute("data-reply")); });
   });
   $("scenarios").addEventListener("click", function (e) { var b = e.target.closest("[data-sc]"); if (b) start(b.getAttribute("data-sc")); });
