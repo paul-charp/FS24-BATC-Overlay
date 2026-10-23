@@ -101,7 +101,9 @@
 
   /* hover tray: on the pill's row, toward the screen center, nearest reply first */
   .tray { position: absolute; top: 0; right: 0; display: flex; flex-direction: row-reverse; align-items: center;
-    opacity: 0; transform: translateX(calc(6 * var(--u))); pointer-events: none; transition: opacity .18s, transform .25s cubic-bezier(.22,.8,.24,1); }
+    opacity: 0; transform: translateX(calc(6 * var(--u))); pointer-events: none;
+    /* "right" follows the pill's width as it animates, so the switches never slide under it */
+    transition: opacity .18s, transform .25s cubic-bezier(.22,.8,.24,1), right .38s cubic-bezier(0.22,0.8,0.24,1); }
   .tray.open { opacity: 1; transform: none; pointer-events: auto; }
   .tray.below { top: calc(34 * var(--u)); flex-wrap: wrap; }
   /* the requests (or answers, captions off): a column under the pill, right-aligned, first one on top */
@@ -659,7 +661,9 @@
     // a column under the pill: ATC waiting, the answers (only when its message isn't on screen: they show in
     // one place); otherwise the requests BeyondATC offers now, in its order (the likely next one on top)
     if (show && p && !messageShown(p)) list = answerChips(p, true);
-    else if (show && !p && S.requests.length) list = chipList(S.requests, "data-req", false, true);
+    // requests only while the radio is quiet: once an exchange starts (yours or ATC's) the column closes, so
+    // it never sits greyed out over the new messages
+    else if (show && !p && !radioBusy() && S.requests.length) list = chipList(S.requests, "data-req", false, true);
     if (trayList.innerHTML !== list) trayList.innerHTML = list;
     trayList.className = "list" + (list ? " open" : "");
     // the switches stay on the pill's row
@@ -677,11 +681,13 @@
   }
   function placeTray() {
     var gap = 8 * u();
-    tray.style.right = pill.offsetWidth + gap + "px";
+    // the pill's target width (its width animates): placing by the current width left the switches over it
+    var pw = parseFloat(pill.style.width) || pill.offsetWidth;
+    tray.style.right = pw + gap + "px";
     tray.style.width = "";
     tray.className = tray.className.replace(" below", "");
     // not enough room beside the pill (small screens): drop it under the pill
-    if (tray.offsetWidth + pill.offsetWidth + gap + 30 * u() > stage.clientWidth) {
+    if (tray.offsetWidth + pw + gap + 30 * u() > stage.clientWidth) {
       tray.style.right = "0px"; tray.className += " below";
       tray.style.width = stage.clientWidth - 48 * u() + "px";
       return true;
