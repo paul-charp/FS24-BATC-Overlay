@@ -38,7 +38,6 @@ Click the pill in flight to open its settings card (two tabs: Display and Positi
 |---|---|
 | Readback hints | show when ATC waits for your readback, acknowledgement or answer |
 | None / Short / Hint / Boxes | how much of it: status only, the clearance boxes' values ("30R · T1 · T1"), a short hint ("Taxi via T1 · Hold short 12L") or the toolbar's clearance boxes |
-| When OK: Off / Pulse / Tick / Full | when ATC takes your reply: nothing, a green outline flash, a green tick in place of the lamp, or a green "Readback OK" with the hint |
 | Radio changes | show the new station when COM1 or COM2 changes |
 | Contact reminders | with Auto Tune off, show whom to contact until COM1 is on it |
 | ATIS changes | show a new ATIS letter |

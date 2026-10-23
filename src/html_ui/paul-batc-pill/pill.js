@@ -19,8 +19,6 @@
     showReadback: true,  // while BeyondATC waits for your readback, hint what it is ("Taxi 30R")
     readbackDetail: "hint", // with a readback pending: "none" (status only), "short" (the boxes' values:
                             // "30R · T1"), "hint" ("Taxi via T1"), "boxes" (the toolbar's clearance boxes)
-    readbackConfirm: "full", // when ATC takes your reply: "full" (green "Readback OK" with the hint), "tick" (the
-                             // lamp turns into a green tick), "pulse" (a green outline pulse), "off"
     showTuning: true,    // show the new station when COM1/COM2 changes
     showContact: true,   // Auto Tune off: after "contact <station> <freq>", remind you until COM1 is on it
     showAtis: true,      // show a new ATIS letter
@@ -39,11 +37,11 @@
     host: 'ui-resource-element[name="MasterPage_InGame"]', // only mounted in flight
   };
   var FADE_MS = 140;
-  var CONFIRM_MS = { full: 1500, tick: 1000, pulse: 900 }; // how long each confirmation shows
+  var CONFIRM_MS = 1500;  // "Readback OK" shows this long after ATC took your reply
 
   // What the settings card changes. Saved in localStorage, which every sim UI view shares.
   var USER_KEYS = ["corner", "x", "y", "scale", "showTuning", "showContact", "showAtis", "showReadback", "readbackDetail",
-    "readbackConfirm",     "warnMuted", "showPtt", "hideOffline",
+    "warnMuted", "showPtt", "hideOffline",
     "showTraffic", "facility"];
   var STORE_KEY = "batcpill.settings";
   var DEFAULTS = {};
@@ -152,7 +150,6 @@
     '<div class="bc-pane" data-pane="display">' +
       toggleRow("Readback hints", "showReadback") +
       choiceRow("readbackDetail", [["none", "None"], ["short", "Short"], ["hint", "Hint"], ["boxes", "Boxes"]]) +
-      choiceRow("readbackConfirm", [["off", "Off"], ["pulse", "Pulse"], ["tick", "Tick"], ["full", "Full"]], "When OK") +
       toggleRow("Radio changes", "showTuning") + toggleRow("Contact reminders", "showContact") +
       toggleRow("ATIS changes", "showAtis") + toggleRow("Warn when COM1 muted", "warnMuted") +
       toggleRow("PTT indicator", "showPtt") +
@@ -178,9 +175,8 @@
   }
 
   // a sub-setting of the row above it: its choices fill the row, no label
-  function choiceRow(key, options, label) {
-    return '<div class="bc-row bc-choice" data-for="' + key + '"><span class="bc-seg">' +
-      (label ? '<span class="bc-sub">' + label + "</span>" : "") + options.map(function (o) {
+  function choiceRow(key, options) {
+    return '<div class="bc-row bc-choice" data-for="' + key + '"><span class="bc-seg">' + options.map(function (o) {
         return '<span class="bc-btn" data-choice="' + key + ":" + o[0] + '">' + o[1] + "</span>";
       }).join("") + "</span></div>";
   }
@@ -293,20 +289,15 @@
       (detail ? '<span class="bp-sep">·</span><span>' + esc(detail) + "</span>" : "") };
   }
 
-  // ATC took your reply (BeyondATC says nothing back to a correct one): "full" turns the pill green with
-  // "Readback OK" and the hint; "tick" keeps the pill and turns its lamp into a green tick. "pulse" is a class
-  // added to whatever shows next (see view).
+  // ATC took your reply (BeyondATC says nothing back to a correct one): green "Readback OK" with the hint
   function confirmLook(c) {
-    if (CONFIG.readbackConfirm === "tick") {
-      return readbackLook(c.readback, 1, c.detail, c.boxes, { cls: "s-atc", lamp: CHECK });
-    }
     return readbackLook(c.readback, 1, c.detail, c.boxes,
       { cls: "s-ok", lamp: CHECK, label: c.readback ? "Readback OK" : "Response OK" });
   }
 
   function confirming() {
     return state.confirmed && state.confirmedUntil && Date.now() < state.confirmedUntil &&
-      CONFIG.showReadback && CONFIG.readbackConfirm !== "off";
+      CONFIG.showReadback;
   }
 
   // the one-line detail for the chosen mode: the hint, or just the boxes' values ("30R · T1 · T1")
@@ -368,13 +359,6 @@
       case "readbackDetail":
         if (CONFIG.showReadback) return readbackLook(true, 1, "Taxi via T1 · Hold short 12L", DEMO_BOXES);
         break;
-      case "readbackConfirm":
-        if (!CONFIG.showReadback || CONFIG.readbackConfirm === "off") break;
-        if (CONFIG.readbackConfirm === "pulse") {
-          // replays the pulse every demo: the pill swaps to a fresh class so the animation restarts
-          return { cls: "is-dot is-okpulse", html: LAMP };
-        }
-        return confirmLook({ readback: true, detail: "Taxi via T1 · Hold short 12L", boxes: DEMO_BOXES });
       case "showAtis":
         if (CONFIG.showAtis) return atisLook("Z");
         break;
@@ -446,7 +430,7 @@
           v = tuneLook(state.tune);
         } else if ((v = readbackView())) {
           // waiting for your readback
-        } else if (confirming() && CONFIG.readbackConfirm !== "pulse") {
+        } else if (confirming()) {
           v = confirmLook(state.confirmed);
         } else if (state.missed && now < state.missedUntil) {
           var md = detailFor(state.missed.detail, state.missed.boxes);
@@ -465,7 +449,6 @@
         v = state.text ? { cls: "", html: LAMP + "<span>" + esc(state.text) + "</span>" } : null;
     }
     if (!v) v = { cls: "is-dot", html: LAMP };
-    if (confirming() && CONFIG.readbackConfirm === "pulse" && state.mode === "ready") v.cls += " is-okpulse";
     if (state.muted && !/\bis-dot\b/.test(v.cls)) v.html += MUTE;
     return withExtra(v);
   }
@@ -666,10 +649,9 @@
   }
 
   function startConfirm() {
-    var ms = CONFIRM_MS[CONFIG.readbackConfirm] || 0;
-    state.confirmedUntil = Date.now() + ms;
+    state.confirmedUntil = Date.now() + CONFIRM_MS;
     clearTimeout(timers.confirm);
-    timers.confirm = setTimeout(function () { state.confirmed = null; render(); }, ms + 20);
+    timers.confirm = setTimeout(function () { state.confirmed = null; render(); }, CONFIRM_MS + 20);
   }
 
   // "contact Marseille Approach on 120.100" -> { name: "Marseille Approach", freq: "120.100" };
@@ -912,9 +894,8 @@
       choices[i].className = "bc-btn" + (String(CONFIG[c[0]]) === c[1] ? " is-on" : "");
     }
     // the detail only matters with readback hints on
-    ["readbackDetail", "readbackConfirm"].forEach(function (k) {
-      card.querySelector('[data-for="' + k + '"]').className = "bc-row bc-choice" + (CONFIG.showReadback ? "" : " is-off");
-    });
+    var detailRow = card.querySelector('[data-for="readbackDetail"]');
+    detailRow.className = "bc-row bc-choice" + (CONFIG.showReadback ? "" : " is-off");
   }
 
   function openCard(open) {

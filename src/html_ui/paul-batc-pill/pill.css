@@ -202,18 +202,11 @@
   color: var(--dim);
 }
 #batc-pill .bp-radio, #batc-pill .bp-mic { color: var(--c); transition: color 0.3s ease; }
-/* ATC took your reply: a green tick in the lamp's place */
+/* ATC took your reply: a green tick in the lamp's place ("Readback OK") */
 #batc-pill .bp-check { color: #5fd38d; animation: bp-pop 0.35s var(--ease); }
 @keyframes bp-pop {
   0% { opacity: 0; transform: scale(0.4); }
   100% { opacity: 1; transform: scale(1); }
-}
-/* "pulse" confirmation: the outline flashes green once, over whatever the pill shows */
-#batc-pill.is-okpulse .bp-bg { animation: bp-okpulse 0.9s ease-out; }
-#batc-pill.is-okpulse .bp-lamp { background-color: #5fd38d; }
-@keyframes bp-okpulse {
-  0% { border-color: #5fd38d; background-color: rgba(95, 211, 141, 0.35); }
-  100% { border-color: var(--edge); background-color: var(--bg); }
 }
 /* ATC calling while COM1 is muted: the speaker icon is the message */
 #batc-pill.is-muted .bp-ico {
@@ -335,22 +328,13 @@
   flex: 1 1 0;
   text-align: center;
   margin-left: calc(2 * var(--k));
-  padding: calc(4 * var(--k)) calc(3 * var(--k));
+  padding: calc(4 * var(--k)) calc(7 * var(--k));
   border-radius: calc(5 * var(--k));
   background-color: var(--btn);
-  white-space: nowrap;
   color: var(--dim);
   font-size: calc(11 * var(--k));
 }
-#batc-pill-cfg .bc-seg .bc-btn:first-child, #batc-pill-cfg .bc-sub + .bc-btn { margin-left: 0; }
-#batc-pill-cfg .bc-sub {
-  align-self: center;
-  margin-right: calc(6 * var(--k));
-  color: var(--dim);
-  font-size: calc(11 * var(--k));
-  font-weight: 500;
-  white-space: nowrap;
-}
+#batc-pill-cfg .bc-seg .bc-btn:first-child { margin-left: 0; }
 #batc-pill-cfg .bc-seg .bc-btn:hover { background-color: var(--btn-hover); color: var(--fg); }
 #batc-pill-cfg .bc-seg .bc-btn.is-on { background-color: var(--on); color: #0e1218; }
 #batc-pill-cfg .bc-sw {

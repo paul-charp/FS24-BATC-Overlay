@@ -53,7 +53,7 @@ Source and issues: https://github.com/paul-charp/FS24-BATC-Pill
 
 - Added: readback hints. While ATC waits for your readback, acknowledgement or answer, the pill shows "Awaiting readback" or "Awaiting response" with a short hint, the toolbar's clearance boxes or their values.
 - Added: the pill turns red-orange when ATC calls you again before you reply, and shows "No readback" when BeyondATC stops waiting.
-- Added: a green "Readback OK" when ATC takes your reply (or a tick, a pulse, or nothing), and a red-orange "Negative" with the correction when ATC rejects it.
+- Added: a green "Readback OK" when ATC takes your reply, and a red-orange "Negative" with the correction when ATC rejects it.
 - Added: hints for line up, go around, speeds, STARs, "report" requests and taxi to a ramp or gate.
 - Added: with Auto Tune off, a "Contact" reminder until COM1 is on the station ATC handed you to.
 - Added: a new ATIS letter shows for 6 s; an ATIS playing on COM1 shows "ATIS".
