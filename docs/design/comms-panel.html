@@ -137,7 +137,6 @@
   .cap.atc .w { color: #ffb547; } .cap.you .w { color: #5fd38d; } .cap.traffic .w { color: rgba(236,241,246,0.5); }
   .cap.traffic { color: rgba(236,241,246,0.7); background: rgba(14,18,24,0.55); }
   .cap.pinned { border-color: rgba(255,181,71,0.7); }
-  .cap.pinned .w::after { content: " · awaiting your reply"; color: rgba(236,241,246,0.55); text-transform: none; letter-spacing: 0; font-weight: 500; }
 
   /* comms panel: non-modal, under the pill (the pill stays live as its title) */
   .panel {
@@ -677,13 +676,17 @@
   }
 
   // ---------- captions ----------
+  // ATC lines go bare: the pill above already names the station and the state
+  function capText(c) {
+    return (c.who === "atc" ? "" : '<span class="w">' + esc(c.label) + "</span>") + esc(c.text);
+  }
   function renderCaps() {
     var now = Date.now();
     S.caps = S.caps.filter(function (c) { return c.pinned || now - c.born < (c.who === "traffic" ? 6500 : 9500); });
     var html = S.caps.map(function (c) {
       var fading = !c.pinned && now - c.born > (c.who === "traffic" ? 6000 : 9000);
-      return '<div class="cap ' + c.who + (c.pinned ? " pinned" : "") + (fading ? " gone" : "") + '" data-id="' + c.id + '"><span class="w">' +
-        esc(c.label) + "</span>" + esc(c.text) + "</div>";
+      return '<div class="cap ' + c.who + (c.pinned ? " pinned" : "") + (fading ? " gone" : "") + '" data-id="' + c.id + '">' +
+        capText(c) + "</div>";
     }).join("");
     if (capsEl.getAttribute("data-sig") !== html) {
       // keep existing nodes so only new captions animate in
@@ -697,7 +700,7 @@
         var now2 = Date.now(), fading = !c.pinned && now2 - c.born > (c.who === "traffic" ? 6000 : 9000);
         n.className = "cap " + c.who + (c.pinned ? " pinned" : "") + (fading ? " gone" : "");
         n.setAttribute("data-id", c.id);
-        n.innerHTML = '<span class="w">' + esc(c.label) + "</span>" + esc(c.text);
+        n.innerHTML = capText(c);
         frag.appendChild(n);
       });
       capsEl.innerHTML = "";
@@ -724,9 +727,8 @@
   function radioTab() {
     var p = S.pending, h = "";
     if (p) {
-      h += '<div class="await"><div class="head"><span class="lamp"></span>' +
-        (p.kind === "readback" ? "Read back" : p.kind === "question" ? "Answer" : "Acknowledge") +
-        (p.calls > 1 ? " · called ×" + p.calls : "") + '</div><div class="txt">' + esc(p.text) + "</div>";
+      // no status line: the pill right above says it
+      h += '<div class="await"><div class="txt">' + esc(p.text) + "</div>";
       if (p.boxes) h += '<div class="boxes">' + p.boxes.map(function (b) { return "<div class=\"box\"><b>" + esc(b.t) + "</b><span>" + esc(b.v) + "</span></div>"; }).join("") + "</div>";
       h += '<div class="replies">' + p.replies.map(function (r, i) {
         var q = /^(say again|cancel\b)/i.test(r);
