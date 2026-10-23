@@ -474,7 +474,7 @@
     if (state.error && now < state.errorUntil) {
       return { cls: "s-err", html: LAMP + '<span class="bp-who">' + esc(state.error) + "</span>" };
     }
-    if (state.pttShown && CONFIG.showPtt) return pttLook();
+    if (state.pttShown && CONFIG.showPtt) return withExtra(pttLook()); // the boxes too, in Boxes mode
 
     var v;
     switch (state.mode) {
