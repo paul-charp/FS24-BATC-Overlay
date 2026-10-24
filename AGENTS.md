@@ -20,7 +20,11 @@ screen corner during flight, with a click-to-open settings card. Windows only. U
 - `tools/inspect_ui.py`: Coherent inspector client (Devmode, `localhost:19999`); `--list`, `--page N`,
   `--push` hot-reloads the pill into mainUi (page 2). If it times out, a dead sim's child process may hold
   the port (seen: WinWing's SimAppPro2.exe): `netstat -ano | findstr 19999` shows a second LISTENING PID.
-  `tools/sniff_batc.py`: socket logger; `tools/batc_timeline.py` prints a log as a timeline with
+  `tools/sniff_batc.py`: socket logger; `tools/pill_log.py`: the pill's own flight log (builds from
+  `build.py build`/`install` and `inspect_ui.py --push` set `CONFIG.devLog` and stream BeyondATC's messages,
+  what the pill shows and what the user does to `ws://127.0.0.1:41799` while it runs; `release` doesn't;
+  sniffer records plus `{"t","pill"}` / `{"t","event"}`; every command the pill sends is an event). Both write
+  to `%LOCALAPPDATA%\paul-batc-pill\logs`. `tools/batc_timeline.py` prints either log as a timeline with
   `Actions`/`InfoBoxes` changes as diffs. `tools/harness.html`: desktop preview with replays, a fake
   `engine` and a "Hold PTT" button; `?fake` swaps in a socket that records what the pill sends (`batcPill.sent`).
 - `docs/design/comms-panel.html`: clickable UX prototype (captions, reply tray, comms panel) for taking over the

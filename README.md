@@ -8,7 +8,7 @@ A small pill in a corner of the Microsoft Flight Simulator 2024 screen that show
 
 - **Queued / Processing / Awaiting ATC** (blue): your request is on its way.
 - **ATC talking** (amber): the controller is speaking, with the station and frequency.
-- **Transmitting** (green): your readback or request is being played (sound-wave icon), or you're holding PTT (mic icon, optional, see below). While you answer a readback, the hint stays next to it ("Transmitting · Taxi 30R"), and through "Processing" while BeyondATC handles a voice reply.
+- **Transmitting** (green): your readback or request is being played (sound-wave icon), or you're holding PTT (mic icon, optional, see below). While you answer a readback, its hint, values or boxes stay in the same layout under your label ("Transmitting · Taxi 30R"), and through "Processing" while BeyondATC handles a voice reply.
 - **Awaiting readback / Awaiting response** (amber, pulsing): ATC waits for your readback, acknowledgement or answer (the toolbar offers "Say Again"), with a short hint ("IFR clearance · Climb FL060", "Taxi 30R", the answers to a question: "Runway 12L / Runway 12R"), or the toolbar's clearance boxes (runway, SID, altitude, squawk). If ATC calls you again before you reply, the pill turns red-orange ("Awaiting response ×2"). If ATC answers your readback with a correction ("Negative, QNH 1013"), the pill turns red-orange with "Negative" and the correction. When ATC takes your reply, the pill turns green for 1.5 s ("Readback OK"; after a handoff with Auto Tune on, the new station shows instead); with **Keep last clearance** on, its hint then stays on the pill, dimmed, until the next instruction, a new station on COM1, or its ✕ (hover the pill: the clipboard icon turns into ✕). If BeyondATC stops waiting without a reply (it drops taxi and acknowledge replies after about 18 s), "No readback" shows for 5 s.
 - **Radio change** (cyan): the new station when COM1 or COM2 changes.
 - **Contact** (cyan): with BeyondATC's Auto Tune off, after "contact Marseille Approach on 120.100", until COM1 is on it.
@@ -75,7 +75,7 @@ Settings are kept in the sim's UI storage.
 
 ### PTT indicator (optional, experimental)
 
-BeyondATC reads your PTT button itself and doesn't tell other add-ons when it's held. To let the pill show it, bind the same button a second time in the sim: **Controls > Communications > TOGGLE SPEAKER**. Keep BeyondATC's PTT binding as it is. Then turn on **PTT indicator** in the pill's settings. The pill shows "Transmitting" once the button has been held for a quarter of a second, and goes back about a tenth of a second after you let go.
+BeyondATC reads your PTT button itself and doesn't tell other add-ons when it's held. To let the pill show it, bind the same button a second time in the sim: **Controls > Communications > TOGGLE SPEAKER**. Keep BeyondATC's PTT binding as it is. Then turn on **PTT indicator** in the pill's settings. The pill shows "Transmitting" once the button has been held for a quarter of a second, and goes back about a tenth of a second after you let go. If ATC or other traffic is transmitting at the same time, it turns red-orange ("Transmitting · ATC talking"): you're talking over them.
 
 ## Compatibility
 
@@ -113,15 +113,23 @@ Hot-reloads `pill.css` + `pill.js` into the running sim (Devmode on, inspector o
 python tools/sniff_batc.py --quiet-snapshot
 ```
 
-Logs every BeyondATC socket message with timestamps to `logs/`. Use it when BeyondATC changes its protocol.
+Logs every BeyondATC socket message with timestamps (see the logs folder below). Use it when BeyondATC changes its protocol.
 
 `tools/harness.html` previews the pill in a desktop browser against the live socket, with replay buttons for captured exchanges (wind check, voice request, IFR clearance and readback, runway question) and a "Hold PTT" button: run `python -m http.server 8765` in the repo root and open `http://localhost:8765/tools/harness.html`.
+
+```bash
+python tools/pill_log.py
+```
+
+Records a flight as the pill sees it. Builds from `tools/build.py build` / `install` (and `inspect_ui.py --push`) look for this logger and stream to it while it runs; release builds never do. A recording holds every BeyondATC message (the pill reconnects once so it starts with BeyondATC's snapshot), what the pill shows, and what you do (clicks, PTT, settings, the Auto Tune / Auto Respond commands), written line by line so a sim crash keeps it. Stop it with Ctrl+C.
+
+All logs (`sniff_batc.py`'s `batc-*.jsonl`, `pill_log.py`'s `pill-*.jsonl`) go to `%LOCALAPPDATA%\paul-batc-pill\logs`.
 
 ```bash
 python tools/batc_timeline.py
 ```
 
-Prints the latest sniff log as a timeline, with the toolbar's reply menu (`Actions`) and clearance boxes (`InfoBoxes`) as +/- changes.
+Prints the latest log (a sniff or a pill recording) as a timeline, with the toolbar's reply menu (`Actions`) and clearance boxes (`InfoBoxes`) as +/- changes, and the pill's states (`PILL`) and your actions (`--`) in between.
 
 ```bash
 python docs/render_images.py

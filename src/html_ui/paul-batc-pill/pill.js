@@ -35,6 +35,9 @@
     pttDelayMs: 250,     // PTT held this long before "Transmitting" shows. Under ~450 ms a click still shows briefly:
                          // the sim's first repeat comes at ~0.4 s, so a click looks held until then
     hideOffline: false,  // true: no pill at all while BeyondATC isn't running
+    devLog: false,       // stream what the pill gets, shows and does to tools/pill_log.py when it runs. tools/build.py
+                         // turns it on in your own builds (build, install, inspect_ui.py --push), off in releases
+    devLogUrl: "ws://127.0.0.1:41799",
     showTraffic: true,   // show a neutral "Traffic" pill while AI traffic talks (and its lines in the messages and Log)
     captions: "all",     // ATC's lines as messages under the pill: "off", "mine" (your exchanges), "all" (and AI traffic)
     exchangeMs: 5000,    // an exchange's messages leave together this long after it closes
@@ -129,7 +132,7 @@
     logReset: true,      // open the Log at its newest line
   };
   var socket = null;
-  var timers = { reconnect: 0, linger: 0, error: 0, tune: 0, missed: 0, confirm: 0, swHide: 0, atis: 0, demo: 0, ptt: 0, pttShow: 0, swap: 0, poll: 0, sent: 0, capHover: 0 };
+  var timers = { reconnect: 0, linger: 0, error: 0, tune: 0, missed: 0, confirm: 0, swHide: 0, atis: 0, demo: 0, ptt: 0, pttShow: 0, swap: 0, poll: 0, log: 0, sent: 0, capHover: 0 };
   var destroyed = false;
   var current = null;    // last rendered view signature
 
@@ -305,20 +308,30 @@
 
   // ---- state -> view ---------------------------------------------------
 
-  function readbackView() {
+  // reply: { cls, lamp, label, who } while you answer it (Transmitting, Processing): same detail and layout
+  // as "Awaiting readback", under your own label
+  function readbackView(reply) {
     var rb = state.readback;
-    if (!CONFIG.showReadback || !rb || state.answered || !state.menuFresh) return null;
+    if (!CONFIG.showReadback || !rb) return null;
+    if (!reply && (state.answered || !state.menuFresh)) return null;
     // what ATC waits for: "Readback IFR Clearance" -> "Awaiting readback" + "IFR Clearance";
     // "Acknowledge Instruction" -> "Awaiting response"; a question -> its answers ("Runway 12L / Runway 12R")
     var w = waitingFor();
     if (rb.negative) {
       // "Negative, QNH 1013.": your readback was wrong; the correction is the hint, whatever the detail mode
       var fix = CONFIG.readbackDetail === "none" ? "" : readbackHint(rb.text) || correction(rb.text);
-      return readbackLook(w.readback, 1, fix, [], { cls: "s-insist is-pulse", label: "Negative", raw: true });
+      return readbackLook(w.readback, 1, fix, [], reply ? { cls: reply.cls, lamp: reply.lamp, label: reply.label,
+        who: reply.who, raw: true } : { cls: "s-insist is-pulse", label: "Negative", raw: true });
     }
     var detail = readbackHint(rb.text) || w.choices.slice(0, 3).join(" / ") || w.kind;
     // a question's answers beat the clearance boxes
-    return readbackLook(w.readback, rb.calls, detail, w.choices.length ? [] : state.infoBoxes);
+    return readbackLook(w.readback, reply ? 1 : rb.calls, detail, w.choices.length ? [] : state.infoBoxes, reply);
+  }
+
+  // "Transmitting" / "Processing", with the pending readback's hint or boxes when you're answering one
+  function replyLook(cls, lamp, label, who) {
+    return readbackView({ cls: cls, lamp: lamp, label: label, who: who }) ||
+      { cls: cls, html: lamp + '<span class="' + who + '">' + label + "</span>" };
   }
 
   // "Negative, Nantes Approach on 124.25." -> "Nantes Approach on 124.25"
@@ -327,21 +340,23 @@
     return t.length > 40 ? t.slice(0, 39) + "…" : t;
   }
 
-  // look: { cls, label, lamp, raw } overrides (raw: detail as given, not the detail mode's)
+  // look: { cls, label, lamp, who, raw } overrides (who: the label's class; raw: detail as given, not the
+  // detail mode's)
   function readbackLook(readback, calls, detail, boxes, look) {
     look = look || {};
     var label = look.label || (readback ? "Awaiting readback" : "Awaiting response");
     // ATC called again for it: louder color, faster pulse, "Awaiting readback ×2"
     var cls = look.cls || (calls > 1 ? "s-insist is-pulse" : "s-atc is-pulse");
     var lamp = look.lamp || LAMP;
+    var who = '<span class="' + (look.who === undefined ? "bp-who" : look.who) + '">';
     if (calls > 1) label += " ×" + calls;
     if (!look.raw) detail = detailFor(detail, boxes);
     if (CONFIG.readbackDetail === "boxes" && boxes.length) {
       // "Awaiting readback" over the boxes, as in the toolbar; their titles say what it's about
-      return { cls: cls + " is-msg", html: lamp + '<span class="bp-who">' + label + "</span>",
+      return { cls: cls + " is-msg", html: lamp + who + label + "</span>",
         extra: boxesHtml(boxes) };
     }
-    return { cls: cls, html: lamp + '<span class="bp-who">' + label + "</span>" +
+    return { cls: cls, html: lamp + who + label + "</span>" +
       (detail ? '<span class="bp-sep">·</span><span>' + esc(detail) + "</span>" : "") };
   }
 
@@ -408,18 +423,25 @@
   }
 
   function pttLook() {
-    return { cls: "s-you", html: MIC + '<span class="bp-who">Transmitting</span>' + replyDetail() };
+    // PTT held while someone else transmits: you're talking over them
+    var busy = busyWith();
+    if (busy) {
+      return { cls: "s-insist is-pulse", html: MIC + '<span class="bp-who">Transmitting</span>' +
+        '<span class="bp-sep">·</span><span>' + busy + "</span>" };
+    }
+    return replyLook("s-you", MIC, "Transmitting", "bp-who");
   }
 
-  // While you answer a pending readback (PTT, the toolbar's spoken reply, then BeyondATC processing it), the
-  // hint stays after the label: "Transmitting · Taxi 30R". One line whatever the detail mode.
-  function replyDetail() {
-    var rb = state.readback;
-    if (!CONFIG.showReadback || !rb || CONFIG.readbackDetail === "none") return "";
-    var w = waitingFor();
-    var d = detailFor(readbackHint(rb.text) || (rb.negative && correction(rb.text)) || w.kind,
-      w.choices.length ? [] : state.infoBoxes);
-    return d ? '<span class="bp-sep">·</span><span>' + esc(d) + "</span>" : "";
+  // who else is on the frequency right now: "ATC talking", "Traffic talking", or "" (an ATIS doesn't count)
+  function busyWith() {
+    if (state.mode === "speaking") {
+      if (state.speaker === "atc" || state.speaker === "atcTraffic") return "ATC talking";
+      if (state.speaker === "traffic") return "Traffic talking";
+    }
+    if (state.mode === "traffic" && /transmitting/i.test(state.text) && !/^atis/i.test(state.text)) {
+      return /^atc/i.test(state.text) ? "ATC talking" : "Traffic talking";
+    }
+    return "";
   }
 
   function mutedLook() {
@@ -489,13 +511,13 @@
     if (state.error && now < state.errorUntil) {
       return { cls: "s-err", html: LAMP + '<span class="bp-who">' + esc(state.error) + "</span>" };
     }
-    if (state.pttShown && CONFIG.showPtt) return pttLook();
+    if (state.pttShown && CONFIG.showPtt) return withExtra(pttLook()); // the boxes too, in Boxes mode
 
     var v;
     switch (state.mode) {
       case "processing":
       case "request":
-        v = { cls: "s-proc", html: DOTS + "<span>Processing</span>" + replyDetail() };
+        v = replyLook("s-proc", DOTS, "Processing", "");
         break;
       case "queued":
         v = { cls: "s-proc", html: LAMP + "<span>Queued</span>" +
@@ -507,7 +529,7 @@
       case "speaking":
         // the reply BeyondATC speaks for you (toolbar or Auto Respond); your own voice is pttLook (mic icon)
         if (state.speaker === "player") {
-          v = { cls: "s-you", html: BARS + '<span class="bp-who">Transmitting</span>' + replyDetail() };
+          v = replyLook("s-you", BARS, "Transmitting", "bp-who");
         }
         else if (state.speaker === "traffic") {
           v = CONFIG.showTraffic ? { cls: "", html: BARS + "<span>Traffic</span>" } : readbackView();
@@ -596,6 +618,8 @@
     var v = view();
     var sig = v.hidden ? "hidden" : v.cls + "|" + v.html;
     if (sig === current) return;
+    shown = v.hidden ? "hidden" : (v.cls || "-") + " | " + v.html.replace(/<[^>]*>/g, " ").replace(/\s+/g, " ").trim();
+    devLog("pill", shown);
     var wasHidden = current === null || current === "hidden";
     current = sig;
 
@@ -804,6 +828,7 @@
   }
 
   function onMessage(msg) {
+    devLog("msg", msg);
     handleMessage(msg);
     renderComms();
   }
@@ -1014,8 +1039,11 @@
       state.requests = [];
       state.panel = false;
       showSwitches(false);
-      render();
-      if (!destroyed) timers.reconnect = setTimeout(connect, CONFIG.reconnectMs);
+      // closed on purpose for the developer log's snapshot: straight back, no "BATC offline" in between
+      var now = resnapshot;
+      resnapshot = false;
+      if (!now) render();
+      if (!destroyed) timers.reconnect = setTimeout(connect, now ? 0 : CONFIG.reconnectMs);
     };
     socket.onerror = function () { /* onclose follows */ };
   }
@@ -1059,6 +1087,7 @@
   }
 
   function openCard(open) {
+    if (open !== state.editing) devLog("event", open ? "settings opened" : "settings closed");
     state.editing = open;
     if (open) { showSwitches(false); state.panel = false; }
     card.className = open ? "" : "is-closed";
@@ -1082,6 +1111,7 @@
     for (var el = e.target; el && el !== root; el = el.parentNode) {
       if (el.className && String(el.className.baseVal || el.className).indexOf("bp-unpin") >= 0) {
         if (state.editing) break; // the settings sample: just a click on the pill
+        devLog("event", "hide kept clearance");
         state.kept = null;
         render();
         return;
@@ -1282,6 +1312,7 @@
   function send(cmd) {
     if (!socket || socket.readyState !== 1) return false;
     socket.send(cmd);
+    devLog("event", "sent " + cmd);
     sent.push(cmd);
     if (sent.length > 20) sent.shift();
     return true;
@@ -1765,9 +1796,11 @@
       clearTimeout(timers.pttShow);
       var shown = state.pttShown;
       state.ptt = state.pttRepeating = state.pttShown = false;
+      devLog("event", "ptt up");
       if (shown) render(true);
     }, state.pttRepeating ? PTT_REPEAT_MS : PTT_FIRST_MS);
     if (!held) {
+      devLog("event", "ptt down");
       // still held after pttDelayMs (the sim repeats from ~0.4 s): show it
       clearTimeout(timers.pttShow);
       timers.pttShow = setTimeout(function () { state.pttShown = true; render(true); }, CONFIG.pttDelayMs);
@@ -1796,12 +1829,52 @@
     }
   }
 
+  // ---- developer log (tools/pill_log.py) --------------------------------
+  // With devLog on (your own builds), the pill streams to tools/pill_log.py whenever it runs, retrying quietly
+  // otherwise: every BeyondATC message ("msg"), what it shows ("pill")
+  // and what you do ("event"). The logger writes them as they come, so a sim crash keeps the log.
+
+  var logSock = null;
+  var resnapshot = false; // BeyondATC socket closed to get a fresh snapshot into the log
+  var shown = "";         // what the pill shows, as logged: "s-atc is-pulse | Awaiting readback · Taxi 30R"
+
+  function logConnect() {
+    clearTimeout(timers.log);
+    if (!CONFIG.devLog || destroyed) {
+      if (logSock) { logSock.onclose = null; logSock.close(); logSock = null; }
+      return;
+    }
+    if (logSock) return;
+    try {
+      logSock = new WebSocket(CONFIG.devLogUrl);
+    } catch (e) {
+      timers.log = setTimeout(logConnect, CONFIG.reconnectMs);
+      return;
+    }
+    logSock.onopen = function () {
+      devLog("pill", shown || "(not rendered yet)");
+      // reconnect to BeyondATC so the log starts with its snapshot
+      if (socket) { resnapshot = true; socket.close(); }
+    };
+    logSock.onclose = function () {
+      logSock = null;
+      if (CONFIG.devLog && !destroyed) timers.log = setTimeout(logConnect, CONFIG.reconnectMs);
+    };
+    logSock.onerror = function () { /* onclose follows */ };
+  }
+
+  function devLog(kind, value) {
+    if (!logSock || logSock.readyState !== 1) return;
+    try { logSock.send(JSON.stringify({ k: kind, v: value })); } catch (e) { /* the logger went away */ }
+  }
+
   // ---- lifecycle -------------------------------------------------------
 
   function destroy() {
     destroyed = true;
     for (var k in timers) { clearTimeout(timers[k]); clearInterval(timers[k]); }
     if (socket) { socket.onclose = null; socket.close(); socket = null; }
+    if (logSock) { logSock.onclose = null; logSock.close(); logSock = null; }
     if (keyHandler && window.engine && typeof window.engine.off === "function") window.engine.off("keyIntercepted", keyHandler);
     if (root.parentNode) root.parentNode.removeChild(root);
     if (card.parentNode) card.parentNode.removeChild(card);
@@ -1818,6 +1891,7 @@
     var moved = "corner" in patch;
     for (var k in patch) CONFIG[k] = patch[k];
     saveSettings();
+    devLog("event", "settings " + JSON.stringify(patch));
     listenPtt(); // turning PTT on starts listening (off just ignores the events)
     place();
     updateCard();
@@ -1840,5 +1914,6 @@
   poll();
   timers.poll = setInterval(poll, 1000);
   connect();
+  logConnect();
   try { listenPtt(); } catch (e) { /* no key events in this view: no PTT */ }
 })();

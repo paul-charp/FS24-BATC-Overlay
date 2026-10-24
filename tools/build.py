@@ -7,6 +7,8 @@
     python tools/build.py release [X.Y.Z]   build, then zip the package as dist/paul-batc-pill-X.Y.Z.zip
 
 Local paths (sim_packages, community) go in .local/config.json, which overrides config.json.
+build and install turn the pill's developer log on (it streams to tools/pill_log.py when that runs); release
+doesn't.
 """
 import argparse
 import hashlib
@@ -121,10 +123,17 @@ def prune(pkg_dir, written):
             print(f"build: WARNING could not remove {f.relative_to(pkg_dir).as_posix()} ({e.strerror})")
 
 
-def cmd_build(cfg, injections):
+def cmd_build(cfg, injections, dev=True):
     pkg_dir = BUILD / cfg["package_name"]
     pkg_dir.mkdir(parents=True, exist_ok=True)
     written = sync_tree(SRC, pkg_dir)
+    if dev:
+        # your own builds stream to tools/pill_log.py when it runs; releases never look for it
+        js = pkg_dir / "html_ui" / "paul-batc-pill" / "pill.js"
+        text = js.read_text(encoding="utf-8")
+        if "    devLog: false," not in text:
+            sys.exit("build: can't find `devLog: false,` in pill.js")
+        js.write_text(text.replace("    devLog: false,", "    devLog: true,", 1), encoding="utf-8")
 
     lock = load_json(LOCK) if LOCK.exists() else {}
     stale = []
@@ -210,7 +219,7 @@ def cmd_uninstall(cfg, injections):
 def cmd_release(cfg, injections, version=None):
     if version:
         cfg["version"] = version.lstrip("v")
-    cmd_build(cfg, injections)
+    cmd_build(cfg, injections, dev=False)
     pkg_dir = BUILD / cfg["package_name"]
     DIST.mkdir(exist_ok=True)
     out = DIST / f"{cfg['package_name']}-{cfg['version']}.zip"

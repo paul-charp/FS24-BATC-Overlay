@@ -144,26 +144,23 @@
   justify-content: center;
   width: calc(16 * var(--u));
   height: calc(16 * var(--u));
-  margin-left: calc(-2 * var(--u));
   border-radius: 50%;
   color: var(--c);
   pointer-events: auto; /* the one child that takes clicks: it hides the kept clearance */
   transition: background-color 0.15s ease, color 0.15s ease;
 }
-/* both icons sit at explicit offsets in the 16-unit circle rather than relying on flex centering of
-   absolute children (the sim set a glyph off-center in the settings close button) */
-#batc-pill .bp-unpin svg { position: absolute; display: block; }
-#batc-pill .bp-unpin .bp-clip {
-  top: calc(2 * var(--u)); left: calc(2 * var(--u)); width: calc(12 * var(--u)); height: calc(12 * var(--u));
-}
-#batc-pill .bp-unpin .bp-x {
-  top: calc(3.5 * var(--u)); left: calc(3.5 * var(--u)); width: calc(9 * var(--u)); height: calc(9 * var(--u));
-  opacity: 0;
-}
-/* hover: the icon turns into a ✕, same size, so nothing moves */
+/* as far from the side as from the top/bottom, so the circle sits centred in the pill's rounded corner (one
+   line: 5 units each; over the boxes: 6). Beats the first-child margin reset of .bp-body / .bp-head */
+#batc-pill .bp-body > .bp-unpin:first-child, #batc-pill .bp-head > .bp-unpin:first-child { margin-left: calc(-5 * var(--u)); }
+/* one icon shown at a time, centred by the circle's flex (as the settings close button, which the sim centres
+   correctly; absolutely placed icons came out off-centre there) */
+#batc-pill .bp-unpin svg { display: block; flex: none; }
+#batc-pill .bp-unpin .bp-clip { width: calc(12 * var(--u)); height: calc(12 * var(--u)); }
+#batc-pill .bp-unpin .bp-x { width: calc(9 * var(--u)); height: calc(9 * var(--u)); display: none; }
+/* hover: the icon turns into a ✕, same circle, so nothing moves */
 #batc-pill[data-input-group]:hover .bp-unpin { background-color: rgba(255, 255, 255, 0.16); color: #ffffff; }
-#batc-pill[data-input-group]:hover .bp-unpin .bp-clip { opacity: 0; }
-#batc-pill[data-input-group]:hover .bp-unpin .bp-x { opacity: 1; }
+#batc-pill[data-input-group]:hover .bp-unpin .bp-clip { display: none; }
+#batc-pill[data-input-group]:hover .bp-unpin .bp-x { display: block; }
 #batc-pill .bp-unpin:hover { background-color: rgba(255, 255, 255, 0.28); }
 #batc-pill.s-insist .bp-bg { border-color: var(--c); }
 #batc-pill.s-insist .bp-lamp { animation-duration: 0.7s; }
