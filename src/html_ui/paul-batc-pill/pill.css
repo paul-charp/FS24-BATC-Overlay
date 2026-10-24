@@ -3,7 +3,7 @@
   --u: 0.0926vh; /* pill.js sets it from CONFIG.scale; position comes from CONFIG.corner/x/y */
 
   --bg: rgba(14, 18, 24, 0.62);
-  --edge: rgba(255, 255, 255, 0.08);
+  --edge: rgba(0, 0, 0, 0.35); /* a dark rim: softens the rounded edges on bright scenery */
   --fg: rgba(236, 241, 246, 0.92);
   --dim: rgba(236, 241, 246, 0.55);
   --c: #8b97a3;
@@ -284,7 +284,7 @@
   height: calc(26 * var(--k));
   margin-left: calc(5 * var(--k));
   border-radius: 50%;
-  border: calc(1 * var(--k)) solid rgba(255, 255, 255, 0.14);
+  border: calc(1 * var(--k)) solid rgba(0, 0, 0, 0.35);
   background-color: rgba(14, 18, 24, 0.78);
   color: rgba(236, 241, 246, 0.45);
   cursor: pointer;
@@ -312,6 +312,7 @@
   --k: 0.0926vh;
   --bg: rgba(14, 18, 24, 0.86);
   --edge: rgba(255, 255, 255, 0.1);
+  --rim: rgba(0, 0, 0, 0.35);
   --fg: rgba(236, 241, 246, 0.92);
   --dim: rgba(236, 241, 246, 0.55);
   --btn: rgba(255, 255, 255, 0.07);
@@ -326,7 +327,7 @@
   padding: calc(10 * var(--k)) calc(12 * var(--k)) calc(12 * var(--k));
   border-radius: calc(10 * var(--k));
   background-color: var(--bg);
-  border: calc(1 * var(--k)) solid var(--edge);
+  border: calc(1 * var(--k)) solid var(--rim);
   color: var(--fg);
   font-size: calc(12 * var(--k));
   font-weight: 600;
@@ -505,7 +506,7 @@
   padding: calc(5 * var(--u)) calc(9 * var(--u)) calc(6 * var(--u));
   border-radius: calc(7 * var(--u));
   background-color: rgba(14, 18, 24, 0.4);
-  border: calc(1 * var(--u)) solid transparent;
+  border: calc(1 * var(--u)) solid rgba(0, 0, 0, 0.35);
   color: rgba(236, 241, 246, 0.9);
   font-size: calc(12.5 * var(--u));
   line-height: 1.36;
@@ -546,7 +547,7 @@
   margin: calc(3 * var(--u)) 0 0 calc(4 * var(--u));
   border-radius: calc(12 * var(--u));
   background-color: rgba(14, 18, 24, 0.78);
-  border: calc(1 * var(--u)) solid rgba(255, 255, 255, 0.14);
+  border: calc(1 * var(--u)) solid rgba(0, 0, 0, 0.35);
   color: rgba(236, 241, 246, 0.92);
   font-size: calc(11.5 * var(--u));
   font-weight: 600;
@@ -592,7 +593,7 @@
   padding: calc(10 * var(--u)) calc(12 * var(--u));
   border-radius: calc(10 * var(--u));
   background-color: rgba(14, 18, 24, 0.88);
-  border: calc(1 * var(--u)) solid rgba(255, 255, 255, 0.1);
+  border: calc(1 * var(--u)) solid rgba(0, 0, 0, 0.35);
   color: rgba(236, 241, 246, 0.92);
   font-size: calc(12 * var(--u));
   font-weight: 600;

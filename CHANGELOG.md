@@ -22,6 +22,7 @@
 - Changed: the settings card has two tabs, Display and Position, and closes on a click outside it.
 - Changed: with the settings card open, the sample pill shows the effect of the last setting changed for 4 s.
 - Changed: the settings card opens from the gear in the panel.
+- Changed: the pill, its buttons, messages, chips, panel and settings card have a dark edge instead of a light one.
 - Fixed: the idle dot stayed visible in the sim's menus after a flight.
 - Fixed: BeyondATC errors showed as raw JSON.
 - Fixed: ATC broadcasts to all stations showed "ATC Generating" / "ATC Transmitting".
