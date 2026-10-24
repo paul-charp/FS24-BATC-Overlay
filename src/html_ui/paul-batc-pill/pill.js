@@ -1118,6 +1118,7 @@
       }
     }
     if (state.editing) openCard(false);
+    else if (!state.connected) openCard(true); // no comms panel offline: its gear is the only way to settings
     else openPanel(!state.panel);
   });
 

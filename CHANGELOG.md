@@ -19,7 +19,7 @@ Reply to ATC and make requests from the pill, without BeyondATC's toolbar.
 - Added: new ATIS letters, and "ATIS" while one plays on COM1.
 - Added: optional PTT indicator, which turns red-orange if you talk over ATC or traffic.
 - Changed: "You" is now "Transmitting".
-- Changed: settings are split into Display and Position tabs, and open from the gear in the panel.
+- Changed: settings are split into Display and Position tabs, and open from the gear in the panel (or from a click on the pill while BeyondATC is offline).
 - Changed: the sample pill in the settings shows what your last change does.
 - Changed: a softer, darker edge around the pill and its panels.
 - Fixed: the idle dot stayed on screen in the sim's menus after a flight.
