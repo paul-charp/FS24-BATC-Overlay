@@ -64,7 +64,7 @@ screen corner during flight, with a click-to-open settings card. Windows only. U
   actions to the Controls menu (MSFS 2024 SDK: presets of existing actions only).
 - Rounded `overflow: hidden` boxes had jagged corners in the sim while the unclipped settings card was
   smooth; the pill now clips square and draws its rounded background on `.bp-bg`. Corners still look
-  jagged on light backgrounds: the outer borders are now a dark rim (`rgba(0, 0, 0, 0.15)`) to soften them;
+  jagged on light backgrounds: the outer borders are now a dark rim (`rgba(0, 0, 0, 0.1)`) to soften them;
   unverified in the sim.
 
 ## BeyondATC protocol

@@ -1464,20 +1464,32 @@
     setTimeout(function () { if (n.parentNode) n.parentNode.removeChild(n); }, CAP_MS + 30);
   }
 
-  // show or hide the row under a message, gliding its slot to the new height
+  // show or hide the row under a message, gliding its slot to the new height; a hidden row fades out first
   function capSet(n, acts) {
     var from = n.offsetHeight, row = null;
-    for (var i = 0; i < n.children.length; i++) if (n.children[i].className === "bm-acts") row = n.children[i];
-    if (acts && !row) {
-      row = document.createElement("div");
+    for (var i = 0; i < n.children.length; i++) if (n.children[i].className.indexOf("bm-acts") === 0) row = n.children[i];
+    clearTimeout(n.batcRowTimer);
+    if (acts) {
+      if (!row) {
+        row = document.createElement("div");
+        n.appendChild(row);
+      }
       row.className = "bm-acts";
-      n.appendChild(row);
+      row.innerHTML = acts;
     }
-    if (row) { if (acts) row.innerHTML = acts; else n.removeChild(row); }
     n.setAttribute("data-acts", acts);
-    if (n.className.indexOf(" is-out") >= 0) return; // still opening: its own animation sizes it
+    if (n.className.indexOf(" is-out") >= 0) { // still opening: its own animation sizes it
+      if (row && !acts) n.removeChild(row);
+      return;
+    }
+    var gone = 0;
+    if (row && !acts) {
+      gone = row.offsetHeight;
+      row.className = "bm-acts is-out";
+      n.batcRowTimer = setTimeout(function () { if (row.parentNode) row.parentNode.removeChild(row); }, CAP_MS);
+    }
     n.style.height = "";
-    var to = n.offsetHeight; // natural height, measured before the frame paints
+    var to = n.offsetHeight - gone; // natural height, measured before the frame paints
     if (Math.abs(to - from) < 1) return;
     n.style.height = from + "px";
     void n.offsetHeight;
@@ -1552,7 +1564,7 @@
         html = state.requests.map(function (r) { return chip(r, "data-req", r, ""); }).join("");
       }
     }
-    if (list.innerHTML !== html) list.innerHTML = html;
+    if (html && list.innerHTML !== html) list.innerHTML = html; // closing keeps its chips while they fade out
     list.className = html ? "" : "is-closed";
     if (html) list.setAttribute("data-input-group", "BATC-PILL");
     else list.removeAttribute("data-input-group");
