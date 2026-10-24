@@ -3,7 +3,7 @@
   --u: 0.0926vh; /* pill.js sets it from CONFIG.scale; position comes from CONFIG.corner/x/y */
 
   --bg: rgba(14, 18, 24, 0.62);
-  --edge: rgba(0, 0, 0, 0.1); /* a dark rim: softens the rounded edges on bright scenery */
+  --edge: transparent; /* no rim; kept for the state borders (s-ok, s-insist) */
   --fg: rgba(236, 241, 246, 0.92);
   --dim: rgba(236, 241, 246, 0.55);
   --c: #8b97a3;
@@ -282,15 +282,16 @@
   box-sizing: border-box;
   width: calc(26 * var(--k));
   height: calc(26 * var(--k));
-  margin-left: calc(5 * var(--k));
   border-radius: 50%;
-  border: calc(1 * var(--k)) solid rgba(0, 0, 0, 0.1);
+  border: calc(1 * var(--k)) solid transparent;
   background-color: rgba(14, 18, 24, 0.78);
   color: rgba(236, 241, 246, 0.45);
   cursor: pointer;
   transition: background-color 0.15s ease, color 0.15s ease, border-color 0.15s ease;
 }
-#batc-pill-sw .bs-btn:first-child { margin-left: 0; }
+/* the gap goes between the buttons: row-reverse on the right, so the second one sits left of the first */
+#batc-pill-sw .bs-btn + .bs-btn { margin-right: calc(5 * var(--k)); }
+#batc-pill-sw[data-side="left"] .bs-btn + .bs-btn { margin-right: 0; margin-left: calc(5 * var(--k)); }
 #batc-pill-sw .bs-btn:hover { background-color: rgba(30, 36, 44, 0.9); }
 #batc-pill-sw .bs-btn svg { display: block; width: calc(14 * var(--k)); height: calc(14 * var(--k)); }
 /* same outline either way (a lit outline made the "on" button look bigger): the fill and icon say "on" */
@@ -301,7 +302,7 @@
 /* ---- click-catcher behind the open settings card: a click outside closes the card ---- */
 #batc-pill-shade {
   position: absolute; top: 0; left: 0; width: 100vw; height: 100vh; /* the whole screen, whatever body's size */
-  z-index: 9998; /* under the pill and the card (9999) */
+  z-index: 9998; /* under the pill, the card and the panel (9999) */
   background-color: transparent;
   pointer-events: auto;
 }
@@ -312,7 +313,7 @@
   --k: 0.0926vh;
   --bg: rgba(14, 18, 24, 0.86);
   --edge: rgba(255, 255, 255, 0.1);
-  --rim: rgba(0, 0, 0, 0.1);
+  --rim: transparent;
   --fg: rgba(236, 241, 246, 0.92);
   --dim: rgba(236, 241, 246, 0.55);
   --btn: rgba(255, 255, 255, 0.07);
@@ -506,7 +507,7 @@
   padding: calc(5 * var(--u)) calc(9 * var(--u)) calc(6 * var(--u));
   border-radius: calc(7 * var(--u));
   background-color: rgba(14, 18, 24, 0.4);
-  border: calc(1 * var(--u)) solid rgba(0, 0, 0, 0.1);
+  border: calc(1 * var(--u)) solid transparent;
   color: rgba(236, 241, 246, 0.9);
   font-size: calc(12.5 * var(--u));
   line-height: 1.36;
@@ -533,6 +534,8 @@
 .bm-cap.is-pinned .bm-card { border-color: rgba(255, 181, 71, 0.5); background-color: rgba(14, 18, 24, 0.48); }
 /* a long list opened with "+N" (route fixes, 74 gates) scrolls past about six rows */
 .bm-acts {
+  /* flex: none: squeezed while its slot opens, the row showed its scrollbar and the chips snapped sideways after */
+  flex: none;
   display: flex; flex-wrap: wrap; justify-content: flex-end; padding-top: calc(3 * var(--u));
   max-height: calc(165 * var(--u)); overflow-y: auto; pointer-events: auto;
   opacity: 1; transform: translateY(0);
@@ -550,7 +553,7 @@
   margin: calc(3 * var(--u)) 0 0 calc(4 * var(--u));
   border-radius: calc(12 * var(--u));
   background-color: rgba(14, 18, 24, 0.78);
-  border: calc(1 * var(--u)) solid rgba(0, 0, 0, 0.1);
+  border: calc(1 * var(--u)) solid transparent;
   color: rgba(236, 241, 246, 0.92);
   font-size: calc(11.5 * var(--u));
   font-weight: 600;
@@ -586,8 +589,9 @@
 #batc-pill-list .bm-chip { margin: 0 0 calc(4 * var(--u)) 0; }
 #batc-pill-list[data-edge="bottom"] .bm-chip { margin: calc(4 * var(--u)) 0 0 0; }
 
-/* the panel: Frequencies and Log. Not modal (no shade): left open in flight, the cockpit stays clickable */
+/* the panel: Frequencies and Log. A click elsewhere closes it (through the shade) */
 #batc-pill-panel {
+  z-index: 9999; /* over the shade */
   --btn: rgba(255, 255, 255, 0.07);
   --btn-hover: rgba(255, 255, 255, 0.14);
   --dim: rgba(236, 241, 246, 0.55);
@@ -596,7 +600,7 @@
   padding: calc(10 * var(--u)) calc(12 * var(--u));
   border-radius: calc(10 * var(--u));
   background-color: rgba(14, 18, 24, 0.88);
-  border: calc(1 * var(--u)) solid rgba(0, 0, 0, 0.1);
+  border: calc(1 * var(--u)) solid transparent;
   color: rgba(236, 241, 246, 0.92);
   font-size: calc(12 * var(--u));
   font-weight: 600;
@@ -651,21 +655,24 @@
   font-weight: 400; white-space: pre-wrap; word-break: break-all;
 }
 .bm-rows { margin: 0 calc(-4 * var(--u)); }
+/* a station: its name, then its frequencies as chips (a click tunes COM1) */
 .bm-row {
-  display: flex; align-items: center; min-height: calc(28 * var(--u)); padding: 0 calc(6 * var(--u));
-  border-radius: calc(6 * var(--u)); cursor: pointer;
+  display: flex; align-items: center; min-height: calc(28 * var(--u)); padding: calc(2 * var(--u)) calc(6 * var(--u));
+  border-radius: calc(6 * var(--u));
 }
-.bm-row:hover { background-color: var(--btn-hover); }
 .bm-row.is-active .bm-grow { color: var(--on); }
 .bm-grow { flex: 1 1 auto; }
-.bm-f { margin-left: calc(8 * var(--u)); color: var(--dim); font-size: calc(12 * var(--u)); font-weight: 500; }
-.bm-tag {
-  margin-left: calc(6 * var(--u)); padding: calc(3 * var(--u)) calc(5 * var(--u)); border-radius: calc(4 * var(--u));
-  font-size: calc(9.5 * var(--u)); line-height: 1;
+.bm-fqs { display: flex; flex-wrap: wrap; justify-content: flex-end; flex: none; max-width: 70%; }
+.bm-fq {
+  margin: calc(1 * var(--u)) 0 calc(1 * var(--u)) calc(4 * var(--u)); padding: calc(4 * var(--u)) calc(6 * var(--u));
+  border-radius: calc(5 * var(--u)); border: calc(1 * var(--u)) solid transparent;
+  background-color: var(--btn); color: rgba(236, 241, 246, 0.75);
+  font-size: calc(11.5 * var(--u)); font-weight: 500; line-height: 1; cursor: pointer;
 }
-.bm-tag.is-com1 { background-color: var(--on); color: #0e1218; }
-.bm-tag.is-com2 { border: calc(1 * var(--u)) solid var(--on); color: var(--on); }
-.bm-tag.is-ask { background-color: #ffb547; color: #15110a; }
+.bm-fq:hover { background-color: var(--btn-hover); color: #ffffff; }
+.bm-fq.is-com1 { background-color: var(--on); color: #0e1218; }
+.bm-fq.is-com2 { border-color: var(--on); color: var(--on); }
+.bm-fq.is-ask { background-color: #ffb547; color: #15110a; }
 .bm-contact {
   display: flex; align-items: center; margin-bottom: calc(8 * var(--u)); padding: calc(7 * var(--u)) calc(8 * var(--u));
   border-radius: calc(7 * var(--u)); background-color: rgba(99, 211, 230, 0.1); border: calc(1 * var(--u)) solid rgba(99, 211, 230, 0.45);
@@ -674,6 +681,7 @@
 .bm-go { flex: none; margin-left: calc(8 * var(--u)); white-space: nowrap; padding: calc(5 * var(--u)) calc(9 * var(--u)); border-radius: calc(5 * var(--u)); background-color: var(--on); color: #0e1218; cursor: pointer; }
 .bm-bar { display: flex; align-items: center; justify-content: space-between; margin-bottom: calc(6 * var(--u)); }
 .bm-sec { color: var(--dim); font-size: calc(10 * var(--u)); letter-spacing: 0.07em; text-transform: uppercase; }
+.bm-sub { margin: calc(8 * var(--u)) 0 calc(4 * var(--u)); } /* "En route", under the airport's stations */
 /* the whole history scrolls (wheel); it opens at the newest line */
 .bm-log { max-height: calc(300 * var(--u)); overflow-y: auto; margin: 0 calc(-2 * var(--u)); padding-right: calc(4 * var(--u)); }
 .bm-ln { display: flex; padding: calc(4 * var(--u)) calc(2 * var(--u)); font-size: calc(12 * var(--u)); font-weight: 400; line-height: 1.38; }
@@ -684,6 +692,19 @@
 .bm-ln.bm-you .bm-w { color: #5fd38d; }
 .bm-ln.bm-traffic { color: rgba(236, 241, 246, 0.6); }
 .bm-ln.bm-traffic .bm-w { color: rgba(236, 241, 246, 0.5); }
+/* a line as it arrives: slides up and fades in, its highlight fading out */
+.bm-ln.is-new { border-radius: calc(5 * var(--u)); animation: bm-in 0.7s var(--ease); }
+@keyframes bm-in {
+  0% { opacity: 0; transform: translateY(calc(8 * var(--u))); background-color: rgba(255, 255, 255, 0.12); }
+  40% { opacity: 1; transform: translateY(0); background-color: rgba(255, 255, 255, 0.12); }
+  100% { background-color: rgba(255, 255, 255, 0); }
+}
+/* COM1 changed: the old lines fade out and up before the Log clears (pill.js waits 0.35 s) */
+.bm-ln.is-gone { animation: bm-out 0.35s ease forwards; }
+@keyframes bm-out {
+  0% { opacity: 1; transform: translateY(0); }
+  100% { opacity: 0; transform: translateY(calc(-8 * var(--u))); }
+}
 .bm-foot {
   display: flex; justify-content: space-between; margin-top: calc(10 * var(--u)); padding-top: calc(8 * var(--u));
   border-top: calc(1 * var(--u)) solid rgba(255, 255, 255, 0.1);

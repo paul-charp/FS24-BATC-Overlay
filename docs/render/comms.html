@@ -44,12 +44,18 @@
     if (panel) {
       document.getElementById("batc-pill").click();
       batcPill.feed('Frequencies: ' + JSON.stringify([
-        { name: "Montpellier Tower (12L, 12R)", type: "Tower", frequency: "118.775", cpdlcLogonCode: "" },
-        { name: "Montpellier Departure", type: "ApproachDeparture", frequency: "130.850", cpdlcLogonCode: "" },
+        // as BeyondATC sends it: each airport's block in reverse calling order, ATIS (named by ICAO) last, then Center
+        { name: "MONTPELLIER APPROACH", type: "Approach", frequency: "127.280", cpdlcLogonCode: "" },
+        { name: "MONTPELLIER DEPARTURE", type: "Departure", frequency: "130.855", cpdlcLogonCode: "" },
+        { name: "MONTPELLIER TOWER", type: "Tower", frequency: "118.775", cpdlcLogonCode: "" },
+        { name: "MONTPELLIER GROUND", type: "Ground", frequency: "121.955", cpdlcLogonCode: "" },
+        { name: "MONTPELLIER", type: "Clearance", frequency: "121.780", cpdlcLogonCode: "" },
+        { name: "LFMT", type: "ATIS", frequency: "124.130", cpdlcLogonCode: "" },
+        { name: "PROVENCE APPROACH", type: "Approach", frequency: "120.200", cpdlcLogonCode: "" },
+        { name: "PROVENCE TOWER", type: "Tower", frequency: "119.500", cpdlcLogonCode: "" },
+        { name: "PROVENCE GROUND", type: "Ground", frequency: "121.800", cpdlcLogonCode: "" },
+        { name: "LFML", type: "ATIS", frequency: "127.000", cpdlcLogonCode: "" },
         { name: "Marseille Control", type: "Center", frequency: "132.365", cpdlcLogonCode: "" },
-        { name: "Montpellier Mediterranee Automated Terminal Information Service", type: "ATIS", frequency: "124.130", cpdlcLogonCode: "" },
-        { name: "Montpellier Delivery", type: "Clearance", frequency: "121.780", cpdlcLogonCode: "" },
-        { name: "Montpellier Ground", type: "Ground", frequency: "121.955", cpdlcLogonCode: "" },
       ]));
     } else {
       // the cursor on the pill: the answers open under the message

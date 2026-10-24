@@ -98,9 +98,11 @@ screen corner during flight, with a click-to-open settings card. Windows only. U
   `pill.js` keeps a "Contact" reminder from "contact <Station> [on] <freq>" until COM1 (`Facility`)
   matches. An `ATIS Current` box with a new letter shows "ATIS"; the snapshot's box doesn't.
   `CPDLCCode:` and other CPDLC traffic: the pill stays silent (CPDLC is fully handled in the sim).
-- What the toolbar sends (its panel `beyondatc_toolbar.js`, BeyondATC's package, read 2026-10-23): `set_autotune: <bool>`,
+- What the toolbar sends (its panel `beyondatc_toolbar.js`, BeyondATC's package at
+  `F:\FlightSimulator2024\Addons\Misc\beyondatc-toolbar`, read 2026-10-23): `set_autotune: <bool>`,
   `set_autorespond: <bool>` on its switches, `set_action: <reply>` on a menu item, `set_frequency: <f>`,
-  `frequencies` / `datis` / `atc_log` on tab clicks. BeyondATC broadcasts the resulting `AutoTune:` /
+  `frequencies` / `datis` / `atc_log` on tab clicks. The toolbar has no COM2 (a frequency is a plain click:
+  `set_frequency`) and lists `Frequencies` by type under the first entry's name, not by airport. BeyondATC broadcasts the resulting `AutoTune:` /
   `AutoRespond:` to every client (seen in sniffs when the toolbar switch was clicked).
 - `AppError: {"text","fatal","kicked"}` (text may span lines; empty clears). `Callsign: {full,shortForm}`.
 - The server pings (an empty frame); `sniff_batc.py` lost the connection after each one until it
@@ -128,12 +130,14 @@ screen corner during flight, with a click-to-open settings card. Windows only. U
   then the pilot's "Wilco, Airfrans 1234.". `beyondATC.log` (CPDLC bridge) holds the Hoppie logon
   code: keep it private.
 - Nothing is sent while PTT is held. The PTT indicator instead listens to a sim binding (below).
-- `frequencies` gets `Frequencies: [{"name","type","frequency","cpdlcLogonCode"},...]` (from the toolbar's code; never
-  in sniffs: BeyondATC sends it only when asked, maybe only to the asker): the stations around you (the toolbar
-  heads it with one name), not the route; `type` is ATIS / Clearance / Ground / Tower / ApproachDeparture /
-  Center / UNICOM. `pill.js` asks when the panel opens and when COM1 changes with Frequencies open, and files each
-  reply under Departure or Arrival by `Progress: {from,to,pct}` (pct < 50: Departure). Without Progress the tab shows
-  the last reply, no Departure / Arrival.
+- `frequencies` gets `Frequencies: [{"name","type","frequency","cpdlcLogonCode"},...]` (BeyondATC sends it only when
+  asked). Captured 2026-10-24 (LIRF-LFMT, at the gate): both airports of the route, no airport field. Each airport is
+  a block in reverse calling order ending with its ATIS, whose name is the ICAO ("LIRF"); then the Center ("Roma
+  Radar", `cpdlcLogonCode` "LIRR"). Types seen: ATIS, Clearance ("FIUME"), Ground, Tower, Departure, Approach, UNICOM,
+  Center (the toolbar also knows ApproachDeparture). `pill.js` splits after each ATIS, files the blocks by ICAO (no
+  ATIS: Progress from/to by position), and shows Departure / Arrival by `Progress: {from,to,pct}` with Center under
+  "En route". Without Progress the tab shows the reply as is. Asked when the panel opens and when COM1 changes with
+  Frequencies open. Unverified: the reply mid-flight or at arrival.
 - Sniff digest (11 sniffs, 2026-10-22/23, incl. LFMT-LIRF 127 min): `Progress` pct is 0-100, from/to are ICAO, about
   once a minute in flight. No `Actions` request carries a parameter: requests that need one (direct-to fixes, arrival
   gates) get a follow-up reply menu once ATC asks. A command a client sends (toolbar, Auto Respond) is never echoed:

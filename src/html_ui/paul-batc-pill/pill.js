@@ -34,7 +34,7 @@
     pttBlock: false,     // also stop the sim acting on it
     pttDelayMs: 250,     // PTT held this long before "Transmitting" shows. Under ~450 ms a click still shows briefly:
                          // the sim's first repeat comes at ~0.4 s, so a click looks held until then
-    hideOffline: false,  // true: no pill at all while BeyondATC isn't running
+    hideOffline: false,  // true: no pill at all while BeyondATC isn't running or has no flight
     devLog: false,       // stream what the pill gets, shows and does to tools/pill_log.py when it runs. tools/build.py
                          // turns it on in your own builds (build, install, inspect_ui.py --push), off in releases
     devLogUrl: "ws://127.0.0.1:41799",
@@ -124,15 +124,20 @@
     requests: [],        // the request menu (Actions while ATC isn't waiting for you)
     sentAt: 0,           // an answer or request was just sent: hide them until BeyondATC reacts
     panel: false,        // comms panel open (click the pill)
+    cardBack: false,     // the settings card was opened from the panel: closing it reopens the panel
+    logBase: 0,          // the last Log line already there when the Log opened (later ones slide in)
+    boxesFor: null,      // the readback whose clearance boxes the pill showed (kept in every state, see keepBoxes)
+    logCut: 0,           // while the Log clears (COM1 changed): its last old line; those fade out
     panelTab: "freq",    // "freq" | "log"
     freqs: null,         // the last "Frequencies:": { rows: [{ name, type, freq }] }, or { raw } if it can't be read
-    freqBook: { dep: [], arr: [] }, // every station heard of this flight, filed by Progress (see fileFreqs)
+    freqBook: {},        // each airport's stations by ICAO (see fileFreqs)
+    freqEnroute: [],     // the Center rows of the last reply
     freqSide: "dep",     // the Frequencies tab shown: "dep" | "arr"
     progress: null,      // "Progress: {from,to,pct}": the flight's airports and how far along it is
     logReset: true,      // open the Log at its newest line
   };
   var socket = null;
-  var timers = { reconnect: 0, linger: 0, error: 0, tune: 0, missed: 0, confirm: 0, swHide: 0, atis: 0, demo: 0, ptt: 0, pttShow: 0, swap: 0, poll: 0, log: 0, sent: 0, capHover: 0 };
+  var timers = { reconnect: 0, linger: 0, error: 0, tune: 0, missed: 0, confirm: 0, swHide: 0, atis: 0, demo: 0, ptt: 0, pttShow: 0, swap: 0, poll: 0, log: 0, sent: 0, capHover: 0, logClear: 0 };
   var destroyed = false;
   var current = null;    // last rendered view signature
 
@@ -500,18 +505,21 @@
     return { cls: "s-atc", html: BARS + facilityHtml("bp-who", { name: "Montpellier Ground", freq: "121.955" }) };
   }
 
+  // BeyondATC not running, or in its menu (no flight there): nothing to show but a ghost pill
+  function batcIdle() { return !state.connected || state.stage === "menu"; }
+
   function view() {
     var now = Date.now();
-    if (!state.inFlight || state.stage === "menu") return { hidden: true };
+    if (!state.inFlight) return { hidden: true };
     if (state.editing) return withExtra(demoView());
-    if (!state.connected) {
+    if (batcIdle()) {
       if (CONFIG.hideOffline) return { hidden: true };
-      return { cls: "is-ghost", html: LAMP + "<span>BATC offline</span>" };
+      return { cls: "is-ghost", html: LAMP + "<span>" + (state.connected ? "Waiting for BATC" : "BATC offline") + "</span>" };
     }
     if (state.error && now < state.errorUntil) {
-      return { cls: "s-err", html: LAMP + '<span class="bp-who">' + esc(state.error) + "</span>" };
+      return withExtra(keepBoxes({ cls: "s-err", html: LAMP + '<span class="bp-who">' + esc(state.error) + "</span>" }));
     }
-    if (state.pttShown && CONFIG.showPtt) return withExtra(pttLook()); // the boxes too, in Boxes mode
+    if (state.pttShown && CONFIG.showPtt) return withExtra(keepBoxes(pttLook())); // the boxes too, in Boxes mode
 
     var v;
     switch (state.mode) {
@@ -573,7 +581,19 @@
     }
     if (!v) v = { cls: "is-dot", html: LAMP };
     if (state.muted && !/\bis-dot\b/.test(v.cls)) v.html += MUTE;
-    return withExtra(v);
+    return withExtra(keepBoxes(v));
+  }
+
+  // Once a readback's clearance boxes are on the pill, they stay under whatever it shows (traffic, ATC talking to
+  // others, an error, PTT) until that readback is over
+  function keepBoxes(v) {
+    var rb = state.readback;
+    if (v.extra) {
+      if (rb && /\bis-msg\b/.test(v.cls)) state.boxesFor = rb;
+      return v;
+    }
+    if (!rb || state.boxesFor !== rb || CONFIG.readbackDetail !== "boxes" || !state.infoBoxes.length) return v;
+    return { cls: v.cls.replace(/\bis-dot\b/, "") + " is-msg", html: v.html, extra: boxesHtml(state.infoBoxes) };
   }
 
   function withExtra(v) {
@@ -913,7 +933,10 @@
         var pg = parseJson(payload);
         if (!pg || typeof pg !== "object") break;
         // a new route: the stations filed for the last one don't apply
-        if (state.progress && (pg.from !== state.progress.from || pg.to !== state.progress.to)) state.freqBook = { dep: [], arr: [] };
+        if (state.progress && (pg.from !== state.progress.from || pg.to !== state.progress.to)) {
+          state.freqBook = {};
+          state.freqEnroute = [];
+        }
         state.progress = pg;
         break;
       }
@@ -929,6 +952,7 @@
           // the stations around you may have changed: refresh the open Frequencies tab
           if (state.panel && state.panelTab === "freq") send("frequencies");
         }
+        if (state.seenFacility && prev.freq !== state.facility.freq) clearLog();
         if (state.contact && onContact(state.contact)) state.contact = null;
         state.seenFacility = true;
         break;
@@ -1089,11 +1113,10 @@
   function openCard(open) {
     if (open !== state.editing) devLog("event", open ? "settings opened" : "settings closed");
     state.editing = open;
-    if (open) { showSwitches(false); state.panel = false; }
+    // opened from the panel's gear: closing goes back to the panel
+    if (open) { showSwitches(false); state.cardBack = state.panel; state.panel = false; }
+    else if (state.cardBack) { state.cardBack = false; state.panel = !batcIdle(); }
     card.className = open ? "" : "is-closed";
-    shade.className = open ? "" : "is-closed";
-    if (open) shade.setAttribute("data-input-group", "BATC-PILL");
-    else shade.removeAttribute("data-input-group");
     // the sim checks data-input-group on the exact element under the cursor, so tag every element
     var els = [card].concat([].slice.call(cardEls));
     for (var i = 0; i < els.length; i++) {
@@ -1118,17 +1141,27 @@
       }
     }
     if (state.editing) openCard(false);
-    else if (!state.connected) openCard(true); // no comms panel offline: its gear is the only way to settings
+    else if (batcIdle()) openCard(true); // no comms panel then: its gear is the only way to settings
     else openPanel(!state.panel);
   });
 
-  // While the card is open, a transparent layer behind it (and the pill) takes the clicks elsewhere and closes
-  // it: the sim keeps clicks that land on no element of ours, so the page never sees them otherwise.
+  // While the card or the panel is open, a transparent layer behind it (and the pill) takes the clicks elsewhere
+  // and closes it: the sim keeps clicks that land on no element of ours, so the page never sees them otherwise.
   var shade = document.createElement("div");
   shade.id = "batc-pill-shade";
   shade.className = "is-closed";
   document.body.appendChild(shade);
-  shade.addEventListener("click", function () { openCard(false); });
+  shade.addEventListener("click", function () {
+    if (state.editing) openCard(false);
+    else openPanel(false);
+  });
+
+  function updateShade() {
+    var on = state.editing || (state.panel && commsShown());
+    shade.className = on ? "" : "is-closed";
+    if (on) shade.setAttribute("data-input-group", "BATC-PILL");
+    else shade.removeAttribute("data-input-group");
+  }
 
 
   card.addEventListener("click", function (e) {
@@ -1249,7 +1282,7 @@
     // width left the buttons over it while it grew
     var r = root.getBoundingClientRect();
     var w = parseFloat(root.style.width) || r.width;
-    var gap = 8 * 0.000926 * window.innerHeight * Number(CONFIG.scale || 1);
+    var gap = 5 * 0.000926 * window.innerHeight * Number(CONFIG.scale || 1);
     var bottom = /^bottom/.test(CONFIG.corner);
     var st = switches.style;
     st.top = st.bottom = st.left = st.right = "";
@@ -1333,7 +1366,7 @@
   function addLine(who, label, text) {
     var id = ++capSeq, now = Date.now();
     text = String(text).trim();
-    state.log.push({ who: who, label: label, text: text, at: now });
+    state.log.push({ id: id, who: who, label: label, text: text, at: now });
     if (state.log.length > LOG_MAX) state.log.shift();
     if (who === "traffic" ? CONFIG.captions === "all" && CONFIG.showTraffic : CONFIG.captions !== "off") {
       state.caps.push({ id: id, who: who, label: label, text: text, born: now });
@@ -1358,6 +1391,15 @@
 
   // nothing can be sent now: someone's talking, a request is queued, or a click is on its way
   function busy() { return state.mode !== "ready" || justSent(); }
+
+  // the frequency is busy with someone else (AI traffic, or ATC talking to it): a request still goes, and
+  // BeyondATC queues it ("queued") until the frequency is free
+  function othersTalking() {
+    if (state.mode === "speaking") return state.speaker === "traffic" || state.speaker === "atcTraffic";
+    return state.mode === "traffic" && !/^atis/i.test(state.text);
+  }
+
+  function canRequest() { return (!busy() || othersTalking()) && !justSent(); }
 
   function capPinned(c) { return awaiting() && state.readback.capId === c.id; }
 
@@ -1405,7 +1447,7 @@
   }
 
   function commsShown() {
-    return state.connected && state.inFlight && !state.editing && current !== null && current !== "hidden";
+    return !batcIdle() && state.inFlight && !state.editing && current !== null && current !== "hidden";
   }
 
   function messagesShown() { return commsShown() && !state.panel && CONFIG.captions !== "off"; }
@@ -1472,11 +1514,14 @@
     clearTimeout(n.batcRowTimer);
     if (acts) {
       if (!row) {
+        // a new row starts faded out and slides in as its slot opens (a row still fading out comes straight back)
         row = document.createElement("div");
+        row.className = "bm-acts is-out";
         n.appendChild(row);
       }
-      row.className = "bm-acts";
       row.innerHTML = acts;
+      void row.offsetHeight;
+      row.className = "bm-acts";
     }
     n.setAttribute("data-acts", acts);
     if (n.className.indexOf(" is-out") >= 0) { // still opening: its own animation sizes it
@@ -1560,7 +1605,7 @@
       } else if (contactPending()) {
         // requests wait until you're on the new station
         if (!capShown(state.contact.capId)) html = tuneChip();
-      } else if (!busy()) {
+      } else if (canRequest()) {
         // BeyondATC's order: the likely next request first
         html = state.requests.map(function (r) { return chip(r, "data-req", r, ""); }).join("");
       }
@@ -1584,7 +1629,7 @@
       return;
     }
     if (el.getAttribute("data-tune")) { tune(el.getAttribute("data-tune")); return; }
-    if (busy()) return;
+    if (el.getAttribute("data-req") ? !canRequest() : busy()) return;
     var label = el.getAttribute("data-reply") || el.getAttribute("data-req");
     // exactly as the toolbar's menu item: BeyondATC answers with queued / Player: / processing
     if (!send("set_action: " + label)) return;
@@ -1614,7 +1659,7 @@
       if (contactPending()) {
         state.panelTab = "freq"; // the station ATC handed you to, on the side that holds it
         ["dep", "arr"].forEach(function (k) {
-          if (state.freqBook[k].some(function (r) { return sameFreq(r.freq, state.contact.freq); })) state.freqSide = k;
+          if (sideRows(k).some(function (r) { return sameFreq(r.freq, state.contact.freq); })) state.freqSide = k;
         });
       }
       state.logReset = true;
@@ -1625,42 +1670,60 @@
 
   function sameFreq(a, b) { return !!a && !!b && Number(a).toFixed(3) === Number(b).toFixed(3); }
 
-  // "Frequencies: [{"name","type","frequency","cpdlcLogonCode"}, ...]" (read from the toolbar's code; not seen
-  // in sniffs: BeyondATC sends it only when asked). The stations around you, not the route; type is ATIS,
-  // Clearance, Ground, Tower, ApproachDeparture, Center or UNICOM. Listed in the order you call them. Anything
-  // else is kept raw, so the panel shows it instead of guessing.
-  var FREQ_ORDER = ["atis", "clearance", "ground", "tower", "approachdeparture", "center", "unicom"];
-  var ARR_ORDER = ["atis", "center", "approachdeparture", "tower", "ground", "clearance", "unicom"]; // arriving
+  // "Frequencies: [{"name","type","frequency","cpdlcLogonCode"}, ...]" (BeyondATC sends it only when asked). Seen
+  // 2026-10-24 (LIRF-LFMT): both airports of the route, each a block in reverse calling order ending with its ATIS,
+  // named after the airport ("LIRF"), then the Center ("Roma Radar"). Types: ATIS, Clearance, Ground, Tower,
+  // Departure, Approach, UNICOM, Center (the toolbar also knows ApproachDeparture). Anything else is kept raw, so
+  // the panel shows it instead of guessing.
+  var DEP_ORDER = ["atis", "clearance", "ground", "tower", "departure", "approachdeparture", "approach", "unicom"];
+  var ARR_ORDER = ["atis", "approach", "approachdeparture", "departure", "tower", "ground", "clearance", "unicom"];
 
-  // BeyondATC only lists the stations around you, so the Departure and Arrival tabs are built up over the
-  // flight: each reply is filed under the half of the flight it came in (Progress), merged by frequency.
   function flightHalf() {
     var pct = state.progress ? Number(state.progress.pct) : NaN; // 0-100 (sniffs: 0.0 at the gate, 99.7 at arrival)
     return pct >= 50 ? "arr" : "dep";
   }
 
+  // each airport's stations, kept by ICAO and merged by frequency, so a later reply that leaves one out keeps it
   function fileFreqs(rows) {
-    var half = flightHalf(), book = state.freqBook[half];
+    var pg = state.progress || {}, blocks = [[]], enroute = [];
     rows.forEach(function (r) {
-      for (var i = 0; i < book.length; i++) if (sameFreq(book[i].freq, r.freq)) { book[i] = r; return; }
-      book.push(r);
+      if (r.kind === "center") { enroute.push(r); return; }
+      var cur = blocks[blocks.length - 1], last = cur[cur.length - 1];
+      if (last && last.kind === "atis" && r.kind !== "atis") blocks.push(cur = []);
+      cur.push(r);
     });
-    // in the order you call them: on the way out, or on the way in
-    book.sort(function (a, b) { return half === "arr" ? a.arrRank - b.arrRank : a.rank - b.rank; });
+    blocks.forEach(function (b, i) {
+      var named = b.filter(function (r) { return r.icao; })[0];
+      var icao = named ? named.icao : [pg.from, pg.to][i]; // no ATIS: the route's order
+      if (!icao) return;
+      var book = state.freqBook[icao] = state.freqBook[icao] || [];
+      b.forEach(function (r) {
+        for (var j = 0; j < book.length; j++) if (sameFreq(book[j].freq, r.freq)) { book[j] = r; return; }
+        book.push(r);
+      });
+    });
+    if (enroute.length) state.freqEnroute = enroute;
+  }
+
+  // the airport's stations in the order you call them: on the way out, or on the way in
+  function sideRows(side) {
+    var pg = state.progress || {}, order = side === "arr" ? ARR_ORDER : DEP_ORDER;
+    var rank = function (r) { var k = order.indexOf(r.kind); return k < 0 ? order.length : k; };
+    return (state.freqBook[side === "arr" ? pg.to : pg.from] || []).slice().sort(function (a, b) { return rank(a) - rank(b); });
   }
 
   function parseFreqs(payload) {
     var data = parseJson(payload), rows = [];
-    (data instanceof Array ? data : []).forEach(function (o, i) {
+    (data instanceof Array ? data : []).forEach(function (o) {
       var f = o && Number(o.frequency);
       if (!f || f < 100 || f > 200) return;
-      var t = String(o.type || "").toLowerCase().replace(/[^a-z]/g, "");
-      var rank = FREQ_ORDER.indexOf(t);
-      var arr = ARR_ORDER.indexOf(t);
-      rows.push({ name: stationName(o.name) || String(o.type || ""), type: String(o.type || ""), freq: f.toFixed(3),
-        rank: (rank < 0 ? FREQ_ORDER.length : rank) * 1000 + i, arrRank: (arr < 0 ? ARR_ORDER.length : arr) * 1000 + i });
+      var type = String(o.type || ""), name = stationName(o.name);
+      var icao = /^atis$/i.test(type) && /^[A-Z0-9]{4}$/.test(name) ? name : "";
+      // "FIUME GROUND" -> "Fiume Ground"; a one-word name gets its type: "LIRF ATIS", "Fiume Clearance"
+      if (!icao) name = name.replace(/[^\s\/-]+/g, function (w) { return /^(ATIS|ACC|FIS)$/i.test(w) ? w.toUpperCase() : w.charAt(0).toUpperCase() + w.slice(1).toLowerCase(); });
+      rows.push({ name: !name ? type : /\s/.test(name) ? name : name + " " + type, kind: type.toLowerCase().replace(/[^a-z]/g, ""),
+        freq: f.toFixed(3), icao: icao });
     });
-    rows.sort(function (a, b) { return a.rank - b.rank; });
     return rows.length ? { rows: rows } : { raw: String(payload) };
   }
 
@@ -1685,30 +1748,62 @@
       return h + '<div class="bm-note">BeyondATC sent its frequencies in a form the pill can\'t read yet:</div>' +
         '<div class="bm-raw">' + esc(f.raw.slice(0, 600)) + "</div>";
     }
-    var com2 = state.com2 ? state.com2.split("|")[1] : "";
     var rows = f.rows, pg = state.progress;
     if (pg) {
-      // Departure / Arrival, each with what was heard on that half of the flight
+      // Departure / Arrival: each airport's stations, then the Center you're under
       h += '<div class="bm-seg">' + [["dep", "Departure", pg.from], ["arr", "Arrival", pg.to]].map(function (t) {
         return '<span class="bm-tab' + (state.freqSide === t[0] ? " is-on" : "") + '" data-side="' + t[0] + '">' + t[1] +
           (t[2] ? " · " + esc(t[2]) : "") + "</span>";
       }).join("") + "</div>";
-      rows = state.freqBook[state.freqSide];
-      if (!rows.length) {
-        return h + '<div class="bm-note">' + (state.freqSide === "arr" ? "The arrival's stations show once you're past halfway."
-          : "No departure stations heard yet.") + "</div>";
+      rows = sideRows(state.freqSide);
+      if (!rows.length) h += '<div class="bm-note">BeyondATC hasn\'t listed this airport\'s stations.</div>';
+      if (state.freqEnroute.length) {
+        if (rows.length) h += freqRows(rows);
+        h += '<div class="bm-sec bm-sub">En route</div>';
+        rows = state.freqEnroute;
       }
     }
-    h += '<div class="bm-rows">' + rows.map(function (r) {
-      var on1 = sameFreq(r.freq, state.facility.freq);
-      return '<div class="bm-row' + (on1 ? " is-active" : "") + '" data-tune="' + esc(r.freq) + '"><span class="bm-grow">' +
-        esc(r.name) + "</span>" +
-        (contactPending() && sameFreq(r.freq, state.contact.freq) ? '<span class="bm-tag is-ask">ATC</span>' : "") +
-        (on1 ? '<span class="bm-tag is-com1">COM1</span>' : "") +
-        (sameFreq(r.freq, com2) ? '<span class="bm-tag is-com2">COM2</span>' : "") +
-        '<span class="bm-f">' + esc(r.freq) + "</span></div>";
+    return h + freqRows(rows);
+  }
+
+  function freqRows(rows) {
+    if (!rows.length) return "";
+    var com2 = state.com2 ? state.com2.split("|")[1] : "";
+    // one row per station, its frequencies as chips ("Fiume Ground 121.675 122.125 121.900"), in the rows' order
+    var groups = [], byKey = {};
+    rows.forEach(function (r) {
+      var k = r.kind + "|" + r.name;
+      if (!byKey[k]) groups.push(byKey[k] = { name: r.name, freqs: [] });
+      byKey[k].freqs.push(r.freq);
+    });
+    return '<div class="bm-rows">' + groups.map(function (g) {
+      var on1 = false;
+      var chips = g.freqs.map(function (f) {
+        var c1 = sameFreq(f, state.facility.freq);
+        on1 = on1 || c1;
+        // filled: COM1; outlined: COM2; amber: the station ATC handed you to
+        var cls = c1 ? " is-com1" : contactPending() && sameFreq(f, state.contact.freq) ? " is-ask" : sameFreq(f, com2) ? " is-com2" : "";
+        return '<span class="bm-fq' + cls + '" data-tune="' + esc(f) + '">' + esc(f) + "</span>";
+      }).join("");
+      return '<div class="bm-row' + (on1 ? " is-active" : "") + '"><span class="bm-grow">' + esc(g.name) + "</span>" +
+        '<span class="bm-fqs">' + chips + "</span></div>";
     }).join("") + "</div>";
-    return h;
+  }
+
+  // a new COM1 frequency starts a new Log. On screen, the old lines fade out first; lines that come in meanwhile stay
+  function clearLog() {
+    var cut = capSeq;
+    function drop() {
+      state.logCut = 0;
+      state.log = state.log.filter(function (l) { return l.id > cut; });
+      renderComms();
+    }
+    clearTimeout(timers.logClear);
+    if (state.panel && state.panelTab === "log" && commsShown() && state.log.length) {
+      state.logCut = cut;
+      timers.logClear = setTimeout(drop, 350);
+      renderComms();
+    } else drop();
   }
 
   function hhmm(t) {
@@ -1718,16 +1813,22 @@
 
   function logTab() {
     var lines = state.log.filter(function (l) { return CONFIG.showTraffic || l.who !== "traffic"; });
+    // a line slides in as it arrives; the ones already there when the Log opens don't. The class stays for the
+    // animation's length, so a re-render meanwhile (same HTML) doesn't restart it
+    if (state.logReset) state.logBase = capSeq;
+    var fresh = Date.now() - 700;
     return '<div class="bm-bar"><span class="bm-sec">' + lines.length + " lines</span>" +
       toggleHtml("AI traffic", "data-act", "traffic", CONFIG.showTraffic) + "</div>" +
       (lines.length ? '<div class="bm-log">' + lines.map(function (l) {
-        return '<div class="bm-ln bm-' + l.who + '"><span class="bm-t">' + hhmm(l.at) + '</span><span class="bm-x">' +
+        var cls = l.id <= state.logCut ? " is-gone" : l.id > state.logBase && l.at > fresh ? " is-new" : "";
+        return '<div class="bm-ln bm-' + l.who + cls + '"><span class="bm-t">' + hhmm(l.at) + '</span><span class="bm-x">' +
           '<span class="bm-w">' + esc(l.label) + "</span>" + esc(l.text) + "</span></div>";
       }).join("") + "</div>" : '<div class="bm-note">No radio calls yet.</div>');
   }
 
   function renderPanel() {
     var open = state.panel && commsShown();
+    updateShade();
     panel.className = open ? "" : "is-closed";
     if (!open) { panel.removeAttribute("data-input-group"); return; }
     var tabs = [["freq", "Frequencies"], ["log", "Log"]].map(function (t) {
@@ -1764,7 +1865,7 @@
     else if (el.getAttribute("data-tune")) { tune(el.getAttribute("data-tune")); return; }
     else if (el.getAttribute("data-sw")) { flip(el.getAttribute("data-sw")); return; }
     else if (act === "close") { openPanel(false); return; }
-    else if (act === "settings") { state.panel = false; openCard(true); return; }
+    else if (act === "settings") { openCard(true); return; }
     else if (act === "traffic") { set({ showTraffic: !CONFIG.showTraffic }); return; }
     renderPanel();
   });
