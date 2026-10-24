@@ -127,6 +127,8 @@
     cardBack: false,     // the settings card was opened from the panel: closing it reopens the panel
     logBase: 0,          // the last Log line already there when the Log opened (later ones slide in)
     boxesFor: null,      // the readback whose clearance boxes the pill showed (kept in every state, see keepBoxes)
+    trafficSince: 0,     // when the Log's AI traffic switch was turned on (its lines slide in)
+    trafficLeaving: false, // the switch was turned off: AI traffic lines fade out, then go
     logCut: 0,           // while the Log clears (COM1 changed): its last old line; those fade out
     panelTab: "freq",    // "freq" | "log"
     freqs: null,         // the last "Frequencies:": { rows: [{ name, type, freq }] }, or { raw } if it can't be read
@@ -137,7 +139,7 @@
     logReset: true,      // open the Log at its newest line
   };
   var socket = null;
-  var timers = { reconnect: 0, linger: 0, error: 0, tune: 0, missed: 0, confirm: 0, swHide: 0, atis: 0, demo: 0, ptt: 0, pttShow: 0, swap: 0, poll: 0, log: 0, sent: 0, capHover: 0, logClear: 0 };
+  var timers = { reconnect: 0, linger: 0, error: 0, tune: 0, missed: 0, confirm: 0, swHide: 0, atis: 0, demo: 0, ptt: 0, pttShow: 0, swap: 0, poll: 0, log: 0, sent: 0, capHover: 0, logClear: 0, traffic: 0 };
   var destroyed = false;
   var current = null;    // last rendered view signature
 
@@ -1343,6 +1345,12 @@
   var IG = ' data-input-group="BATC-PILL"'; // clicks reach only elements carrying it (see openCard)
   var capSeq = 0, hoverCap = 0, hoverCapAll = false, listAll = false, panelHtml = "";
   var sent = [];
+  // the Log outlives a restart of the pill (a hot reload): destroy() leaves it here
+  if (window.batcPillLog) {
+    state.log = window.batcPillLog.log;
+    capSeq = window.batcPillLog.seq;
+    window.batcPillLog = null;
+  }
 
   function send(cmd) {
     if (!socket || socket.readyState !== 1) return false;
@@ -1727,8 +1735,11 @@
     return rows.length ? { rows: rows } : { raw: String(payload) };
   }
 
-  var GEAR = '<svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="8" cy="8" r="2.3"/>' +
-    '<path d="M8 1.5v2M8 12.5v2M1.5 8h2M12.5 8h2M3.4 3.4l1.4 1.4M11.2 11.2l1.4 1.4M3.4 12.6l1.4-1.4M11.2 4.8l1.4-1.4"/></svg>';
+  // a cog: 8 teeth in straight segments, and its hole
+  var GEAR = '<svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.3" stroke-linejoin="round">' +
+    '<path d="M13.3 8.6L14.9 9.3L13.8 11.9L12.1 11.3L11.3 12.1L11.9 13.8L9.3 14.9L8.6 13.3L7.4 13.3L6.7 14.9L4.1 13.8' +
+    'L4.7 12.1L3.9 11.3L2.2 11.9L1.1 9.3L2.7 8.6L2.7 7.4L1.1 6.7L2.2 4.1L3.9 4.7L4.7 3.9L4.1 2.2L6.7 1.1L7.4 2.7L8.6 2.7' +
+    'L9.3 1.1L11.9 2.2L11.3 3.9L12.1 4.7L13.8 4.1L14.9 6.7L13.3 7.4Z"/><circle cx="8" cy="8" r="2.2"/></svg>';
   var CROSS = '<svg viewBox="0 0 10 10" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round">' +
     '<path d="M2 2l6 6M8 2l-6 6"/></svg>';
 
@@ -1816,11 +1827,12 @@
     // a line slides in as it arrives; the ones already there when the Log opens don't. The class stays for the
     // animation's length, so a re-render meanwhile (same HTML) doesn't restart it
     if (state.logReset) state.logBase = capSeq;
-    var fresh = Date.now() - 700;
-    return '<div class="bm-bar"><span class="bm-sec">' + lines.length + " lines</span>" +
-      toggleHtml("AI traffic", "data-act", "traffic", CONFIG.showTraffic) + "</div>" +
+    var fresh = Date.now() - 700, shown = Date.now() - state.trafficSince < 450;
+    return '<div class="bm-bar is-end">' + toggleHtml("AI traffic", "data-act", "traffic",
+      CONFIG.showTraffic && !state.trafficLeaving) + "</div>" +
       (lines.length ? '<div class="bm-log">' + lines.map(function (l) {
-        var cls = l.id <= state.logCut ? " is-gone" : l.id > state.logBase && l.at > fresh ? " is-new" : "";
+        var cls = l.id <= state.logCut ? " is-gone" : l.who === "traffic" && state.trafficLeaving ? " is-fold" :
+          l.who === "traffic" && shown ? " is-unfold" : l.id > state.logBase && l.at > fresh ? " is-new" : "";
         return '<div class="bm-ln bm-' + l.who + cls + '"><span class="bm-t">' + hhmm(l.at) + '</span><span class="bm-x">' +
           '<span class="bm-w">' + esc(l.label) + "</span>" + esc(l.text) + "</span></div>";
       }).join("") + "</div>" : '<div class="bm-note">No radio calls yet.</div>');
@@ -1866,9 +1878,19 @@
     else if (el.getAttribute("data-sw")) { flip(el.getAttribute("data-sw")); return; }
     else if (act === "close") { openPanel(false); return; }
     else if (act === "settings") { openCard(true); return; }
-    else if (act === "traffic") { set({ showTraffic: !CONFIG.showTraffic }); return; }
+    else if (act === "traffic") { toggleTraffic(); return; }
     renderPanel();
   });
+
+  // the Log's AI traffic switch: its lines slide in, or fade out before they go (the switch flips at once)
+  function toggleTraffic() {
+    clearTimeout(timers.traffic);
+    if (state.trafficLeaving) { state.trafficLeaving = false; renderPanel(); return; } // back on mid-fade
+    if (!CONFIG.showTraffic) { state.trafficSince = Date.now(); set({ showTraffic: true }); return; }
+    state.trafficLeaving = true;
+    renderPanel();
+    timers.traffic = setTimeout(function () { state.trafficLeaving = false; set({ showTraffic: false }); }, 350);
+  }
 
   // under the pill, toward the screen center; bottom corners stack upward (see place)
   function placeComms(v, h) {
@@ -1997,6 +2019,7 @@
 
   function destroy() {
     destroyed = true;
+    window.batcPillLog = { log: state.log, seq: capSeq };
     for (var k in timers) { clearTimeout(timers[k]); clearInterval(timers[k]); }
     if (socket) { socket.onclose = null; socket.close(); socket = null; }
     if (logSock) { logSock.onclose = null; logSock.close(); logSock = null; }

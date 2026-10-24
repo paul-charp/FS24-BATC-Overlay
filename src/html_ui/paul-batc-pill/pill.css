@@ -499,6 +499,7 @@
   align-items: flex-end; /* the box keeps its width when its row opens */
   max-width: 100%;
   overflow: hidden;
+  box-sizing: border-box; /* pill.js sets the height with the gap included: it was 6 units over, then snapped back */
   padding-top: calc(6 * var(--u));
   transition: height 0.42s var(--ease), padding-top 0.42s var(--ease);
 }
@@ -680,6 +681,7 @@
 .bm-contact .bm-grow { font-weight: 500; }
 .bm-go { flex: none; margin-left: calc(8 * var(--u)); white-space: nowrap; padding: calc(5 * var(--u)) calc(9 * var(--u)); border-radius: calc(5 * var(--u)); background-color: var(--on); color: #0e1218; cursor: pointer; }
 .bm-bar { display: flex; align-items: center; justify-content: space-between; margin-bottom: calc(6 * var(--u)); }
+.bm-bar.is-end { justify-content: flex-end; } /* the Log's AI traffic switch alone */
 .bm-sec { color: var(--dim); font-size: calc(10 * var(--u)); letter-spacing: 0.07em; text-transform: uppercase; }
 .bm-sub { margin: calc(8 * var(--u)) 0 calc(4 * var(--u)); } /* "En route", under the airport's stations */
 /* the whole history scrolls (wheel); it opens at the newest line */
@@ -698,6 +700,17 @@
   0% { opacity: 0; transform: translateY(calc(8 * var(--u))); background-color: rgba(255, 255, 255, 0.12); }
   40% { opacity: 1; transform: translateY(0); background-color: rgba(255, 255, 255, 0.12); }
   100% { background-color: rgba(255, 255, 255, 0); }
+}
+/* the AI traffic switch: its lines open their space and fade in, or fade and close it (pill.js waits 0.35 s) */
+.bm-ln.is-unfold { overflow: hidden; animation: bm-unfold 0.4s var(--ease); }
+.bm-ln.is-fold { overflow: hidden; animation: bm-fold 0.35s var(--ease) forwards; }
+@keyframes bm-unfold {
+  0% { opacity: 0; max-height: 0; padding-top: 0; padding-bottom: 0; }
+  100% { opacity: 1; max-height: calc(80 * var(--u)); }
+}
+@keyframes bm-fold {
+  0% { opacity: 1; max-height: calc(80 * var(--u)); }
+  100% { opacity: 0; max-height: 0; padding-top: 0; padding-bottom: 0; }
 }
 /* COM1 changed: the old lines fade out and up before the Log clears (pill.js waits 0.35 s) */
 .bm-ln.is-gone { animation: bm-out 0.35s ease forwards; }
