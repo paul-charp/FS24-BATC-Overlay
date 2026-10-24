@@ -1232,6 +1232,7 @@
 
   function showSwitches(open) {
     switchesOpen = open;
+    if (!open) listAll = false;
     switches.className = open ? "" : "is-closed";
     // clicks need data-input-group on the exact element under the cursor (see openCard)
     for (var i = 0; i < switchEls.length; i++) {
@@ -1306,7 +1307,7 @@
   var SENT_MS = 4000;     // after a click, answers and requests stay hidden this long unless BeyondATC reacts first
   var CHIP_MAX = 3;       // answers shown before "+N"
   var IG = ' data-input-group="BATC-PILL"'; // clicks reach only elements carrying it (see openCard)
-  var capSeq = 0, hoverCap = 0, hoverCapAll = false, panelHtml = "";
+  var capSeq = 0, hoverCap = 0, hoverCapAll = false, listAll = false, panelHtml = "";
   var sent = [];
 
   function send(cmd) {
@@ -1363,10 +1364,12 @@
   function contactPending() { return !!(state.contact && state.contact.freq && !state.autoTune && !awaiting()); }
 
   // the toolbar's reply menu without "Say Again" (the message is there to read again); "Cancel ..." last
+  // once each: "say fix name" lists the route's fixes with repeats ("MARRI¬MARRI")
   function answers() {
-    var a = [], cancels = [];
+    var a = [], cancels = [], seen = {};
     state.menu.forEach(function (s) {
-      if (/^say again$/i.test(s)) return;
+      if (/^say again$/i.test(s) || seen[s]) return;
+      seen[s] = true;
       (/^cancel\b/i.test(s) ? cancels : a).push(s);
     });
     return a.concat(cancels);
@@ -1379,11 +1382,17 @@
 
   // the obvious answer (a readback, an acknowledgement) filled amber; a question's answers all alike.
   // A long list: the first few, then "+N" opens the rest in place.
+  // the answer to fill amber: a readback or acknowledgement, a STAR's "Accept Clearance", the "Allocated Gate"
+  // of a gate question, or the only answer offered ("Say Callsign"); a question's choices stay alike
+  var OBVIOUS = /^(read ?back|acknowledge|accept|allocated)\b/i;
+
   function answerChips(all) {
-    var a = answers(), question = waitingFor().choices.length > 0, off = busy() ? " is-busy" : "";
+    var a = answers(), off = busy() ? " is-busy" : "";
+    var choices = a.filter(function (s) { return !/^cancel\b/i.test(s); });
+    var obvious = choices.length === 1 || OBVIOUS.test(choices[0] || "");
     var cut = all || a.length <= CHIP_MAX + 1 ? a.length : CHIP_MAX, html = "";
     for (var i = 0; i < cut; i++) {
-      var cls = i === 0 && !question && !/^cancel\b/i.test(a[i]) ? "is-primary" : /^cancel\b/i.test(a[i]) ? "is-quiet" : "";
+      var cls = i === 0 && obvious && !/^cancel\b/i.test(a[i]) ? "is-primary" : /^cancel\b/i.test(a[i]) ? "is-quiet" : "";
       html += chip(a[i], "data-reply", a[i], cls + off);
     }
     if (cut < a.length) html += chip("+" + (a.length - cut), "data-more", "1", "is-quiet");
@@ -1534,7 +1543,7 @@
     if (switchesOpen && commsShown() && !state.panel) {
       if (awaiting()) {
         // answers show in one place: under the message while it's on screen, else here
-        if (!capShown(state.readback.capId) && !justSent()) html = answerChips(true);
+        if (!capShown(state.readback.capId) && !justSent()) html = answerChips(listAll);
       } else if (contactPending()) {
         // requests wait until you're on the new station
         if (!capShown(state.contact.capId)) html = tuneChip();
@@ -1557,7 +1566,10 @@
       el = el.parentNode;
     }
     if (!el || el === container) return;
-    if (el.getAttribute("data-more")) { hoverCapAll = true; renderMessages(); return; }
+    if (el.getAttribute("data-more")) {
+      if (container === list) { listAll = true; renderList(); } else { hoverCapAll = true; renderMessages(); }
+      return;
+    }
     if (el.getAttribute("data-tune")) { tune(el.getAttribute("data-tune")); return; }
     if (busy()) return;
     var label = el.getAttribute("data-reply") || el.getAttribute("data-req");
@@ -1610,9 +1622,8 @@
   // BeyondATC only lists the stations around you, so the Departure and Arrival tabs are built up over the
   // flight: each reply is filed under the half of the flight it came in (Progress), merged by frequency.
   function flightHalf() {
-    var pct = state.progress ? Number(state.progress.pct) : NaN;
-    if (pct > 1) pct /= 100; // 0..1 or 0..100: not seen live yet
-    return pct >= 0.5 ? "arr" : "dep";
+    var pct = state.progress ? Number(state.progress.pct) : NaN; // 0-100 (sniffs: 0.0 at the gate, 99.7 at arrival)
+    return pct >= 50 ? "arr" : "dep";
   }
 
   function fileFreqs(rows) {

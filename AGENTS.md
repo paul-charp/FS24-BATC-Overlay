@@ -137,6 +137,17 @@ screen corner during flight, with a click-to-open settings card. Windows only. U
   once a minute in flight. No `Actions` request carries a parameter: requests that need one (direct-to fixes, arrival
   gates) get a follow-up reply menu once ATC asks. A command a client sends (toolbar, Auto Respond) is never echoed:
   it shows as `QueuedAction` + `queued`, then a `Player:` line. `CPDLCCode:` was empty in every sniff.
+  Follow-up menus: "say fix name" gives `Cancel Direct Request¬<the route's fixes, repeats included>¬Say Again¬`
+  (33 fixes), "say parking" `Allocated Gate¬Gate 301¬...¬Say Again¬` (74 gates), a STAR `Accept Clearance¬Request
+  Different Runway¬Say Again¬`, a voice direct-to request "say callsign" `Say Callsign¬Say Again¬`. `pill.js` shows
+  answers once each, Cancel last, three then "+N" (the opened list scrolls), and fills amber a readback,
+  acknowledgement, "Accept", "Allocated" or a lone answer. Other menus seen: Acknowledge Cross Instruction /
+  Takeoff Clearance / Landing Clearance / Handoff, Readback Instruction, `Acknowledge Instruction¬Ready for
+  Descent¬Say Again¬`; requests Report Established, Declare Go Around, Report Clear of Runway, Request Taxi to
+  (Assigned) Gate, Submit Turbulence / Icing Pirep, Call Ready for Descent, "Announce On/on Frequency" (both casings).
+  While a flight loads: `LoadState` `loading` / `download` with text and pct, `Wipe:`, `RadioMute` true then false,
+  and `Facility: 121.955|121.955` (the frequency as the name) before the station's. `DATIS: <ICAO>|<letter>|<text>`
+  per airport in the snapshot, then `DATIS_END:`. On an ATIS frequency the menu is `Actions: []`.
 - Comms panel, not yet verified live: the `Frequencies:` reply's exact values (`parseFreqs` shows anything it
   can't read raw); whether `set_frequency` sets COM1 active or standby (COM2 has no known command: right-click for COM2 is
   not built); what `atc_log` returns (not sent; the Log is built from the stream); whether wheel events reach

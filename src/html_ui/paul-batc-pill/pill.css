@@ -530,7 +530,11 @@
 .bm-traffic .bm-card { color: rgba(236, 241, 246, 0.72); background-color: rgba(14, 18, 24, 0.28); }
 /* the message ATC waits on */
 .bm-cap.is-pinned .bm-card { border-color: rgba(255, 181, 71, 0.5); background-color: rgba(14, 18, 24, 0.48); }
-.bm-acts { display: flex; flex-wrap: wrap; justify-content: flex-end; padding-top: calc(3 * var(--u)); }
+/* a long list opened with "+N" (route fixes, 74 gates) scrolls past about six rows */
+.bm-acts {
+  display: flex; flex-wrap: wrap; justify-content: flex-end; padding-top: calc(3 * var(--u));
+  max-height: calc(165 * var(--u)); overflow-y: auto; pointer-events: auto;
+}
 #batc-pill-msgs[data-side="left"] .bm-acts { justify-content: flex-start; }
 
 /* chips: answers, requests, "+N", "Tune" */
@@ -572,6 +576,7 @@
   transition: opacity 0.18s ease, transform 0.25s var(--ease);
 }
 #batc-pill-list[data-side="left"] { align-items: flex-start; }
+#batc-pill-list { max-height: calc(330 * var(--u)); overflow-y: auto; }
 #batc-pill-list[data-edge="bottom"] { flex-direction: column-reverse; } /* the first one nearest the pill */
 #batc-pill-list.is-closed { opacity: 0; transform: translateY(calc(-4 * var(--u))); pointer-events: none; }
 #batc-pill-list .bm-chip { margin: 0 0 calc(4 * var(--u)) 0; }
