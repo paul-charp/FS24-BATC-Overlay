@@ -9,7 +9,7 @@ screen corner during flight, with a click-to-open settings card. Windows only. U
 - `src/html_ui/paul-batc-pill/pill.js`: the whole runtime. WebSocket client for BeyondATC
   (`ws://127.0.0.1:41716`), state machine (`view()`), animated render (`render()` measures the new
   content, then transitions width), settings card, `CONFIG` defaults, and the comms section (messages under the
-  pill, answers/requests on hover, Frequencies/Log panel; design in `docs/design/comms-panel.html`). `pill.css`: the look; `--u` is
+  pill, answers/requests on hover, Frequencies/Log panel). `pill.css`: the look; `--u` is
   one 1080p pixel times `CONFIG.scale`.
 - `injections.json` + `tools/build.py`: the build copies the stock `MasterPage_InGame` cooked component
   from the local sim install, appends a hidden `<img onerror>` that loads `pill.js` once, and writes
@@ -27,8 +27,6 @@ screen corner during flight, with a click-to-open settings card. Windows only. U
   to `%LOCALAPPDATA%\paul-batc-pill\logs`. `tools/batc_timeline.py` prints either log as a timeline with
   `Actions`/`InfoBoxes` changes as diffs. `tools/harness.html`: desktop preview with replays, a fake
   `engine` and a "Hold PTT" button; `?fake` swaps in a socket that records what the pill sends (`batcPill.sent`).
-- `docs/design/comms-panel.html`: clickable UX prototype (captions, reply tray, comms panel) for taking over the
-  BeyondATC toolbar; standalone, scripted data, notes on the protocol gaps.
 - `docs/render/*.html` + `docs/render_images.py`: README/flightsim.to images via headless Edge (or
   Chrome/Chromium); `docs/render/pills.js` mirrors `view()`'s markup for the state sheet; `comms.html` runs the
   real pill.js on a recorded clearance through a stand-in socket (`?panel`: the Frequencies panel). Headless Chrome
@@ -36,7 +34,7 @@ screen corner during flight, with a click-to-open settings card. Windows only. U
   `docs/flightsim-to.md`: flightsim.to page text. `CHANGELOG.md`: release history.
 - `.github/workflows/check.yml`: syntax checks, plus `tools/check_pill.js` (readback hints and contact parsing
   on real lines; pattern speed on hostile input). CI can't build without a sim install.
-- `.local/` (git-ignored): local config, mockups, screenshots. Put new private files there.
+- `.local/` (git-ignored): local config, mockups, design prototypes, screenshots. Put new private files there.
 
 ## Sim facts (verified live)
 
@@ -159,8 +157,9 @@ screen corner during flight, with a click-to-open settings card. Windows only. U
 ## Rules
 
 - Never commit Asobo files (cooked components, vanilla UI); the build copies them from the local install.
+- Never commit design or prototype files (mockups, clickable prototypes): keep them in `.local/`.
 - Never send anything on the BeyondATC socket except, on the user's click, the toolbar's own commands:
   `set_autotune: true|false`, `set_autorespond: true|false` (the hover buttons), and for the comms panel
-  (`docs/design/comms-panel.html`) `set_action: <label>` (an answer or request, exactly as `Actions` lists it),
+  `set_action: <label>` (an answer or request, exactly as `Actions` lists it),
   `set_frequency: <f>`, and the tab requests `frequencies` / `atc_log`. WebSocket pongs aside.
 - Changelogs and release notes list what changed, not why.

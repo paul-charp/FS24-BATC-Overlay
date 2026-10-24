@@ -473,7 +473,7 @@
 #batc-pill-cfg .bc-reset:hover { background-color: var(--btn-hover); color: var(--fg); }
 
 /* ---- comms: ATC's messages under the pill, the answers/requests column, the Frequencies/Log panel ----
-   (design: docs/design/comms-panel.html). --u is set by pill.js like the pill's. Bottom corners stack upward,
+   --u is set by pill.js like the pill's. Bottom corners stack upward,
    left corners mirror. */
 #batc-pill-msgs, #batc-pill-list, #batc-pill-panel {
   --u: 0.0926vh;

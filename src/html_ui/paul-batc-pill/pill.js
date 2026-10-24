@@ -1294,7 +1294,7 @@
   document.addEventListener("mousemove", onMouseMove);
 
   // ---- comms: messages, answers, requests, panel ----------------------------
-  // What BeyondATC's toolbar offers, around the pill (design: docs/design/comms-panel.html). ATC's lines show as
+  // What BeyondATC's toolbar offers, around the pill. ATC's lines show as
   // messages under the pill; your exchange's lines leave together exchangeMs after it closes, AI traffic's one
   // by one. Hovering the message ATC waits on (or the pill) opens its answers below it; with that message off
   // screen they open in a column under the pill, which otherwise holds "Tune" after a handoff (Auto Tune off)
