@@ -60,7 +60,7 @@
   /* pill: same tokens and shapes as pill.css */
   .anchor { position: absolute; top: calc(40 * var(--u)); right: calc(24 * var(--u)); z-index: 10; }
   .pill {
-    --bg: rgba(14,18,24,0.62); --edge: rgba(255,255,255,0.08); --fg: rgba(236,241,246,0.92);
+    --bg: rgba(14,18,24,0.62); --edge: rgba(0,0,0,0.1); --fg: rgba(236,241,246,0.92);
     --dim: rgba(236,241,246,0.55); --c: #8b97a3; --ease: cubic-bezier(0.22,0.8,0.24,1);
     position: absolute; top: 0; right: 0; height: calc(26 * var(--u)); overflow: hidden;
     display: flex; align-items: center; justify-content: flex-end; cursor: pointer;
@@ -145,7 +145,7 @@
     height: calc(26 * var(--u)); padding: 0 calc(11 * var(--u)); margin-right: calc(5 * var(--u));
     display: flex; align-items: center; border-radius: calc(13 * var(--u)); cursor: pointer; white-space: nowrap;
     font: 600 calc(12 * var(--u))/1 var(--sim); color: rgba(236,241,246,0.92);
-    background: rgba(14,18,24,0.78); border: calc(1 * var(--u)) solid rgba(255,255,255,0.14);
+    background: rgba(14,18,24,0.78); border: calc(1 * var(--u)) solid rgba(0,0,0,0.1);
     transition: background-color .15s, color .15s, border-color .15s;
   }
   .chip:hover { background: rgba(30,36,44,0.92); }
@@ -175,7 +175,7 @@
   .cap .card {
     /* light: a faint veil and a wide, faint halo keep it readable over sky or cockpit without a heavy box */
     padding: calc(5 * var(--u)) calc(9 * var(--u)) calc(6 * var(--u));
-    border-radius: calc(7 * var(--u)); background: rgba(14,18,24,0.4); border: calc(1 * var(--u)) solid transparent;
+    border-radius: calc(7 * var(--u)); background: rgba(14,18,24,0.4); border: calc(1 * var(--u)) solid rgba(0,0,0,0.1);
     color: rgba(236,241,246,0.9); font: 400 calc(12.5 * var(--u))/1.36 var(--sim);
     text-shadow: 0 0 calc(10 * var(--u)) rgba(0,0,0,0.22);
     transition: opacity .3s ease, transform .42s cubic-bezier(.22,.8,.24,1), border-color .3s ease, background-color .3s ease;
@@ -183,7 +183,9 @@
   .cap.out { padding-top: 0; }
   /* answers under ATC's message: the same chips as the hover row, a size smaller, read left to right */
   /* answers: their own row of chips below ATC's message (not inside its box), only while you hover it or the pill */
-  .cap .acts { display: flex; flex-wrap: wrap; justify-content: flex-end; padding-top: calc(3 * var(--u)); }
+  .cap .acts { display: flex; flex-wrap: wrap; justify-content: flex-end; padding-top: calc(3 * var(--u));
+    transition: opacity .2s ease, transform .3s cubic-bezier(.22,.8,.24,1); }
+  .cap .acts.out { opacity: 0; transform: translateY(calc(-4 * var(--u))); pointer-events: none; }
   .cap .chip { height: calc(24 * var(--u)); padding: 0 calc(10 * var(--u)); margin: calc(3 * var(--u)) 0 0 calc(4 * var(--u));
     border-radius: calc(12 * var(--u)); font-size: calc(11.5 * var(--u)); }
   .cap .chip.round { width: calc(24 * var(--u)); padding: 0; }
@@ -200,7 +202,7 @@
     --k: var(--u); --on: #63d3e6; --btn: rgba(255,255,255,0.07); --btn-h: rgba(255,255,255,0.14); --dimk: rgba(236,241,246,0.55);
     position: absolute; top: calc(74 * var(--u)); right: calc(24 * var(--u)); z-index: 12; width: calc(340 * var(--k));
     padding: calc(10 * var(--k)) calc(12 * var(--k)) calc(10 * var(--k)); border-radius: calc(10 * var(--k));
-    background: rgba(14,18,24,0.88); border: calc(1 * var(--k)) solid rgba(255,255,255,0.1);
+    background: rgba(14,18,24,0.88); border: calc(1 * var(--k)) solid rgba(0,0,0,0.1);
     color: rgba(236,241,246,0.92); font: 600 calc(12 * var(--k))/1.25 var(--sim);
     opacity: 0; transform: translateY(calc(-6 * var(--k))) scale(.97); pointer-events: none; visibility: hidden;
     transition: opacity .22s, transform .3s cubic-bezier(.22,.8,.24,1), visibility 0s linear .3s, top .38s cubic-bezier(.22,.8,.24,1);
@@ -754,14 +756,14 @@
     // requests wait until you're on the new station
     else if (show && !p && S.contact && !S.autoTune) list = contactMessageShown() ? "" : tuneChip();
     else if (show && !p && !radioBusy() && S.requests.length) list = chipList(S.requests, "data-req", false, true);
-    if (trayList.innerHTML !== list) trayList.innerHTML = list;
+    if (list && trayList.innerHTML !== list) trayList.innerHTML = list; // closing keeps its chips while they fade
     trayList.className = "list" + (list ? " open" : "");
     // the switches stay on the pill's row
     if (show) {
       html += '<span class="chip round' + (S.autoRespond ? " on" : "") + '" data-sw="ar" title="Auto Respond">' + ICON_AR + "</span>";
       html += '<span class="chip round' + (S.autoTune ? " on" : "") + '" data-sw="at" title="Auto Tune">' + ICON_AT + "</span>";
     }
-    if (tray.innerHTML !== html) tray.innerHTML = html;
+    if (html && tray.innerHTML !== html) tray.innerHTML = html;
     tray.className = "tray" + (html ? " open" : "");
     var below = placeTray();
     // small screens drop the switches under the pill: the column goes under them
@@ -880,15 +882,23 @@
   function contactMessageShown() {
     return !S.panel && opt.captions !== "off" && S.contact && S.caps.some(function (c) { return c.id === S.contact.capId; });
   }
-  // show or hide the answers row under a caption and glide its slot to the new height
+  // show or hide the answers row under a caption and glide its slot to the new height; a hidden row fades out first
   function capSet(n, c, acts) {
     var from = n.offsetHeight, row = n.querySelector(".acts");
-    if (acts && !row) { row = document.createElement("div"); row.className = "acts"; n.appendChild(row); }
-    if (row) { if (acts) row.innerHTML = acts; else n.removeChild(row); }
+    clearTimeout(n._r);
+    if (acts) {
+      if (!row) { row = document.createElement("div"); n.appendChild(row); }
+      row.className = "acts"; row.innerHTML = acts;
+    }
     n.setAttribute("data-acts", acts);
-    if (n.className.indexOf(" out") >= 0) return; // still entering: its open animation measures again below
+    if (n.className.indexOf(" out") >= 0) { if (row && !acts) n.removeChild(row); return; } // still entering
+    var gone = 0;
+    if (row && !acts) {
+      gone = row.offsetHeight; row.className = "acts out";
+      n._r = setTimeout(function () { if (row.parentNode) row.parentNode.removeChild(row); }, CAP_MS);
+    }
     n.style.height = "";
-    var to = n.offsetHeight; // natural height, measured before the frame paints
+    var to = n.offsetHeight - gone; // natural height, measured before the frame paints
     if (Math.abs(to - from) < 1) return;
     n.style.height = from + "px";
     n.offsetHeight;
