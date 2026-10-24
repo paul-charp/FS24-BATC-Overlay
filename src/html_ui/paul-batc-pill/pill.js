@@ -1920,6 +1920,7 @@
     config: CONFIG,
     feed: onMessage, // test hook: batcPill.feed('CommsState: {"mode":"awaiting","text":""}')
     sent: sent,      // the last commands sent to BeyondATC, newest last
+    settings: function (open) { openCard(open !== false); }, // docs/render: the card as its gear opens it
   };
 
   poll();

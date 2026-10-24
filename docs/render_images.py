@@ -3,7 +3,7 @@ Needs Pillow.
 
     python docs/render_images.py
 
-Writes docs/images/states.png, settings.png and splash.png. If .local/shots/splash-bg.png exists
+Writes docs/images/states.png, settings.png, comms.png, panel.png and splash.png. If .local/shots/splash-bg.png exists
 (a 16:9 sim screenshot), the splash uses it as its backdrop.
 """
 import shutil
@@ -63,6 +63,14 @@ def main():
     img = shoot("settings.html", (1920, 1080), 2).crop((1600 * 2, 50 * 2, 1920 * 2, 640 * 2))
     img.save(OUT / "settings.png", optimize=True)
     print(f"render: settings.png {img.size}")
+
+    # the comms around the pill: ATC's message with its answers (hovered), and the Frequencies panel
+    img = shoot("comms.html", (1920, 1080), 2).crop((1300 * 2, 50 * 2, 1920 * 2, 330 * 2))
+    img.save(OUT / "comms.png", optimize=True)
+    print(f"render: comms.png {img.size}")
+    img = shoot("comms.html", (1920, 1080), 2, "?panel").crop((1540 * 2, 50 * 2, 1920 * 2, 470 * 2))
+    img.save(OUT / "panel.png", optimize=True)
+    print(f"render: panel.png {img.size}")
 
     bg = ROOT / ".local" / "shots" / "splash-bg.png"
     query = "?bg=" + bg.as_uri() if bg.exists() else ""

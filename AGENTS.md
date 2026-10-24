@@ -30,7 +30,9 @@ screen corner during flight, with a click-to-open settings card. Windows only. U
 - `docs/design/comms-panel.html`: clickable UX prototype (captions, reply tray, comms panel) for taking over the
   BeyondATC toolbar; standalone, scripted data, notes on the protocol gaps.
 - `docs/render/*.html` + `docs/render_images.py`: README/flightsim.to images via headless Edge (or
-  Chrome/Chromium); `docs/render/pills.js` mirrors `view()`'s markup for the state sheet.
+  Chrome/Chromium); `docs/render/pills.js` mirrors `view()`'s markup for the state sheet; `comms.html` runs the
+  real pill.js on a recorded clearance through a stand-in socket (`?panel`: the Frequencies panel). Headless Chrome
+  behind a proxy hangs on the Google Fonts link (it ignores HTTPS_PROXY): render with the proxy set, or offline.
   `docs/flightsim-to.md`: flightsim.to page text. `CHANGELOG.md`: release history.
 - `.github/workflows/check.yml`: syntax checks, plus `tools/check_pill.js` (readback hints and contact parsing
   on real lines; pattern speed on hostile input). CI can't build without a sim install.

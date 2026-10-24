@@ -22,11 +22,15 @@ A muted COM1 adds a speaker icon; ATC calling you while it's muted turns the pil
 
 Everything the BeyondATC toolbar does, around the pill:
 
+<img src="docs/images/comms.png" alt="ATC's message under the pill, with its answer" width="620">
+
 - **Messages**: ATC's lines (and yours) show under the pill. An exchange's messages stay until it closes, then leave together 5 s later; AI traffic's leave one by one. The message ATC waits on is outlined in amber.
 - **Answers**: hover that message, or the pill, and its answers open below it; the obvious one (a readback, an acknowledgement) is amber. A long list shows three and "+N" for the rest. With messages off, the answers open in a column under the pill instead.
 - **Requests**: with nothing pending, hovering the pill opens BeyondATC's requests in a column under it, the likely next one first. They close while the radio is busy and come back when it's quiet.
 - **Tune**: with Auto Tune off, once you've acknowledged a handoff, "Tune 118.775" sets COM1 to the new station (under the handoff message, or in the column).
 - **Panel**: click the pill for **Frequencies** (Departure / Arrival: the stations BeyondATC lists around you, gathered over the flight, ATIS first; click one to tune COM1) and **Log** (every radio line, scrolling). The gear opens the settings. The panel isn't modal: leave it open and the cockpit stays clickable.
+
+<img src="docs/images/panel.png" alt="The panel's Frequencies tab" width="380">
 
 In the bottom corners everything stacks upward from the pill; in the left corners it's mirrored.
 
@@ -140,13 +144,13 @@ Renders the images in `docs/images/` with headless Edge, or Chrome/Chromium when
 ### Release
 
 ```bash
-python tools/build.py release 1.1.0
+python tools/build.py release 2.0.0
 ```
 
-Builds and zips the package as `dist/paul-batc-pill-1.1.0.zip`. Set `version` in `config.json` and the date in `CHANGELOG.md`, commit, then publish with that version's changelog section as the notes:
+Builds and zips the package as `dist/paul-batc-pill-2.0.0.zip`. Set `version` in `config.json` and the date in `CHANGELOG.md`, commit, then publish with that version's changelog section as the notes:
 
 ```bash
-gh release create v1.1.0 dist/paul-batc-pill-1.1.0.zip --title v1.1.0 --notes-file notes.md
+gh release create v2.0.0 dist/paul-batc-pill-2.0.0.zip --title v2.0.0 --notes-file notes.md
 ```
 
 CI (`.github/workflows/check.yml`) checks the JS, Python and JSON on every push, and runs `tools/check_pill.js` (the pill's text patterns on real BeyondATC lines, and their speed on hostile input). It can't build the package, which needs a sim install.
