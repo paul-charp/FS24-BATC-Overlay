@@ -60,25 +60,30 @@ Source and issues: https://github.com/paul-charp/FS24-BATC-Pill
 
 2.0.0
 
-- Added: ATC's messages under the pill (Off / Mine / All); an exchange's messages leave together once it's over.
-- Added: hover the message ATC waits on, or the pill, to answer it in one click.
-- Added: hover the pill with nothing pending for BeyondATC's requests.
-- Added: with Auto Tune off, "Tune" sets COM1 to the station ATC handed you to.
-- Added: click the pill for a panel with Frequencies (Departure / Arrival, click to tune COM1) and the radio Log.
-- Added: hovering the pill shows buttons for BeyondATC's Auto Tune and Auto Respond.
-- Added: readback hints. While ATC waits for your readback, acknowledgement or answer, the pill shows "Awaiting readback" or "Awaiting response" with a short hint, the toolbar's clearance boxes or their values.
-- Added: the pill turns red-orange when ATC calls you again before you reply, and shows "No readback" when BeyondATC stops waiting.
-- Added: a green "Readback OK" when ATC takes your reply, and a red-orange "Negative" with the correction when ATC rejects it.
-- Added: optional "Keep last clearance": the last clearance stays on the pill until the next one.
-- Added: hints for pushback, line up, go around, speeds, STARs, runway exits, "say ..." requests and taxi to a ramp, gate or stand.
-- Added: with Auto Tune off, a "Contact" reminder until COM1 is on the station ATC handed you to.
-- Added: a new ATIS letter shows for 6 s; an ATIS playing on COM1 shows "ATIS".
-- Added: ATC calling you while COM1 is muted turns the pill red-orange.
-- Added: optional PTT indicator, red-orange when you transmit over ATC or traffic.
-- Changed: "You" is now "Transmitting", and keeps the hint while you answer a readback.
-- Changed: the settings card opens from the panel's gear, has Display and Position tabs, and closes on a click outside it.
-- Fixed: the idle dot stayed visible in the sim's menus after a flight.
-- Fixed: BeyondATC errors, ATC broadcasts and ATIS showed raw or wrong text.
+Reply to ATC and make requests from the pill, without BeyondATC's toolbar.
+
+- Added: ATC's messages appear under the pill. Choose Off, Mine (only your conversations) or All.
+- Added: hover the pill or the message ATC is waiting on to see your possible answers.
+- Added: hover the pill when the radio is quiet to see the requests you can make.
+- Added: with Auto Tune off, a "Tune" button sets COM1 to the next station after a handoff.
+- Added: click the pill to open the Frequencies and Log panel.
+- Added: Auto Tune and Auto Respond buttons next to the pill.
+- Added: readback hints. When ATC waits for your reply, the pill says so and shows what to read back: a short hint, the values, or the clearance boxes.
+- Added: the pill turns red-orange when ATC calls you again ("×2", "×3"), when ATC corrects a wrong readback ("Negative"), and when ATC calls you while COM1 is muted.
+- Added: "No readback" when BeyondATC gives up waiting for your reply.
+- Added: "Readback OK" in green when ATC accepts your reply.
+- Added: optional "Keep last clearance", which keeps your last clearance on the pill, dimmed.
+- Added: a "Contact" reminder when Auto Tune is off and ATC hands you to another station.
+- Added: new ATIS letters, and "ATIS" while one plays on COM1.
+- Added: optional PTT indicator, which turns red-orange if you talk over ATC or traffic.
+- Changed: "You" is now "Transmitting".
+- Changed: settings are split into Display and Position tabs, and open from the gear in the panel.
+- Changed: the sample pill in the settings shows what your last change does.
+- Changed: a softer, darker edge around the pill and its panels.
+- Fixed: the idle dot stayed on screen in the sim's menus after a flight.
+- Fixed: BeyondATC errors showed as raw code.
+- Fixed: ATC broadcasts to all aircraft showed "ATC Generating" / "ATC Transmitting".
+- Fixed: an ATIS on COM1 showed as "Traffic" or "Service".
 - Fixed: radio changes showed while a flight was loading.
 
 1.0.1
