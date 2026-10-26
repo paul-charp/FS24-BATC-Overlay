@@ -21,12 +21,15 @@ Reply to ATC and make requests from the pill, without BeyondATC's toolbar.
 - Added: "Waiting for BATC" when BeyondATC is running without a flight (the pill used to hide).
 - Changed: "You" is now "Transmitting".
 - Changed: settings are split into Display and Position tabs, and open from the gear in the panel (closing them goes back to the panel), or from a click on the pill while BeyondATC is offline or has no flight.
-- Changed: the sample pill in the settings shows what your last change does.
+- Changed: the sample pill in the settings shows what your last change does, with sample station names.
+- Changed: the kept clearance can be closed while other aircraft or ATC to them are talking.
+- Fixed: settings were lost when the sim restarted.
 - Fixed: the idle dot stayed on screen in the sim's menus after a flight.
 - Fixed: BeyondATC errors showed as raw code.
 - Fixed: ATC broadcasts to all aircraft showed "ATC Generating" / "ATC Transmitting".
 - Fixed: an ATIS on COM1 showed as "Traffic" or "Service".
 - Fixed: radio changes showed while a flight was loading.
+- Fixed: CPDLC requests showed "Processing", then the station.
 
 ## 1.0.1 (2026-10-20)
 

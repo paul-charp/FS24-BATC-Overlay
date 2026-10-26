@@ -6,7 +6,7 @@
 (function () {
   "use strict";
 
-  // Defaults. Click the pill in flight to change the user settings (saved in the sim's localStorage);
+  // Defaults. Click the pill in flight to change the user settings (saved in the sim's DataStorage);
   // edit here for the rest, then `python tools/build.py build` and restart (or `inspect_ui.py --push`).
   var CONFIG = {
     corner: "top-right", // "top-right" | "top-left" | "bottom-right" | "bottom-left"
@@ -49,7 +49,8 @@
   var FADE_MS = 140;
   var CONFIRM_MS = 1500;  // "Readback OK" shows this long after ATC took your reply
 
-  // What the settings card changes. Saved in localStorage, which every sim UI view shares.
+  // What the settings card changes. Saved in the sim's DataStorage (kept across sim restarts; localStorage
+  // isn't) and in localStorage, which covers the seconds before DataStorage answers.
   var USER_KEYS = ["corner", "x", "y", "scale", "showTuning", "showContact", "showAtis", "showReadback", "readbackDetail", "keepLast",
     "warnMuted", "showPtt", "hideOffline",
     "showTraffic", "facility", "captions"];
@@ -57,17 +58,34 @@
   var DEFAULTS = {};
   USER_KEYS.forEach(function (k) { DEFAULTS[k] = CONFIG[k]; });
 
+  var settingsChanged = false; // by the user, before DataStorage answered
+
+  function savedPatch(json) {
+    var saved = null, patch = {};
+    try { saved = JSON.parse(json || "null"); } catch (e) { /* ignore */ }
+    if (!saved) return null;
+    USER_KEYS.forEach(function (k) { if (k in saved) patch[k] = saved[k]; });
+    return patch;
+  }
+
+  // window.datastorage appears some time after the view asks for JS_LISTENER_DATASTORAGE (as dataStorage.js does)
+  function dataStorage() {
+    try { if (window.top && window.top.datastorage) return window.top.datastorage; } catch (e) { /* ignore */ }
+    return window.datastorage || null;
+  }
+
   function loadSettings() {
-    var saved = null;
-    try { saved = JSON.parse(localStorage.getItem(STORE_KEY) || "null"); } catch (e) { /* ignore */ }
-    if (!saved) return;
-    USER_KEYS.forEach(function (k) { if (k in saved) CONFIG[k] = saved[k]; });
+    var patch = null;
+    try { patch = savedPatch(localStorage.getItem(STORE_KEY)); } catch (e) { /* ignore */ }
+    for (var k in patch) CONFIG[k] = patch[k];
   }
 
   function saveSettings() {
     var out = {};
     USER_KEYS.forEach(function (k) { if (CONFIG[k] !== DEFAULTS[k]) out[k] = CONFIG[k]; });
-    try { localStorage.setItem(STORE_KEY, JSON.stringify(out)); } catch (e) { /* ignore */ }
+    var json = JSON.stringify(out), ds = dataStorage();
+    try { localStorage.setItem(STORE_KEY, json); } catch (e) { /* ignore */ }
+    try { if (ds) ds.setData(STORE_KEY, json); } catch (e) { /* ignore */ }
   }
 
   loadSettings();
@@ -124,6 +142,9 @@
     requests: [],        // the request menu (Actions while ATC isn't waiting for you)
     sentAt: 0,           // an answer or request was just sent: hide them until BeyondATC reacts
     panel: false,        // comms panel open (click the pill)
+    com2Radio: { act: "", stby: "", shown: "" }, // COM2 from the sim's key events (see onCom2Event)
+    com2Muted: false,    // COM2 not received (BeyondATC's Com2 monitor false, "Radio Off")
+    com2Names: {},       // stations by frequency, from BeyondATC's Com2 labels: names the COM2 tune status
     cardBack: false,     // the settings card was opened from the panel: closing it reopens the panel
     logBase: 0,          // the last Log line already there when the Log opened (later ones slide in)
     boxesFor: null,      // the readback whose clearance boxes the pill showed (kept in every state, see keepBoxes)
@@ -137,9 +158,10 @@
     freqSide: "dep",     // the Frequencies tab shown: "dep" | "arr"
     progress: null,      // "Progress: {from,to,pct}": the flight's airports and how far along it is
     logReset: true,      // open the Log at its newest line
+    cpdlcAsked: false,   // a CPDLC request is out (CPDLC_Pilot: REQUEST ...) until a CPDLC_ATC: line
   };
   var socket = null;
-  var timers = { reconnect: 0, linger: 0, error: 0, tune: 0, missed: 0, confirm: 0, swHide: 0, atis: 0, demo: 0, ptt: 0, pttShow: 0, swap: 0, poll: 0, log: 0, sent: 0, capHover: 0, logClear: 0, traffic: 0 };
+  var timers = { reconnect: 0, linger: 0, error: 0, tune: 0, missed: 0, confirm: 0, swHide: 0, atis: 0, demo: 0, ptt: 0, pttShow: 0, swap: 0, poll: 0, log: 0, sent: 0, capHover: 0, logClear: 0, traffic: 0, store: 0 };
   var destroyed = false;
   var current = null;    // last rendered view signature
 
@@ -424,7 +446,16 @@
     return w;
   }
 
+  // the muted speaker as a warning: larger, in the look's color, pulsing; or a quiet note: orange, steady
+  var MUTE_WARN = MUTE.replace('class="bp-ico"', 'class="bp-ico bp-warn"');
+  var MUTE_NOTE = MUTE.replace('class="bp-ico"', 'class="bp-ico bp-note"');
+
   function tuneLook(t) {
+    // COM2 tuned but not received: the usual tune status, the speaker saying so quietly
+    if (t.label === "COM2" && state.com2Muted) {
+      return { cls: "s-tune", muteShown: true, html: RADIO + '<span class="bp-sep">COM2</span>' +
+        facilityHtml("bp-who", t.facility, "No station") + MUTE_NOTE };
+    }
     return { cls: "s-tune", html: RADIO + (t.label ? '<span class="bp-sep">' + t.label + "</span>" : "") +
       facilityHtml("bp-who", t.facility, "No station") };
   }
@@ -473,7 +504,7 @@
   function demoView() {
     switch (state.demo) {
       case "showTuning":
-        if (CONFIG.showTuning) return tuneLook({ label: "", facility: { name: "Montpellier Tower", freq: "118.700" } });
+        if (CONFIG.showTuning) return tuneLook({ label: "", facility: { name: "Sample Tower", freq: "118.700" } });
         break;
       case "keepLast":
         if (CONFIG.showReadback && CONFIG.keepLast) {
@@ -495,7 +526,7 @@
         if (CONFIG.warnMuted) { var mv = mutedLook(); mv.html += MUTE; return mv; }
         break;
       case "showContact":
-        if (CONFIG.showContact) return contactLook({ name: "Marseille Approach", freq: "120.100" });
+        if (CONFIG.showContact) return contactLook({ name: "Sample Approach", freq: "120.100" });
         break;
       case "showTraffic":
         if (CONFIG.showTraffic) return { cls: "", html: BARS + "<span>Traffic</span>" };
@@ -504,7 +535,7 @@
         if (!CONFIG.hideOffline) return { cls: "is-ghost", html: LAMP + "<span>BATC offline</span>" };
         break;
     }
-    return { cls: "s-atc", html: BARS + facilityHtml("bp-who", { name: "Montpellier Ground", freq: "121.955" }) };
+    return { cls: "s-atc", html: BARS + facilityHtml("bp-who", { name: "Sample Ground", freq: "121.955" }) };
   }
 
   // BeyondATC not running, or in its menu (no flight there): nothing to show but a ghost pill
@@ -521,7 +552,7 @@
     if (state.error && now < state.errorUntil) {
       return withExtra(keepBoxes({ cls: "s-err", html: LAMP + '<span class="bp-who">' + esc(state.error) + "</span>" }));
     }
-    if (state.pttShown && CONFIG.showPtt) return withExtra(keepBoxes(pttLook())); // the boxes too, in Boxes mode
+    if (state.pttShown && CONFIG.showPtt) return withExtra(keepBoxes(sendingMuted(pttLook()))); // the boxes too, in Boxes mode
 
     var v;
     switch (state.mode) {
@@ -539,11 +570,9 @@
       case "speaking":
         // the reply BeyondATC speaks for you (toolbar or Auto Respond); your own voice is pttLook (mic icon)
         if (state.speaker === "player") {
-          v = replyLook("s-you", BARS, "Transmitting", "bp-who");
+          v = sendingMuted(replyLook("s-you", BARS, "Transmitting", "bp-who"));
         }
-        else if (state.speaker === "traffic") {
-          v = CONFIG.showTraffic ? { cls: "", html: BARS + "<span>Traffic</span>" } : readbackView();
-        }
+        else if (state.speaker === "traffic") v = othersLook();
         else if (state.speaker === "atc" && state.muted && CONFIG.warnMuted) v = mutedLook();
         else v = { cls: "s-atc", html: BARS + facilityHtml("bp-who") };
         break;
@@ -553,7 +582,7 @@
           v = { cls: "s-atis", html: (/generat/i.test(state.text) ? DOTS : BARS) + facilityHtml("bp-who") };
         } else {
           // ATC to other aircraft or all stations ("ATC Generating", then "ATC Transmitting")
-          v = CONFIG.showTraffic ? { cls: "", html: BARS + "<span>Traffic</span>" } : readbackView();
+          v = othersLook();
         }
         break;
       case "ready":
@@ -571,7 +600,7 @@
           v = atisLook(state.atis);
         } else if (state.contact && !state.autoTune && CONFIG.showContact) {
           v = contactLook(state.contact);
-        } else if (state.kept && CONFIG.keepLast && CONFIG.showReadback && (v = keptLook(state.kept))) {
+        } else if ((v = keptView())) {
           // the last reply ATC took, instead of the station and the dot
         } else if (now < state.lingerUntil) {
           v = { cls: "", html: LAMP + facilityHtml("") };
@@ -582,8 +611,17 @@
         v = state.text ? { cls: "", html: LAMP + "<span>" + esc(state.text) + "</span>" } : null;
     }
     if (!v) v = { cls: "is-dot", html: LAMP };
-    if (state.muted && !/\bis-dot\b/.test(v.cls)) v.html += MUTE;
+    if (state.muted && !v.muteShown && !/\bis-dot\b/.test(v.cls)) v.html += MUTE;
     return withExtra(keepBoxes(v));
+  }
+
+  // you transmit on COM1 while it's muted: you won't hear the answer. Warning color and the pulsing speaker.
+  function sendingMuted(v) {
+    if (!state.muted || !CONFIG.warnMuted) return v;
+    v.cls = /\bs-[a-z]+\b/.test(v.cls) ? v.cls.replace(/\bs-[a-z]+\b/, "s-insist") : v.cls + " s-insist";
+    v.html += MUTE_WARN;
+    v.muteShown = true;
+    return v;
   }
 
   // Once a readback's clearance boxes are on the pill, they stay under whatever it shows (traffic, ATC talking to
@@ -596,6 +634,21 @@
     }
     if (!rb || state.boxesFor !== rb || CONFIG.readbackDetail !== "boxes" || !state.infoBoxes.length) return v;
     return { cls: v.cls.replace(/\bis-dot\b/, "") + " is-msg", html: v.html, extra: boxesHtml(state.infoBoxes) };
+  }
+
+  function keptView() { return state.kept && CONFIG.keepLast && CONFIG.showReadback ? keptLook(state.kept) : null; }
+
+  // someone else on the frequency (AI traffic, ATC to them): your pending readback, else "Traffic" (if shown)
+  // over the kept clearance's boxes, else the kept clearance as it was
+  function othersLook() {
+    var rb = readbackView();
+    if (rb) return rb;
+    var kept = keptView();
+    if (!CONFIG.showTraffic) return kept;
+    var t = { cls: "", html: BARS + "<span>Traffic</span>" };
+    // the kept boxes stay, and so does their ✕
+    if (kept && kept.extra) { t.cls = "is-msg"; t.html = KEPT_ICON + t.html; t.extra = kept.extra; }
+    return t;
   }
 
   function withExtra(v) {
@@ -866,6 +919,9 @@
         var cs = parseJson(payload);
         if (!cs) return;
         var mode = cs.mode || "ready";
+        // a CPDLC exchange flashes "request" (with a stale label) around ATC's datalink answer, with no
+        // processing or queued before it: the pill stays as it was (CPDLC is handled in the sim)
+        if (mode === "request" && state.cpdlcAsked && !/^(processing|queued|speaking)$/.test(state.mode)) return;
         // you're talking (a voice reply gives processing then ready, with no Player: line)
         if (mode === "processing" || mode === "request" || mode === "queued") state.answered = state.replied = true;
         if (mode !== "ready") {
@@ -927,6 +983,13 @@
         state.speaker = "traffic";
         addLine("traffic", "Traffic", payload);
         return;
+      case "CPDLC_Pilot":
+        // "REQUEST DIRECT TO LTP": ATC answers by datalink ("CPDLC_ATC: CLEARED DIRECT TO LTP") 15-35 s later
+        if (/^request\b/i.test(payload)) state.cpdlcAsked = true;
+        return;
+      case "CPDLC_ATC":
+        state.cpdlcAsked = false;
+        return;
       case "Frequencies":
         state.freqs = parseFreqs(payload);
         if (state.freqs.rows) fileFreqs(state.freqs.rows);
@@ -963,9 +1026,12 @@
         // {"label":"Marseille Approach","frequency":"120.100","monitor":true}, {"label":"Radio Off",...}, or empty
         var c2 = parseJson(payload) || {};
         if (/^\(/.test(c2.label || "")) break; // "(Generating LFMT ATIS)": wait for the final label
+        // monitor false ("Radio Off"): COM2 isn't received, the same station muted, not a new one
+        if ("monitor" in c2) state.com2Muted = !c2.monitor;
+        if (c2.frequency) state.com2Names[Number(c2.frequency).toFixed(3)] = stationName(c2.label);
         var key = (c2.label || "") + "|" + (c2.frequency || "");
-        if (state.com2 !== null && key !== state.com2) {
-          tuned("COM2", c2.frequency ? { name: stationName(c2.label), freq: c2.frequency } : { name: "", freq: "" });
+        if (state.com2 !== null && key !== state.com2 && c2.frequency) {
+          tuned("COM2", { name: stationName(c2.label), freq: c2.frequency });
         }
         state.com2 = key;
         break;
@@ -983,8 +1049,17 @@
       case "InfoBoxes": {
         // [{"title":"Taxi to Runway","info":"12L"},{"title":"SID","info":"KELA8L"},...]
         var ib = parseJson(payload);
-        state.infoBoxes = (ib && ib.length ? ib : []).map(function (b) {
-          return { title: String(b.title || ""), info: String(b.info || "").replace(/<br\s*\/?>/gi, " ") };
+        var via = null;
+        state.infoBoxes = [];
+        (ib && ib.length ? ib : []).forEach(function (b) {
+          var box = { title: String(b.title || ""), info: String(b.info || "").replace(/<br\s*\/?>/gi, " ") };
+          // a long taxi route comes as "Taxi Via 1".."Taxi Via 6", a box per taxiway: one box, "AK A B G B BA"
+          if (/^taxi via\s*\d+$/i.test(box.title)) {
+            if (via) { via.info += " " + box.info; return; }
+            box.title = "Taxi via";
+            via = box;
+          }
+          state.infoBoxes.push(box);
         });
         // {"title":"ATIS Current","info":"Z"} appears or changes after "information Z now current"
         state.infoBoxes.forEach(function (b) {
@@ -1345,10 +1420,16 @@
   var IG = ' data-input-group="BATC-PILL"'; // clicks reach only elements carrying it (see openCard)
   var capSeq = 0, hoverCap = 0, hoverCapAll = false, listAll = false, panelHtml = "";
   var sent = [];
-  // the Log outlives a restart of the pill (a hot reload): destroy() leaves it here
+  // the Log, COM2 as followed so far and the stations heard outlive a restart of the pill (a hot reload): destroy()
+  // leaves them here
   if (window.batcPillLog) {
-    state.log = window.batcPillLog.log;
-    capSeq = window.batcPillLog.seq;
+    var kept = window.batcPillLog;
+    state.log = kept.log;
+    capSeq = kept.seq;
+    ["com2Radio:com2", "com2Names:com2Names", "freqs:freqs", "freqBook:freqBook", "freqEnroute:freqEnroute"].forEach(function (p) {
+      p = p.split(":");
+      if (kept[p[1]]) state[p[0]] = kept[p[1]];
+    });
     window.batcPillLog = null;
   }
 
@@ -1779,7 +1860,8 @@
 
   function freqRows(rows) {
     if (!rows.length) return "";
-    var com2 = state.com2 ? state.com2.split("|")[1] : "";
+    // COM2 as followed from its key events (see onCom2Event), else as BeyondATC reports it (only while received)
+    var com2 = state.com2Radio.act || (state.com2 ? state.com2.split("|")[1] : "");
     // one row per station, its frequencies as chips ("Fiume Ground 121.675 122.125 121.900"), in the rows' order
     var groups = [], byKey = {};
     rows.forEach(function (r) {
@@ -1830,13 +1912,58 @@
     var fresh = Date.now() - 700, shown = Date.now() - state.trafficSince < 450;
     return '<div class="bm-bar is-end">' + toggleHtml("AI traffic", "data-act", "traffic",
       CONFIG.showTraffic && !state.trafficLeaving) + "</div>" +
-      (lines.length ? '<div class="bm-log">' + lines.map(function (l) {
+      (lines.length ? '<div class="bm-logwrap"><div class="bm-log">' + lines.map(function (l) {
         var cls = l.id <= state.logCut ? " is-gone" : l.who === "traffic" && state.trafficLeaving ? " is-fold" :
           l.who === "traffic" && shown ? " is-unfold" : l.id > state.logBase && l.at > fresh ? " is-new" : "";
         return '<div class="bm-ln bm-' + l.who + cls + '"><span class="bm-t">' + hhmm(l.at) + '</span><span class="bm-x">' +
           '<span class="bm-w">' + esc(l.label) + "</span>" + esc(l.text) + "</span></div>";
-      }).join("") + "</div>" : '<div class="bm-note">No radio calls yet.</div>');
+      }).join("") + '</div><div class="bm-sb"><b class="bm-track"></b><i class="bm-thumb"></i></div></div>' : '<div class="bm-note">No radio calls yet.</div>');
   }
+
+  // The Log's scrollbar, drawn (the sim shows none): the thumb follows the scroll; drag it, or click the track
+  // to jump there. A drag follows mousemove (which reaches the page anywhere) and ends on mouseup or the
+  // first move with no button held.
+  var sbDrag = null;
+
+  function syncScrollbar() {
+    var log = panel.querySelector(".bm-log"), sb = panel.querySelector(".bm-sb");
+    if (!log || !sb) return;
+    var range = log.scrollHeight - log.clientHeight, track = sb.clientHeight;
+    sb.className = range > 1 ? "bm-sb" : "bm-sb is-none";
+    if (range <= 1) return;
+    var h = Math.max(track * log.clientHeight / log.scrollHeight, 20 * unit());
+    var thumb = sb.lastChild;
+    thumb.style.height = h + "px";
+    thumb.style.top = (track - h) * log.scrollTop / range + "px";
+  }
+
+  panel.addEventListener("scroll", syncScrollbar, true); // scroll doesn't bubble: caught on the way down
+
+  panel.addEventListener("mousedown", function (e) {
+    if (e.button === 2) return;
+    var t = e.target.className;
+    var sb = t === "bm-thumb" || t === "bm-track" ? e.target.parentNode : t === "bm-sb" ? e.target : null;
+    var log = sb && panel.querySelector(".bm-log");
+    if (!log) return;
+    var thumb = sb.lastChild, range = log.scrollHeight - log.clientHeight;
+    var room = sb.clientHeight - thumb.offsetHeight;
+    if (t !== "bm-thumb") {
+      // the track: put the thumb's middle under the cursor, then drag on from there
+      var y = e.clientY - sb.getBoundingClientRect().top - thumb.offsetHeight / 2;
+      log.scrollTop = room > 0 ? range * y / room : 0;
+    }
+    sbDrag = { y: e.clientY, top: log.scrollTop, perPx: room > 0 ? range / room : 0 };
+    e.preventDefault();
+  });
+
+  function onDrag(e) {
+    if (!sbDrag) return;
+    if (e.type === "mouseup" || e.buttons === 0) { sbDrag = null; return; }
+    var log = panel.querySelector(".bm-log");
+    if (log) log.scrollTop = sbDrag.top + (e.clientY - sbDrag.y) * sbDrag.perPx;
+  }
+  document.addEventListener("mousemove", onDrag);
+  document.addEventListener("mouseup", onDrag);
 
   function renderPanel() {
     var open = state.panel && commsShown();
@@ -1864,6 +1991,7 @@
     // the sim checks data-input-group on the exact element under the cursor
     var els = [panel].concat([].slice.call(panel.querySelectorAll("*")));
     for (var i = 0; i < els.length; i++) els[i].setAttribute("data-input-group", "BATC-PILL");
+    syncScrollbar();
   }
 
   panel.addEventListener("click", function (e) {
@@ -1874,13 +2002,49 @@
     var act = el.getAttribute("data-act");
     if (el.getAttribute("data-tab")) { state.panelTab = el.getAttribute("data-tab"); state.logReset = true; }
     else if (el.getAttribute("data-side")) state.freqSide = el.getAttribute("data-side");
-    else if (el.getAttribute("data-tune")) { tune(el.getAttribute("data-tune")); return; }
+    else if (el.getAttribute("data-tune")) { if (!rightClickEcho(e, el.getAttribute("data-tune"))) tune(el.getAttribute("data-tune")); return; }
     else if (el.getAttribute("data-sw")) { flip(el.getAttribute("data-sw")); return; }
     else if (act === "close") { openPanel(false); return; }
     else if (act === "settings") { openCard(true); return; }
     else if (act === "traffic") { toggleTraffic(); return; }
     renderPanel();
   });
+
+  // A right click on a frequency sets the plane's COM2 (active). BeyondATC has no command for it, so this is the
+  // sim's own key event, sent the way its instruments do (TRIGGER_KEY_EVENT through mainUi's engine: verified live,
+  // COM2_STBY_RADIO_SET_HZ moved COM2 standby). Right clicks may come as contextmenu or as a button-2 mousedown:
+  // one per click.
+  var com2At = 0;
+  function onRightClick(e) {
+    if (e.type === "mousedown" && e.button !== 2) return;
+    var el = e.target;
+    while (el && el !== panel && !(el.getAttribute && el.getAttribute("data-tune"))) el = el.parentNode;
+    if (!el || el === panel) return;
+    e.preventDefault();
+    if (Date.now() - com2At < 300) return;
+    com2At = Date.now();
+    com2Freq = el.getAttribute("data-tune");
+    setCom2(com2Freq);
+  }
+  var com2Freq = "";
+
+  // in the sim a right click is also a click (the log showed a COM1 tune right after each COM2 one): not that one
+  function rightClickEcho(e, freq) {
+    return e.button === 2 || (Date.now() - com2At < 1000 && sameFreq(freq, com2Freq));
+  }
+  panel.addEventListener("contextmenu", onRightClick);
+  panel.addEventListener("mousedown", onRightClick);
+
+  function setCom2(freq) {
+    var hz = Math.round(Number(freq) * 1e6);
+    if (!hz || typeof engine === "undefined" || !engine.call) return;
+    devLog("event", "COM2 " + freq);
+    try { engine.call("TRIGGER_KEY_EVENT", "COM2_RADIO_SET_HZ", true, hz, 0, 0); } catch (err) { return; }
+    // as if the event came back (whether the view hears its own events is unknown)
+    state.com2Radio.act = Number(freq).toFixed(3);
+    clearTimeout(com2Timer);
+    com2Timer = setTimeout(com2Settled, 150);
+  }
 
   // the Log's AI traffic switch: its lines slide in, or fade out before they go (the switch flips at once)
   function toggleTraffic() {
@@ -1954,11 +2118,10 @@
     }
   }
 
-  function listenPtt() {
+  // The sim's key events the pill watches: the PTT binding (if shown) and COM2's (always, never blocked)
+  function listenKeys() {
     var eng = window.engine;
-    if (!CONFIG.showPtt || !eng || typeof eng.on !== "function") return;
-    // speech-recognition actions (Quick Reply is SR_COM_QUICK_REPLY) froze the sim when intercepted: never
-    if (/^SR_/i.test(CONFIG.pttEvent)) return;
+    if (!eng || typeof eng.on !== "function") return;
     // once per view and event: hot reloads (inspect_ui.py --push) keep the view, and its intercepts
     var reg = window.batcPillKeys = window.batcPillKeys || { attached: false, intercepted: {} };
     if (!reg.attached) {
@@ -1966,14 +2129,59 @@
       reg.attached = true;
     }
     if (!keyHandler) {
-      keyHandler = function (name) { onKeyEvent(name); };
+      keyHandler = function (name, v0, v1) { onKeyEvent(name); onCom2Event(name, v1); };
       eng.on("keyIntercepted", keyHandler);
     }
-    var id = CONFIG.pttEvent + (CONFIG.pttBlock ? ":block" : "");
-    if (!reg.intercepted[id]) {
-      eng.call("INTERCEPT_KEY_EVENT", CONFIG.pttEvent, CONFIG.pttBlock ? 1 : 0);
+    var watch = COM2_EVENTS.map(function (e) { return [e, 0]; });
+    // speech-recognition actions (Quick Reply is SR_COM_QUICK_REPLY) froze the sim when intercepted: never
+    if (CONFIG.showPtt && !/^SR_/i.test(CONFIG.pttEvent)) watch.push([CONFIG.pttEvent, CONFIG.pttBlock ? 1 : 0]);
+    watch.forEach(function (w) {
+      var id = w[0] + (w[1] ? ":block" : "");
+      if (reg.intercepted[id]) return;
+      eng.call("INTERCEPT_KEY_EVENT", w[0], w[1]);
       reg.intercepted[id] = true;
+    });
+  }
+
+  // COM2, followed from its key events (mainUi can't read the radio). The Fenix sets it with these alone, each
+  // event reported twice: the knob is SWAP, SET_HZ <new standby>, SWAP; the transfer button SET_HZ <old standby>,
+  // then SWAP, SET_HZ <old active>, SWAP (seen 2026-10-24). Unknown until the first event, or a right click.
+  var COM2_EVENTS = ["COM2_RADIO_SET_HZ", "COM2_STBY_RADIO_SET_HZ", "COM2_RADIO_SWAP"];
+  var com2Last = { key: "", at: 0 }, com2Timer = 0;
+
+  function onCom2Event(name, value) {
+    if (COM2_EVENTS.indexOf(name) < 0) return;
+    var key = name + " " + value, now = Date.now();
+    if (key === com2Last.key && now - com2Last.at < 5) return; // the copy
+    com2Last = { key: key, at: now };
+    var c = state.com2Radio;
+    if (name === "COM2_RADIO_SWAP") { var a = c.act; c.act = c.stby; c.stby = a; }
+    else {
+      var f = (Number(value) / 1e6).toFixed(3);
+      if (name === "COM2_RADIO_SET_HZ") c.act = f; else c.stby = f;
     }
+    // a change is a burst of events: show it once they've settled
+    clearTimeout(com2Timer);
+    com2Timer = setTimeout(com2Settled, 150);
+  }
+
+  function com2Settled() {
+    var f = state.com2Radio.act;
+    if (!f || f === state.com2Radio.shown) return;
+    state.com2Radio.shown = f;
+    devLog("event", "COM2 now " + f);
+    // the tune status even with COM2 muted (BeyondATC then reports "Radio Off"): the station if the panel has
+    // listed it, else the frequency on its own
+    tuned("COM2", { name: freqStation(f) || f, freq: freqStation(f) ? f : "" });
+    render();
+    renderComms();
+  }
+
+  function freqStation(f) {
+    var all = [].concat(state.freqEnroute, (state.freqs && state.freqs.rows) || []);
+    for (var k in state.freqBook) all = all.concat(state.freqBook[k]);
+    for (var i = 0; i < all.length; i++) if (sameFreq(all[i].freq, f)) return all[i].name;
+    return state.com2Names[Number(f).toFixed(3)] || "";
   }
 
   // ---- developer log (tools/pill_log.py) --------------------------------
@@ -2019,7 +2227,9 @@
 
   function destroy() {
     destroyed = true;
-    window.batcPillLog = { log: state.log, seq: capSeq };
+    window.batcPillLog = { log: state.log, seq: capSeq, com2: state.com2Radio, com2Names: state.com2Names,
+      freqs: state.freqs, freqBook: state.freqBook, freqEnroute: state.freqEnroute };
+    clearTimeout(com2Timer);
     for (var k in timers) { clearTimeout(timers[k]); clearInterval(timers[k]); }
     if (socket) { socket.onclose = null; socket.close(); socket = null; }
     if (logSock) { logSock.onclose = null; logSock.close(); logSock = null; }
@@ -2029,6 +2239,8 @@
     if (switches.parentNode) switches.parentNode.removeChild(switches);
     [msgs, list, panel].forEach(function (el) { if (el.parentNode) el.parentNode.removeChild(el); });
     document.removeEventListener("mousemove", onMouseMove);
+    document.removeEventListener("mousemove", onDrag);
+    document.removeEventListener("mouseup", onDrag);
     if (shade.parentNode) shade.parentNode.removeChild(shade);
     if (style.parentNode) style.parentNode.removeChild(style);
     if (window.batcPill && window.batcPill.destroy === destroy) delete window.batcPill;
@@ -2036,11 +2248,16 @@
 
   // Same as the settings card, e.g. batcPill.set({ corner: "top-left", x: 40, y: 120 }). Saved.
   function set(patch) {
+    settingsChanged = true;
+    devLog("event", "settings " + JSON.stringify(patch));
+    return applySettings(patch);
+  }
+
+  function applySettings(patch) {
     var moved = "corner" in patch;
     for (var k in patch) CONFIG[k] = patch[k];
     saveSettings();
-    devLog("event", "settings " + JSON.stringify(patch));
-    listenPtt(); // turning PTT on starts listening (off just ignores the events)
+    listenKeys(); // turning PTT on starts listening to it (off just ignores the events)
     place();
     updateCard();
     if (moved) current = null; // re-enter from the new side
@@ -2048,6 +2265,25 @@
     resize(); // same content at a new scale keeps its old pixel width otherwise
     renderComms();
     return CONFIG;
+  }
+
+  // Waits up to 90 s for DataStorage, then takes its settings over localStorage's, unless the user changed
+  // some meanwhile; with nothing saved there yet (first start, or settings from 1.x), copies them in.
+  function loadStoredSettings(tries) {
+    var ds = dataStorage();
+    if (!ds) {
+      var eng = window.engine;
+      if (!window.batcPillStore && eng && typeof eng.trigger === "function") {
+        eng.trigger("ADD_VIEW_LISTENER", "JS_LISTENER_DATASTORAGE", "/Global/mainUI.html");
+        window.batcPillStore = true; // once per view, like the key listener
+      }
+      if (tries < 90) timers.store = setTimeout(function () { loadStoredSettings(tries + 1); }, 1000);
+      return;
+    }
+    var patch = null;
+    try { patch = savedPatch(ds.getData(STORE_KEY)); } catch (e) { /* ignore */ }
+    if (patch && !settingsChanged) applySettings(patch);
+    else saveSettings();
   }
 
   window.batcPill = {
@@ -2064,5 +2300,6 @@
   timers.poll = setInterval(poll, 1000);
   connect();
   logConnect();
-  try { listenPtt(); } catch (e) { /* no key events in this view: no PTT */ }
+  try { listenKeys(); } catch (e) { /* no key events in this view: no PTT, no COM2 */ }
+  loadStoredSettings(0);
 })();

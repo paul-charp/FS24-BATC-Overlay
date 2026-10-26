@@ -45,7 +45,10 @@ screen corner during flight, with a click-to-open settings card. Windows only. U
   A click on no element of ours never reaches the page (a document `mousedown` listener saw nothing), so the
   open settings card closes on outside clicks through a transparent full-screen `#batc-pill-shade` with
   `data-input-group` (that click doesn't reach the sim; verified live 2026-10-23).
-- `localStorage` is shared across all Coherent views; persistence across sim restarts is unverified.
+- `localStorage` is shared across all Coherent views but doesn't survive a sim restart (user report on 1.0.1,
+  2026-10-26). `pill.js` saves settings to the sim's DataStorage too: `engine.trigger("ADD_VIEW_LISTENER",
+  "JS_LISTENER_DATASTORAGE", "/Global/mainUI.html")`, then `window.datastorage.getData/setData` once it appears
+  (Simple UI does this from mainUI). Unverified live in this package.
 - mainUi has no `SimVar`, `GetStoredData` or `Coherent`; VCockpit views (e.g. VLogic) have `SimVar`.
 - mainUi fonts: only `Roboto-Regular` / `RobotoMono-Regular`; weights are synthesized.
 - Avoid `gap`, `color-mix`, `backdrop-filter` in pill.css (Gameface).
@@ -55,6 +58,12 @@ screen corner during flight, with a click-to-open settings card. Windows only. U
   `BAROMETRIC`) and `engine.on("keyIntercepted", (name, v0, v1, v2) => ...)`. Each event arrives twice in
   the same ms. A held key sends once, then every ~33 ms after ~0.4 s; release sends nothing. //42 Flow's
   mainUi hook uses the same `ADD_VIEW_LISTENER` route (for `JS_LISTENER_DATASTORAGE`).
+- mainUi can also fire sim key events: `engine.call("TRIGGER_KEY_EVENT", "COM2_STBY_RADIO_SET_HZ", true, 121725000, 0, 0)`
+  moved COM2 standby (read back in VLogic, page 36, with `SimVar`; verified 2026-10-24, Fenix A320).
+  mainUi can't read sim vars (no `simvar`; in-game panel views such as //42 Flow's have it). The Fenix RMP sets COM2
+  only through key events mainUi can observe (intercept with 0): the knob is `COM2_RADIO_SWAP`, `COM2_RADIO_SET_HZ`
+  <new standby>, `COM2_RADIO_SWAP`; the transfer button `COM2_RADIO_SET_HZ` <old standby>, then swap, set <old
+  active>, swap; each event twice. `pill.js` follows COM2 from them (`onCom2Event`).
 - Controls > Communications > QUICK REPLY is `KEY_SR_COM_QUICK_REPLY` (`fs-input-profiles`), event
   `SR_COM_QUICK_REPLY`. Blocking it (1) by hand froze the sim; observed (0), it is never reported.
   `pill.js` refuses `SR_` events. The PTT indicator uses `TOGGLE_SPEAKER` (works live, observed with 0).
@@ -98,6 +107,10 @@ screen corner during flight, with a click-to-open settings card. Windows only. U
   `pill.js` keeps a "Contact" reminder from "contact <Station> [on] <freq>" until COM1 (`Facility`)
   matches. An `ATIS Current` box with a new letter shows "ATIS"; the snapshot's box doesn't.
   `CPDLCCode:` and other CPDLC traffic: the pill stays silent (CPDLC is fully handled in the sim).
+  A CPDLC request (`CPDLC_Pilot: REQUEST DIRECT TO LTP`) gets `CPDLC_ATC: CLEARED DIRECT TO LTP` 15-35 s later, and
+  BeyondATC flashes `CommsState` `request` (stale text, e.g. "Announce On Frequency") around that answer with no
+  `processing`/`queued` before it (sniff 2026-10-26); `pill.js` ignores it while a CPDLC request is out. A PDC comes
+  as `CPDLC_ATC: CLRD TO ...` with new `InfoBoxes` and no `CommsState`.
 - What the toolbar sends (its panel `beyondatc_toolbar.js`, BeyondATC's package at
   `F:\FlightSimulator2024\Addons\Misc\beyondatc-toolbar`, read 2026-10-23): `set_autotune: <bool>`,
   `set_autorespond: <bool>` on its switches, `set_action: <reply>` on a menu item, `set_frequency: <f>`,
@@ -154,14 +167,17 @@ screen corner during flight, with a click-to-open settings card. Windows only. U
   and `Facility: 121.955|121.955` (the frequency as the name) before the station's. `DATIS: <ICAO>|<letter>|<text>`
   per airport in the snapshot, then `DATIS_END:`. On an ATIS frequency the menu is `Actions: []`.
 - Comms panel, not yet verified live: the `Frequencies:` reply's exact values (`parseFreqs` shows anything it
-  can't read raw); whether `set_frequency` sets COM1 active or standby (COM2 has no known command: right-click for COM2 is
-  not built); what `atc_log` returns (not sent; the Log is built from the stream); whether wheel events reach
+  can't read raw); whether `set_frequency` sets COM1 active or standby; whether right clicks reach mainUi
+  (`contextmenu` or a button-2 `mousedown`; the COM2 right click needs one) and whether the Fenix follows
+  `COM2_RADIO_SET_HZ`; what `atc_log` returns (not sent; the Log is built from the stream); whether wheel events reach
   mainUi (the Log scrolls); whether `set_action` from the pill (not the toolbar) is taken the same way.
 
 ## Rules
 
 - Never commit Asobo files (cooked components, vanilla UI); the build copies them from the local install.
 - Never commit design or prototype files (mockups, clickable prototypes): keep them in `.local/`.
+- The only sim command the pill sends: `COM2_RADIO_SET_HZ` (right click on a frequency), via
+  `engine.call("TRIGGER_KEY_EVENT", <event>, true, <value>, 0, 0)` from mainUi.
 - Never send anything on the BeyondATC socket except, on the user's click, the toolbar's own commands:
   `set_autotune: true|false`, `set_autorespond: true|false` (the hover buttons), and for the comms panel
   `set_action: <label>` (an answer or request, exactly as `Actions` lists it),

@@ -49,7 +49,8 @@
   border-radius: var(--r);
   background-color: var(--bg);
   border: calc(1 * var(--u)) solid var(--edge);
-  transition: border-radius 0.38s var(--ease), background-color 0.2s ease, border-color 0.3s ease;
+  transition: border-radius 0.38s var(--ease), background-color 0.2s ease, border-color 0.3s ease,
+    top 0.38s var(--ease), bottom 0.38s var(--ease), left 0.38s var(--ease), right 0.38s var(--ease);
 }
 
 #batc-pill.is-hidden {
@@ -60,12 +61,13 @@
 #batc-pill[data-side="left"].is-hidden { transform: translateX(calc(-12 * var(--u))) scale(0.9); }
 #batc-pill[data-side="left"] { justify-content: flex-start; }
 
-/* idle: collapsed to a dot */
+/* idle: collapsed to a dot. The pill keeps its full height and the dot is drawn inset, so the click target stays
+   26 units square (clicks only reach the pill itself) */
 #batc-pill.is-dot {
-  height: calc(14 * var(--u));
   --r: calc(7 * var(--u));
   opacity: 0.8;
 }
+#batc-pill.is-dot .bp-bg { top: calc(6 * var(--u)); bottom: calc(6 * var(--u)); left: calc(6 * var(--u)); right: calc(6 * var(--u)); }
 #batc-pill.is-ghost { opacity: 0.55; }
 /* the dot and ghost set their own opacity: hidden must still win (the dot stayed in the menus) */
 #batc-pill.is-dot.is-hidden, #batc-pill.is-ghost.is-hidden { opacity: 0; }
@@ -80,7 +82,7 @@
   transform: translateY(0);
   transition: opacity 0.18s ease, transform 0.22s var(--ease);
 }
-#batc-pill.is-dot .bp-body { padding: 0 calc(4 * var(--u)); }
+#batc-pill.is-dot .bp-body { padding: 0 calc(10 * var(--u)); } /* 26 units wide: the dot's 14 and its margin */
 #batc-pill .bp-body.is-out {
   opacity: 0;
   transform: translateY(calc(4 * var(--u)));
@@ -236,6 +238,15 @@
   0% { opacity: 0; transform: scale(0.4); }
   100% { opacity: 1; transform: scale(1); }
 }
+/* COM2 tuned but not received: said quietly */
+#batc-pill .bp-ico.bp-note { color: #ff7a45; }
+/* transmitting on a muted COM1: the speaker warns */
+#batc-pill .bp-ico.bp-warn {
+  width: calc(15 * var(--u));
+  height: calc(15 * var(--u));
+  color: var(--c);
+  animation: bp-pulse 0.9s ease-in-out infinite;
+}
 /* ATC calling while COM1 is muted: the speaker icon is the message */
 #batc-pill.is-muted .bp-ico {
   width: calc(15 * var(--u));
@@ -365,10 +376,10 @@
 
 #batc-pill-cfg .bc-x {
   display: flex; align-items: center; justify-content: center;
-  width: calc(20 * var(--k)); height: calc(20 * var(--k)); border-radius: 50%;
+  width: calc(22 * var(--k)); height: calc(22 * var(--k)); border-radius: 50%; /* as the panel's .bm-icon */
 }
 #batc-pill-cfg .bc-x svg {
-  width: calc(9 * var(--k)); height: calc(9 * var(--k));
+  width: calc(10 * var(--k)); height: calc(10 * var(--k));
   fill: none; stroke: currentColor; stroke-width: 1.5; stroke-linecap: round;
 }
 #batc-pill-cfg .bc-x:hover { background-color: var(--btn-hover); color: var(--fg); }
@@ -644,11 +655,12 @@
 }
 .bm-icon {
   display: flex; align-items: center; justify-content: center;
-  width: calc(24 * var(--u)); height: calc(24 * var(--u)); margin-left: calc(4 * var(--u));
+  width: calc(22 * var(--u)); height: calc(22 * var(--u)); margin-left: calc(4 * var(--u));
   border-radius: 50%; color: var(--dim); cursor: pointer;
 }
 .bm-icon:hover { background-color: var(--btn-hover); color: #ffffff; }
-.bm-icon svg { width: calc(12 * var(--u)); height: calc(12 * var(--u)); }
+.bm-icon svg { width: calc(10 * var(--u)); height: calc(10 * var(--u)); } /* the cross as the settings card's .bc-x */
+.bm-icon[data-act="settings"] svg { width: calc(12 * var(--u)); height: calc(12 * var(--u)); } /* the cog: as before */
 .bm-note { margin-top: calc(6 * var(--u)); color: var(--dim); font-size: calc(10.5 * var(--u)); font-weight: 500; line-height: 1.35; }
 .bm-raw {
   margin-top: calc(6 * var(--u)); padding: calc(6 * var(--u)); border-radius: calc(5 * var(--u));
@@ -685,7 +697,25 @@
 .bm-sec { color: var(--dim); font-size: calc(10 * var(--u)); letter-spacing: 0.07em; text-transform: uppercase; }
 .bm-sub { margin: calc(8 * var(--u)) 0 calc(4 * var(--u)); } /* "En route", under the airport's stations */
 /* the whole history scrolls (wheel); it opens at the newest line */
-.bm-log { max-height: calc(300 * var(--u)); overflow-y: auto; margin: 0 calc(-2 * var(--u)); padding-right: calc(4 * var(--u)); }
+.bm-logwrap { position: relative; }
+.bm-log { max-height: calc(300 * var(--u)); overflow-y: auto; margin: 0 calc(-2 * var(--u)); padding-right: calc(10 * var(--u)); }
+.bm-log::-webkit-scrollbar { width: 0; } /* the drawn one below replaces it (desktop preview) */
+/* the drawn scrollbar (pill.js syncScrollbar): a thin track at the right, a thumb you can drag */
+.bm-sb {
+  position: absolute; top: 0; bottom: 0; right: calc(-2 * var(--u)); width: calc(8 * var(--u));
+  cursor: pointer;
+}
+.bm-track { /* thinner than what takes the clicks */
+  position: absolute; top: 0; bottom: 0; left: calc(3 * var(--u)); width: calc(3 * var(--u));
+  border-radius: calc(2 * var(--u)); background-color: rgba(255, 255, 255, 0.06);
+}
+.bm-sb.is-none { display: none; }
+.bm-thumb {
+  position: absolute; left: calc(2.5 * var(--u)); width: calc(4 * var(--u));
+  border-radius: calc(2 * var(--u)); background-color: rgba(236, 241, 246, 0.3);
+  transition: background-color 0.15s ease;
+}
+.bm-sb:hover .bm-thumb { background-color: rgba(236, 241, 246, 0.55); }
 .bm-ln { display: flex; padding: calc(4 * var(--u)) calc(2 * var(--u)); font-size: calc(12 * var(--u)); font-weight: 400; line-height: 1.38; }
 .bm-t { flex: none; width: calc(38 * var(--u)); padding-top: calc(1 * var(--u)); color: rgba(236, 241, 246, 0.4); font-size: calc(10.5 * var(--u)); }
 .bm-x { flex: 1 1 auto; }
