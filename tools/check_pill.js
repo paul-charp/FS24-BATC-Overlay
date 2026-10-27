@@ -12,6 +12,7 @@ function extract(from, to, name) {
 }
 const readbackHint = extract("  var RWY", "  function clip", "readbackHint");
 const contactIn = extract("  // A name is words", "  function onContact", "contactIn");
+const WEATHER = extract("  var WEATHER", "  // who else is on the frequency", "WEATHER");
 
 let failed = 0;
 function expect(label, got, want) {
@@ -91,6 +92,11 @@ expect("freqs   airport and runways", parseFreqs(JSON.stringify([
   ["Vancouver Tower|118.700|CYVR|26L|", "Pacific Radio|123.150|CYVR||", "CYVR ATIS|124.600|CYVR||CYVR",
     "Vancouver Centre|133.700|||"]);
 expect("freqs   unreadable kept raw", parseFreqs("Nothing here"), { raw: "Nothing here" });
+
+// CommsState text names who transmits (BeyondATC's code): weather stations aren't traffic
+[["ATIS Transmitting", true], ["ATIS Generating", true], ["AWOS Transmitting", true], ["ASOS Generating", true],
+  ["AWIS Transmitting", true], ["AWIB Transmitting", true], ["ATC Transmitting", false], ["Traffic Generating", false],
+  ["ATC Generating", false]].forEach(([t, want]) => expect("weather " + t, WEATHER.test(t), want));
 
 // speed: each must finish well under a frame budget even on long, unlucky input
 const HOSTILE = [

@@ -226,6 +226,55 @@
   50% { transform: scaleY(1); }
 }
 
+/* BeyondATC loading a flight: a thin progress line along the bottom edge */
+#batc-pill .bp-track {
+  position: absolute;
+  left: calc(10 * var(--u));
+  right: calc(10 * var(--u));
+  bottom: calc(2 * var(--u));
+  height: calc(2 * var(--u));
+  border-radius: var(--u);
+  background-color: rgba(255, 255, 255, 0.12);
+  overflow: hidden;
+  opacity: 0;
+  transition: opacity 0.3s ease;
+}
+#batc-pill.has-track .bp-track { opacity: 1; }
+#batc-pill .bp-track i {
+  display: block;
+  width: 0;
+  height: 100%;
+  border-radius: var(--u);
+  background-color: var(--c);
+  transition: width 0.5s var(--ease);
+}
+
+/* BeyondATC's question under its title (the answers are chips in the column) */
+#batc-pill .bp-body > .bp-note { margin-left: 0; }
+#batc-pill .bp-note {
+  display: block;
+  max-width: calc(250 * var(--u));
+  margin-top: calc(6 * var(--u));
+  padding: 0 calc(3 * var(--u));
+  white-space: normal;
+  font-size: calc(11 * var(--u));
+  font-weight: 500;
+  line-height: 1.35;
+  color: var(--dim);
+}
+
+/* an error's ✕: always shown, not only on hover */
+#batc-pill .bp-unpin.is-x .bp-x { display: block; }
+
+/* the flight's route once it's loaded: "LFBD → LPPT" */
+#batc-pill .bp-route { display: flex; align-items: center; }
+#batc-pill .bp-arrow {
+  width: calc(10 * var(--u));
+  height: calc(10 * var(--u));
+  margin: 0 calc(3 * var(--u));
+  color: var(--dim);
+}
+
 #batc-pill .bp-ico {
   width: calc(12 * var(--u));
   height: calc(12 * var(--u));
@@ -582,6 +631,11 @@
 .bm-chip.is-quiet { color: rgba(236, 241, 246, 0.6); }
 .bm-chip.is-tune { color: #63d3e6; border-color: rgba(99, 211, 230, 0.55); }
 .bm-chip.is-tune:hover { background-color: rgba(20, 52, 60, 0.9); }
+/* BeyondATC's own commands (Start flight, Next leg, its question's answers), apart from ATC's: blue */
+.bm-chip.is-app { color: #6fa8ff; border-color: rgba(111, 168, 255, 0.55); }
+.bm-chip.is-app:hover { background-color: rgba(22, 36, 60, 0.9); }
+.bm-chip.is-app.is-main { background-color: #6fa8ff; border-color: #6fa8ff; color: #0b1422; }
+.bm-chip.is-app.is-main:hover { background-color: #8dbbff; }
 .bm-chip.is-busy { opacity: 0.4; pointer-events: none; }
 
 /* the column under the pill: requests, answers (no message on screen), "Tune" */

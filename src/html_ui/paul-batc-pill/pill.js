@@ -2,7 +2,8 @@
 // answers, the requests and a Frequencies / Log panel around it.
 // Reads BeyondATC's toolbar socket (the same one its in-sim panel uses). It only sends, on a click, what the
 // toolbar itself sends: "set_autotune: <bool>", "set_autorespond: <bool>", "set_action: <label>",
-// "set_frequency: <freq>" and "frequencies".
+// "set_frequency: <freq>" and "frequencies"; and, from BeyondATC's own command set, "set_frequency_com2: <freq>",
+// "start_flight: IFR", "turnaround", "prompt_reply: <id>:yes|no" and "ack_error".
 (function () {
   "use strict";
 
@@ -15,9 +16,11 @@
     scale: 1,            // overall size
     lingerMs: 3000,      // label stays after an exchange ends, then shrinks to the dot
     tuneMs: 3000,        // how long a radio change is shown
-    errorMs: 5000,
+    errorMs: 5000,       // how long a BeyondATC error is shown (unless it stops BeyondATC: then until dismissed)
+    errorLongMs: 10000,  // the same, for one too long for a line (shown in full)
     missedMs: 5000,      // "No readback" stays this long when BeyondATC stops waiting without your reply
     atisMs: 6000,        // how long a new ATIS letter is shown
+    loadedMs: 8000,      // how long the callsign and route show once BeyondATC has loaded the flight
     checkInMs: 10000,    // on a new station, "Check in" shows once you haven't announced yourself for this long,
     checkInWarnMs: 60000, // and turns into the "Not checked in" warning after this long
     demoMs: 4000,        // settings card: how long the sample shows the last change before going back
@@ -97,7 +100,13 @@
 
   var state = {
     inFlight: false,
-    stage: "",           // LoadState.stage: "menu", "loading", "ready", ...
+    stage: "",           // LoadState.stage: "menu", "loading", "download", "ready", ...
+    loadPct: -1,         // LoadState.pct while BeyondATC loads a flight (-1: not given)
+    loadedUntil: 0,      // the flight just finished loading: callsign and route show until then
+    callsign: "",        // "Callsign: {full,shortForm}": full ("Alpine 68ML")
+    prompt: null,        // "Prompt: {id,title,text,yesLabel,noLabel}": BeyondATC's Yes/No question (it waits for it)
+    errorFatal: false,   // the error stays until BeyondATC clears it or you dismiss it (its ✕)
+    errorFull: "",       // its whole text (state.error is its first line, cut)
     connected: false,
     mode: "ready",
     text: "",
@@ -166,7 +175,7 @@
     cpdlcAsked: false,   // a CPDLC request is out (CPDLC_Pilot: REQUEST ...) until a CPDLC_ATC: line
   };
   var socket = null;
-  var timers = { checkIn: 0, checkInWarn: 0, reconnect: 0, linger: 0, error: 0, tune: 0, missed: 0, confirm: 0, swHide: 0, atis: 0, demo: 0, ptt: 0, pttShow: 0, swap: 0, poll: 0, log: 0, sent: 0, capHover: 0, logClear: 0, traffic: 0, store: 0 };
+  var timers = { checkIn: 0, checkInWarn: 0, reconnect: 0, linger: 0, error: 0, loaded: 0, tune: 0, missed: 0, confirm: 0, swHide: 0, atis: 0, demo: 0, ptt: 0, pttShow: 0, swap: 0, poll: 0, log: 0, sent: 0, capHover: 0, logClear: 0, traffic: 0, store: 0 };
   var destroyed = false;
   var current = null;    // last rendered view signature
 
@@ -194,6 +203,12 @@
   var bg = document.createElement("div");
   bg.className = "bp-bg";
   root.appendChild(bg);
+  // BeyondATC loading a flight: a progress line along the bottom edge (shown by .has-track, filled by render)
+  var track = document.createElement("div");
+  track.className = "bp-track";
+  var trackFill = document.createElement("i");
+  track.appendChild(trackFill);
+  root.appendChild(track);
   root.appendChild(body);
   document.body.appendChild(root);
 
@@ -324,6 +339,8 @@
     '<path d="M3 8a5 5 0 0 0 10 0M8 13v2"/></svg>';
   var CHECK = '<svg class="bp-ico bp-check" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2" ' +
     'stroke-linecap="round" stroke-linejoin="round"><path d="M3.5 8.5l3 3 6-6.5"/></svg>';
+  var ARROW = '<svg class="bp-arrow" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" ' +
+    'stroke-linecap="round" stroke-linejoin="round"><path d="M2.5 8h10M9 4.5L12.5 8 9 11.5"/></svg>';
   var MUTE = '<svg class="bp-ico" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" ' +
     'stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h2l3-2.5v9L5 10H3z"/><path d="M11 6l3.5 4M14.5 6L11 10"/></svg>';
 
@@ -409,6 +426,11 @@
     '<svg class="bp-x" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round">' +
     '<path d="M4.5 4.5l7 7M11.5 4.5l-7 7"/></svg></span>';
 
+  // BeyondATC's error: its ✕ dismisses it there too ("ack_error")
+  var ERROR_X = '<span class="bp-unpin is-x" data-input-group="BATC-PILL" data-dismiss="error">' +
+    '<svg class="bp-x" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round">' +
+    '<path d="M4.5 4.5l7 7M11.5 4.5l-7 7"/></svg></span>';
+
   function keptLook(k) {
     if (CONFIG.readbackDetail === "none") return null;
     if (CONFIG.readbackDetail === "boxes" && k.boxes.length) {
@@ -475,13 +497,17 @@
     return replyLook("s-you", MIC, "Transmitting", "bp-who");
   }
 
+  // CommsState text names who transmits: "ATC", "Traffic", or a weather station ("ATIS Transmitting"; AWOS,
+  // ASOS, AWIS, AWIB in BeyondATC's code). A weather station isn't anyone talking.
+  var WEATHER = /^(atis|awos|asos|awis|awib)\b/i;
+
   // who else is on the frequency right now: "ATC talking", "Traffic talking", or "" (an ATIS doesn't count)
   function busyWith() {
     if (state.mode === "speaking") {
       if (state.speaker === "atc" || state.speaker === "atcTraffic") return "ATC talking";
       if (state.speaker === "traffic") return "Traffic talking";
     }
-    if (state.mode === "traffic" && /transmitting/i.test(state.text) && !/^atis/i.test(state.text)) {
+    if (state.mode === "traffic" && /transmitting/i.test(state.text) && !WEATHER.test(state.text)) {
       return /^atc/i.test(state.text) ? "ATC talking" : "Traffic talking";
     }
     return "";
@@ -546,17 +572,29 @@
   // BeyondATC not running, or in its menu (no flight there): nothing to show but a ghost pill
   function batcIdle() { return !state.connected || state.stage === "menu"; }
 
+  // no comms panel: BeyondATC idle, or loading a flight (no stations or log yet); a click opens the settings
+  function noComms() { return batcIdle() || loading(); }
+
   function view() {
     var now = Date.now();
     if (!state.inFlight) return { hidden: true };
     if (state.editing) return withExtra(demoView());
+    // BeyondATC waits for your answer (its chips open under the pill)
+    if (state.prompt && state.connected) return withExtra(promptLook(state.prompt));
+    // an error can come from BeyondATC's menu too (Start flight without a SimBrief ID)
+    // a short one on a line, a longer one whole under a title; it stays while hovered
+    if (state.error && state.connected && (state.errorFatal || now < state.errorUntil || switchesOpen)) {
+      if (state.errorFull !== state.error) {
+        return withExtra({ cls: "s-err is-msg", html: ERROR_X + '<span class="bp-who">BeyondATC error</span>',
+          extra: '<span class="bp-note">' + esc(state.errorFull) + "</span>" });
+      }
+      return withExtra(keepBoxes({ cls: "s-err", html: ERROR_X + '<span class="bp-who">' + esc(state.error) + "</span>" }));
+    }
     if (batcIdle()) {
       if (CONFIG.hideOffline) return { hidden: true };
       return { cls: "is-ghost", html: LAMP + "<span>" + (state.connected ? "Waiting for BATC" : "BATC offline") + "</span>" };
     }
-    if (state.error && now < state.errorUntil) {
-      return withExtra(keepBoxes({ cls: "s-err", html: LAMP + '<span class="bp-who">' + esc(state.error) + "</span>" }));
-    }
+    if (loading()) return withExtra(loadingLook());
     if (state.pttShown && CONFIG.showPtt) return withExtra(keepBoxes(sendingMuted(pttLook()))); // the boxes too, in Boxes mode
 
     var v;
@@ -582,8 +620,8 @@
         else v = { cls: "s-atc", html: BARS + facilityHtml("bp-who") };
         break;
       case "traffic":
-        if (/^atis/i.test(state.text)) {
-          // COM1 on an ATIS frequency: "ATIS Generating", then "ATIS Transmitting" while it plays
+        if (WEATHER.test(state.text)) {
+          // COM1 on an ATIS (or AWOS, ASOS, ...) frequency: "ATIS Generating", then "ATIS Transmitting" while it plays
           v = { cls: "s-atis", html: (/generat/i.test(state.text) ? DOTS : BARS) + facilityHtml("bp-who") };
         } else {
           // ATC to other aircraft or all stations ("ATC Generating", then "ATC Transmitting")
@@ -591,7 +629,9 @@
         }
         break;
       case "ready":
-        if (state.tune && now < state.tuneUntil && !confirming()) {
+        if (now < state.loadedUntil) {
+          v = loadedLook();
+        } else if (state.tune && now < state.tuneUntil && !confirming()) {
           v = tuneLook(state.tune);
         } else if ((v = readbackView())) {
           // waiting for your readback
@@ -623,6 +663,40 @@
     if (!v) v = { cls: "is-dot", html: LAMP };
     if (state.muted && !v.muteShown && !/\bis-dot\b/.test(v.cls)) v.html += MUTE;
     return withExtra(keepBoxes(v));
+  }
+
+  // "Live Traffic Enabled" over its question; the answers are chips in the column
+  function promptLook(pr) {
+    return { cls: "s-atc is-pulse is-msg", html: LAMP + '<span class="bp-who">' + esc(pr.title || "BeyondATC") + "</span>",
+      extra: pr.text ? '<span class="bp-note">' + esc(pr.text) + "</span>" : "" };
+  }
+
+  function loading() { return state.stage === "loading" || state.stage === "download"; }
+
+  // BeyondATC loads a flight: "Loading flight", the callsign once it's known (at about 10%), and the progress line
+  function loadingLook() {
+    return { cls: "s-proc has-track", track: Math.max(0, state.loadPct),
+      html: DOTS + '<span class="bp-who">Loading flight</span>' +
+        (state.callsign ? '<span class="bp-sep">·</span><span>' + esc(state.callsign) + "</span>" : "") };
+  }
+
+  // the flight is loaded: callsign and route, in the clearance boxes when the readback detail is Boxes
+  function loadedLook() {
+    var pg = state.progress, cs = state.callsign;
+    if (CONFIG.readbackDetail === "boxes") {
+      var boxes = [];
+      if (cs) boxes.push({ title: "Callsign", info: cs });
+      if (pg && pg.from) boxes.push({ title: "From", info: pg.from });
+      if (pg && pg.to) boxes.push({ title: "To", info: pg.to });
+      if (boxes.length) {
+        return { cls: "s-ok is-msg", track: 100, html: CHECK + '<span class="bp-who">Flight loaded</span>', extra: boxesHtml(boxes) };
+      }
+    }
+    var route = pg && pg.from && pg.to ? '<span class="bp-route"><span>' + esc(pg.from) + "</span>" + ARROW +
+      "<span>" + esc(pg.to) + "</span></span>" : "";
+    // track: the progress line fills up as it fades out
+    return { cls: "s-ok", track: 100, html: CHECK + '<span class="bp-who">' + (cs ? esc(cs) : "Flight loaded") + "</span>" +
+      (route ? '<span class="bp-sep">·</span>' + route : "") };
   }
 
   // you transmit on COM1 while it's muted: you won't hear the answer. Warning color and the pulsing speaker.
@@ -701,6 +775,8 @@
   function render(instant) {
     if (destroyed || !cssReady()) return;
     var v = view();
+    // the progress line moves on its own (CSS transition), without the content's fade
+    if (v.track !== undefined) trackFill.style.width = v.track + "%";
     var sig = v.hidden ? "hidden" : v.cls + "|" + v.html;
     if (sig === current) return;
     shown = v.hidden ? "hidden" : (v.cls || "-") + " | " + v.html.replace(/<[^>]*>/g, " ").replace(/\s+/g, " ").trim();
@@ -1080,7 +1156,31 @@
       }
       case "LoadState": {
         var ls = parseJson(payload);
-        if (ls) state.stage = ls.stage || "";
+        if (!ls) break;
+        var wasLoading = loading();
+        state.stage = ls.stage || "";
+        state.loadPct = typeof ls.pct === "number" ? ls.pct : -1;
+        // no panel while loading. Route, callsign and filed stations stay: a download can fail ("Ensure you have
+        // generated your next planned leg") and BeyondATC doesn't send them again; a new route resets them (Progress)
+        if (loading() && !wasLoading && state.panel) openPanel(false);
+        if (wasLoading && state.stage === "ready") {
+          state.loadedUntil = Date.now() + CONFIG.loadedMs;
+          clearTimeout(timers.loaded);
+          timers.loaded = setTimeout(render, CONFIG.loadedMs + 20);
+        }
+        break;
+      }
+      case "Prompt": {
+        // {"id":"liveTrafficTime","title":"Live Traffic Enabled","text":"...","yesLabel":"Yes, Continue",
+        // "noLabel":"No"} (field names from BeyondATC's code), or empty once answered, here or in the app
+        var pr = parseJson(payload);
+        state.prompt = pr && typeof pr === "object" && pr.id ? pr : null;
+        break;
+      }
+      case "Callsign": {
+        // {"full":"Alpine 68ML","shortForm":""}, or empty before a flight
+        var cs = parseJson(payload);
+        state.callsign = cs && typeof cs === "object" ? String(cs.full || cs.shortForm || "") : "";
         break;
       }
       case "RadioMute": {
@@ -1133,12 +1233,22 @@
       case "AppError": {
         // {"text":"No traffic liveries found, ...\nYou must ...","fatal":false,"kicked":false}, or plain text
         var ae = parseJson(payload);
-        var et = String(ae && typeof ae === "object" ? ae.text || "" : payload).split("\n")[0].trim();
-        if (!et) return;
+        var full = String(ae && typeof ae === "object" ? ae.text || "" : payload).trim();
+        var et = full.split("\n")[0].trim();
+        // longer than a line: the whole text shows under a title
+        state.errorFull = full.replace(/\s*\n\s*/g, " ");
+        if (!et) {
+          // cleared by BeyondATC (or dismissed here)
+          state.error = "";
+          state.errorFatal = false;
+          break;
+        }
         state.error = et.length > 48 ? et.slice(0, 47) + "…" : et;
-        state.errorUntil = Date.now() + CONFIG.errorMs;
+        state.errorFatal = !!(ae && ae.fatal);
+        var errMs = state.errorFull !== state.error ? CONFIG.errorLongMs : CONFIG.errorMs;
+        state.errorUntil = Date.now() + errMs;
         clearTimeout(timers.error);
-        timers.error = setTimeout(render, CONFIG.errorMs + 20);
+        timers.error = setTimeout(render, errMs + 20);
         break;
       }
       default:
@@ -1173,6 +1283,7 @@
       state.mode = "ready";
       state.speaker = null;
       state.stage = "";
+      state.loadedUntil = 0;
       state.replies = [];
       state.repliesKey = "";
       state.infoBoxes = [];
@@ -1236,7 +1347,7 @@
     state.editing = open;
     // opened from the panel's gear: closing goes back to the panel
     if (open) { showSwitches(false); state.cardBack = state.panel; state.panel = false; }
-    else if (state.cardBack) { state.cardBack = false; state.panel = !batcIdle(); }
+    else if (state.cardBack) { state.cardBack = false; state.panel = !noComms(); }
     card.className = open ? "" : "is-closed";
     // the sim checks data-input-group on the exact element under the cursor, so tag every element
     var els = [card].concat([].slice.call(cardEls));
@@ -1255,6 +1366,14 @@
     for (var el = e.target; el && el !== root; el = el.parentNode) {
       if (el.className && String(el.className.baseVal || el.className).indexOf("bp-unpin") >= 0) {
         if (state.editing) break; // the settings sample: just a click on the pill
+        if (el.getAttribute("data-dismiss") === "error") {
+          devLog("event", "dismiss error");
+          send("ack_error");
+          state.error = "";
+          state.errorFatal = false;
+          render();
+          return;
+        }
         devLog("event", "hide kept clearance");
         state.kept = null;
         render();
@@ -1262,7 +1381,7 @@
       }
     }
     if (state.editing) openCard(false);
-    else if (batcIdle()) openCard(true); // no comms panel then: its gear is the only way to settings
+    else if (noComms()) openCard(true); // no comms panel then: its gear is the only way to settings
     else openPanel(!state.panel);
   });
 
@@ -1395,6 +1514,7 @@
       else switchEls[i].removeAttribute("data-input-group");
     }
     if (open) { placeSwitches(); updateSwitches(); }
+    if (state.error) render(); // an error stays while hovered, and goes once left if its time is over
     renderComms();
   }
 
@@ -1529,7 +1649,7 @@
   // BeyondATC queues it ("queued") until the frequency is free
   function othersTalking() {
     if (state.mode === "speaking") return state.speaker === "traffic" || state.speaker === "atcTraffic";
-    return state.mode === "traffic" && !/^atis/i.test(state.text);
+    return state.mode === "traffic" && !WEATHER.test(state.text);
   }
 
   function canRequest() { return (!busy() || othersTalking()) && !justSent(); }
@@ -1580,7 +1700,7 @@
   }
 
   function commsShown() {
-    return !batcIdle() && state.inFlight && !state.editing && current !== null && current !== "hidden";
+    return !noComms() && state.inFlight && !state.editing && current !== null && current !== "hidden";
   }
 
   function messagesShown() { return commsShown() && !state.panel && CONFIG.captions !== "off"; }
@@ -1730,18 +1850,34 @@
 
   // ---- the column under the pill (on hover) ----
 
+  // BeyondATC's own actions: its question's answers (shown without hovering: it waits for them), Start flight in its
+  // menu, Load Next Leg at the gate (LoadState turnaround: the leg is over, the next SimBrief plan isn't downloaded)
+  function appChips() {
+    if (!state.connected || !state.inFlight || state.editing || justSent()) return "";
+    var pr = state.prompt;
+    if (pr) {
+      return chip(pr.yesLabel || "Yes", "data-app", "prompt_reply: " + pr.id + ":yes", "is-app is-main") +
+        chip(pr.noLabel || "No", "data-app", "prompt_reply: " + pr.id + ":no", "is-app");
+    }
+    if (!switchesOpen || state.panel) return "";
+    if (state.stage === "menu") return chip("Start IFR flight", "data-app", "start_flight: IFR", "is-app is-main");
+    if (state.stage === "turnaround" && state.mode === "ready") return chip("Load Next Leg", "data-app", "turnaround", "is-app");
+    return "";
+  }
+
   function renderList() {
-    var html = "";
-    if (switchesOpen && commsShown() && !state.panel) {
+    // Load Next Leg comes before the requests (still ATC's at the gate); a question or Start flight alone
+    var html = appChips();
+    if ((!html || state.stage === "turnaround") && switchesOpen && commsShown() && !state.panel) {
       if (awaiting()) {
         // answers show in one place: under the message while it's on screen, else here
-        if (!capShown(state.readback.capId) && !justSent()) html = answerChips(listAll);
+        if (!capShown(state.readback.capId) && !justSent()) html += answerChips(listAll);
       } else if (contactPending()) {
         // requests wait until you're on the new station
-        if (!capShown(state.contact.capId)) html = tuneChip();
+        if (!capShown(state.contact.capId)) html += tuneChip();
       } else if (canRequest()) {
         // BeyondATC's order: the likely next request first
-        html = state.requests.map(function (r) {
+        html += state.requests.map(function (r) {
           return chip(r, "data-req", r, checkInDue() && /^announce on frequency$/i.test(r) ? "is-primary" : "");
         }).join("");
       }
@@ -1765,10 +1901,23 @@
   function onChip(e, container) {
     var el = e.target;
     while (el && el !== container && !(el.getAttribute && (el.getAttribute("data-reply") ||
-      el.getAttribute("data-req") || el.getAttribute("data-more") || el.getAttribute("data-tune")))) {
+      el.getAttribute("data-req") || el.getAttribute("data-more") || el.getAttribute("data-tune") ||
+      el.getAttribute("data-app")))) {
       el = el.parentNode;
     }
     if (!el || el === container) return;
+    if (el.getAttribute("data-app")) {
+      // only what's offered right now (a chip fading out isn't)
+      var cmd = el.getAttribute("data-app");
+      if (appChips().indexOf('data-app="' + esc(cmd) + '"') < 0 || !send(cmd)) return;
+      if (/^prompt_reply/.test(cmd)) state.prompt = null;
+      state.sentAt = Date.now();
+      clearTimeout(timers.sent);
+      timers.sent = setTimeout(function () { render(); renderComms(); }, SENT_MS + 20);
+      render();
+      renderComms();
+      return;
+    }
     if (el.getAttribute("data-more")) {
       if (container === list) { listAll = true; renderList(); } else { hoverCapAll = true; renderMessages(); }
       return;
@@ -2074,10 +2223,9 @@
     renderPanel();
   });
 
-  // A right click on a frequency sets the plane's COM2 (active). BeyondATC has no command for it, so this is the
-  // sim's own key event, sent the way its instruments do (TRIGGER_KEY_EVENT through mainUi's engine: verified live,
-  // COM2_STBY_RADIO_SET_HZ moved COM2 standby). Right clicks may come as contextmenu or as a button-2 mousedown:
-  // one per click.
+  // A right click on a frequency sets the plane's COM2 through BeyondATC ("set_frequency_com2", which its toolbar
+  // doesn't use; BeyondATC sets it over SimConnect, as COM1). Right clicks may come as contextmenu or as a button-2
+  // mousedown: one per click.
   var com2At = 0;
   function onRightClick(e) {
     if (e.type === "mousedown" && e.button !== 2) return;
@@ -2100,11 +2248,8 @@
   panel.addEventListener("mousedown", onRightClick);
 
   function setCom2(freq) {
-    var hz = Math.round(Number(freq) * 1e6);
-    if (!hz || typeof engine === "undefined" || !engine.call) return;
-    devLog("event", "COM2 " + freq);
-    try { engine.call("TRIGGER_KEY_EVENT", "COM2_RADIO_SET_HZ", true, hz, 0, 0); } catch (err) { return; }
-    // as if the event came back (whether the view hears its own events is unknown)
+    if (!Number(freq) || !send("set_frequency_com2: " + freq)) return;
+    // as if the sim's event came back (whether mainUi sees SimConnect's events is unknown)
     state.com2Radio.act = Number(freq).toFixed(3);
     clearTimeout(com2Timer);
     com2Timer = setTimeout(com2Settled, 150);

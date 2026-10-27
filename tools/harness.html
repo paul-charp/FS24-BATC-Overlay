@@ -18,6 +18,7 @@
   <button data-seq="voice">Replay voice request</button>
   <button data-seq="ifr">Replay IFR clearance + readback</button>
   <button data-seq="rwy">Replay runway question</button>
+  <button data-seq="load">Replay flight load</button>
   <button id="err">AppError</button>
   <button id="mute">Toggle COM1 mute</button>
   <button id="flight">Toggle in flight</button>
@@ -94,6 +95,23 @@
           [17700, "ATC: Airfrans 1234, 12L is the runway you're already assigned for departure. Unable runway change."],
           [17720, 'CommsState: {"mode":"speaking","text":"Speaking"}'], [25100, 'CommsState: {"mode":"ready","text":""}'],
           [25102, 'Actions: [Request Push and Start¬Request Startup Only¬Request Departure Runway Change¬Wind Check¬Radio Check¬]']],
+    // from the 2026-10-27 LFBD-LPPT log: BeyondATC loads a flight (menu, loading, download steps, ready)
+    load: [[0, 'LoadState: {"stage":"menu","text":"","pct":-1,"vfr":false,"loggedIn":true}'],
+           [1500, 'LoadState: {"stage":"loading","text":"Loading Flight...","pct":-1,"vfr":false,"loggedIn":true}'],
+           [4000, 'LoadState: {"stage":"download","text":"Downloading Flightplan...","pct":0,"vfr":false,"loggedIn":true}'],
+           [4040, 'Facility: UNICOM|122.800'],
+           [4400, 'LoadState: {"stage":"download","text":"Loading Airport LFBD...","pct":10,"vfr":false,"loggedIn":true}'],
+           [4400, 'Callsign: {"full":"Alpine 68ML","shortForm":""}'],
+           [4750, 'LoadState: {"stage":"download","text":"Loading Airport LPPT...","pct":20,"vfr":false,"loggedIn":true}'],
+           [4960, 'LoadState: {"stage":"download","text":"Building Path Tree for LFBD...","pct":40,"vfr":false,"loggedIn":true}'],
+           [5190, 'LoadState: {"stage":"download","text":"Building Path Tree for LPPT...","pct":50,"vfr":false,"loggedIn":true}'],
+           [5400, 'LoadState: {"stage":"download","text":"Calculating Terrain Avoidance...","pct":60,"vfr":false,"loggedIn":true}'],
+           [5470, 'LoadState: {"stage":"download","text":"Building Go Around...","pct":80,"vfr":false,"loggedIn":true}'],
+           [5880, 'Facility: Merignac UNICOM|122.800'],
+           [5880, 'LoadState: {"stage":"download","text":"Loading Parking Data...","pct":85,"vfr":false,"loggedIn":true}'],
+           [11000, 'Progress: {"from":"LFBD","to":"LPPT","pct":0.0}'],
+           [11000, 'LoadState: {"stage":"download","text":"Initializing Traffic...","pct":90,"vfr":false,"loggedIn":true}'],
+           [11800, 'LoadState: {"stage":"ready","text":"","pct":-1,"vfr":false,"loggedIn":true}']],
   };
   document.querySelectorAll('[data-seq]').forEach(b => b.onclick = () => {
     batcPill.state.connected = true;

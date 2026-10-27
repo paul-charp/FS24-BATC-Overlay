@@ -55,7 +55,7 @@ def shoot(page, size, scale, query=""):
 def main():
     OUT.mkdir(parents=True, exist_ok=True)
 
-    img = shoot("states.html", (1200, 910), 2)  # 6 rows of 150 px tiles
+    img = shoot("states.html", (1200, 1326), 2)  # 7 rows of 150 px tiles, then one of 262 (a header over boxes or text)
     img.save(OUT / "states.png", optimize=True)
     print(f"render: states.png {img.size}")
 

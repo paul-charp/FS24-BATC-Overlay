@@ -17,6 +17,13 @@ var BP = (function () {
     'stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="3.5" y="3" width="9" height="11" rx="1.5"/>' +
     '<path d="M6 3V2h4v1M6 7h4M6 10h3"/></svg></span>';
   var FREQ = '<span class="bp-freq">121.955</span>';
+  var ARROW = '<svg class="bp-arrow" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" ' +
+    'stroke-linecap="round" stroke-linejoin="round"><path d="M2.5 8h10M9 4.5L12.5 8 9 11.5"/></svg>';
+  var ERROR_X = '<span class="bp-unpin is-x"><svg class="bp-x" viewBox="0 0 16 16" fill="none" stroke="currentColor" ' +
+    'stroke-width="1.8" stroke-linecap="round"><path d="M4.5 4.5l7 7M11.5 4.5l-7 7"/></svg></span>';
+  function head(html) { return '<span class="bp-head">' + html + "</span>"; }
+  function box(t, v) { return '<span class="bp-box"><span class="bp-box-t">' + t + '</span><span class="bp-box-v">' + v + "</span></span>"; }
+  function note(t) { return '<span class="bp-note">' + t + "</span>"; }
   var SEP = '<span class="bp-sep">·</span>';
   var STATES = [
     ["dot", "is-dot", LAMP, "Idle", "Connected, nothing on the radio"],
@@ -42,12 +49,27 @@ var BP = (function () {
     ["muted", "s-insist is-muted", BARS + '<span class="bp-who">Ground</span>' + FREQ + MUTE, "ATC calls, COM1 muted", "You won't hear it"],
     ["linger", "", LAMP + "<span>Ground</span>" + FREQ, "Exchange ended", "Station for 3 s, then the dot"],
     ["offline", "is-ghost", LAMP + "<span>BATC offline</span>", "Offline", "BeyondATC not running"],
+    ["loading", "s-proc has-track", DOTS + '<span class="bp-who">Loading flight</span>' + SEP + "<span>Alpine 68ML</span>",
+      "Loading flight", "BeyondATC loads your flight", 60],
+    ["loaded", "s-ok", CHECK + '<span class="bp-who">Alpine 68ML</span>' + SEP + '<span class="bp-route"><span>LFBD</span>' +
+      ARROW + "<span>LPPT</span></span>", "Flight loaded", "Callsign and route, for 8 s"],
+    ["error", "s-err", ERROR_X + '<span class="bp-who">Speech service unavailable</span>', "Error", "BeyondATC error; ✕ dismisses it"],
+    ["loadedBoxes", "s-ok is-msg", head(CHECK + '<span class="bp-who">Flight loaded</span>') +
+      '<span class="bp-boxes">' + box("Callsign", "Alpine 68ML") + box("From", "LFBD") + box("To", "LPPT") + "</span>",
+      "Flight loaded, Boxes", "With the Boxes readback detail"],
+    ["prompt", "s-atc is-pulse is-msg", head(LAMP + '<span class="bp-who">Live Traffic Enabled</span>') +
+      note("Live traffic is on, but your sim clock doesn't match real-world time. Continue anyway, or choose No to " +
+        "disable live traffic for this session."), "BeyondATC question", "Its answers open under the pill"],
+    ["longError", "s-err is-msg", head(ERROR_X + '<span class="bp-who">BeyondATC error</span>') +
+      note("Ensure you have generated your next planned leg in Simbrief. Your departure and destination are currently " +
+        "the same as the previous leg."), "Long error", "Shown in full, for 10 s"],
   ];
   function pill(key, unit) {
     for (var i = 0; i < STATES.length; i++) {
       if (STATES[i][0] === key) {
-        return '<div id="batc-pill" class="' + STATES[i][1] + '" style="--u:' + unit + 'px"><div class="bp-bg"></div><div class="bp-body">' +
-          STATES[i][2] + "</div></div>";
+        var track = STATES[i][5] ? '<div class="bp-track"><i style="width:' + STATES[i][5] + '%"></i></div>' : "";
+        return '<div id="batc-pill" class="' + STATES[i][1] + '" style="--u:' + unit + 'px"><div class="bp-bg"></div>' + track +
+          '<div class="bp-body">' + STATES[i][2] + "</div></div>";
       }
     }
     return "";

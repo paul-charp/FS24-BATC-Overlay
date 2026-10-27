@@ -33,6 +33,7 @@ A small, quiet pill in a corner of the screen that shows what BeyondATC is doing
 - Awaiting readback / Awaiting response: what ATC is waiting for from you, as a short hint ("Taxi via T1 · Hold short 12L"), the clearance values or the toolbar's clearance boxes. Red-orange when ATC calls you again or answers "Negative" with a correction, green when ATC takes your reply, and "No readback" if BeyondATC gives up waiting
 - Transmitting, while your readback or request plays (green), and optionally while you hold PTT, with the hint of the readback you're answering
 - Radio changes: the new station when COM1 or COM2 changes (cyan), and with Auto Tune off, whom to contact
+- Loading flight, with your callsign and a progress line; then your callsign and route once BeyondATC is ready
 - A new ATIS letter, ATC calling while COM1 is muted, AI traffic talking, and BeyondATC offline
 
 When nothing is happening it shrinks to a small dot. Changes between states are animated.
@@ -48,7 +49,7 @@ Hover the pill for two buttons that flip BeyondATC's Auto Tune and Auto Respond.
 Extract the `paul-batc-pill` folder into your Community folder.
 
 **Notes**
-- The pill reads BeyondATC's local connection. It only sends what the toolbar sends, when you click: an answer or request, a frequency, the frequency list, and Auto Tune / Auto Respond.
+- The pill reads BeyondATC's local connection. It only sends BeyondATC commands, when you click: an answer or request, a frequency (COM1 or COM2), the frequency list, Auto Tune / Auto Respond, Start flight, Load Next Leg, the answer to a BeyondATC question, and dismissing an error.
 - Optional PTT indicator: bind your PTT button a second time to the sim's Toggle Speaker (Controls > Communications), keeping BeyondATC's binding, then turn it on in the settings.
 - CPDLC is left to the sim's own datalink pages.
 - The mod overrides one stock UI component (`MasterPage_InGame`) to load. Another mod that overrides the same component will conflict with it. After a sim update that changes it, install the updated version.
@@ -76,6 +77,10 @@ Reply to ATC and make requests from the pill, without BeyondATC's toolbar.
 - Added: a "Contact" reminder when Auto Tune is off and ATC hands you to another station.
 - Added: new ATIS letters, and "ATIS" while one plays on COM1.
 - Added: optional PTT indicator, which turns red-orange if you talk over ATC or traffic.
+- Added: "Loading flight" with your callsign and a progress line while BeyondATC loads a flight, then your callsign and route.
+- Added: "Start IFR flight" and "Load Next Leg" from the pill.
+- Added: BeyondATC's questions show on the pill, with their answers.
+- Added: a ✕ to dismiss BeyondATC errors, and long errors show in full.
 - Changed: "You" is now "Transmitting".
 - Changed: settings are split into Display and Position tabs, and open from the gear in the panel.
 - Changed: the sample pill in the settings shows what your last change does.
@@ -84,6 +89,7 @@ Reply to ATC and make requests from the pill, without BeyondATC's toolbar.
 - Fixed: BeyondATC errors showed as raw code.
 - Fixed: ATC broadcasts to all aircraft showed "ATC Generating" / "ATC Transmitting".
 - Fixed: an ATIS on COM1 showed as "Traffic" or "Service".
+- Fixed: AWOS, ASOS, AWIS and AWIB stations on COM1 showed as "Traffic".
 - Fixed: radio changes showed while a flight was loading.
 
 1.0.1

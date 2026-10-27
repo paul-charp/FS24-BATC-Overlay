@@ -21,11 +21,18 @@ Reply to ATC and make requests from the pill, without BeyondATC's toolbar.
 - Added: new ATIS letters, and "ATIS" while one plays on COM1.
 - Added: optional PTT indicator, which turns red-orange if you talk over ATC or traffic.
 - Added: "Waiting for BATC" when BeyondATC is running without a flight (the pill used to hide).
+- Added: "Loading flight" with your callsign and a progress line while BeyondATC loads a flight, then your callsign and route for 8 s (in boxes with the Boxes readback detail).
+- Added: "Start IFR flight" when you hover the pill while BeyondATC is in its menu.
+- Added: "Load Next Leg" when you hover the pill at the gate after a flight; it downloads your next SimBrief plan.
+- Added: BeyondATC's questions (live traffic with a sim clock that isn't real time) show on the pill, with their answers.
+- Added: a ✕ on BeyondATC errors that dismisses them in BeyondATC too. Errors that stop BeyondATC stay until dismissed, and long errors show in full.
 - Changed: "You" is now "Transmitting".
-- Changed: settings are split into Display and Position tabs, and open from the gear in the panel (closing them goes back to the panel), or from a click on the pill while BeyondATC is offline or has no flight.
+- Changed: settings are split into Display and Position tabs, and open from the gear in the panel (closing them goes back to the panel), or from a click on the pill while BeyondATC is offline, has no flight or is loading one.
 - Changed: the sample pill in the settings shows what your last change does, with sample station names.
 - Changed: the kept clearance can be closed while other aircraft or ATC to them are talking.
+- Changed: a right click on a frequency sets COM2 through BeyondATC.
 - Fixed: settings were lost when the sim restarted.
+- Fixed: AWOS, ASOS, AWIS and AWIB stations on COM1 showed as "Traffic".
 - Fixed: the idle dot stayed on screen in the sim's menus after a flight.
 - Fixed: BeyondATC errors showed as raw code.
 - Fixed: ATC broadcasts to all aircraft showed "ATC Generating" / "ATC Transmitting".

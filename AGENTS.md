@@ -84,7 +84,9 @@ screen corner during flight, with a click-to-open settings card. Windows only. U
 - `speaking` is used for ATC and for the pilot TTS; the preceding `ATC:`/`ATCTraffic:`, `Player:` or
   `Traffic:` line says who.
 - `Facility: Name (runways)|freq` or `Nothing Tuned`; `Com2: {label,frequency,monitor}`;
-  `LoadState: {stage}` (`menu` in menus); `RadioMute: {com1,com2}`.
+  `LoadState: {stage,text,pct}` (`menu` in menus); `RadioMute: {com1,com2}`. Loading a flight (log 2026-10-27):
+  `loading` (pct -1), then `download` steps with text and pct 0-90, `Callsign` at 10%, `Progress` at 90%, `ready`
+  ~13 s after `loading`. `pill.js` shows "Loading flight" with a progress line, then callsign and route for `loadedMs`.
 - `Actions: [Request IFR Clearance¬Wind Check¬...]`: the toolbar's menu, `¬`-separated. While ATC
   waits for you it offers `Say Again` (never in the request menu) with the replies: `Readback IFR
   Clearance¬Say Again¬`, `Acknowledge Instruction¬Say Again¬` (after "readback correct, call me back
@@ -174,9 +176,26 @@ screen corner during flight, with a click-to-open settings card. Windows only. U
   and `Facility: 121.955|121.955` (the frequency as the name) before the station's. `DATIS: <ICAO>|<letter>|<text>`
   per airport in the snapshot, then `DATIS_END:`. On an ATIS frequency the menu is `Actions: []`.
 - Comms panel, verified live 2026-10-27: `set_frequency` sets COM1 active; a right click reaches mainUi and the Fenix
-  follows `COM2_RADIO_SET_HZ`; `set_action` from the pill is taken like the toolbar's (`queued`, then `Player:`), for
+  followed `COM2_RADIO_SET_HZ` (sent by the pill then); `set_frequency_com2` also sets the Fenix's COM2 (verified live
+  2026-10-27, now the pill's right click); `set_action` from the pill is taken like the toolbar's (`queued`, then `Player:`), for
   answers and requests; a `set_action` the current `Actions` doesn't list is silently ignored. Not yet verified: what
   `atc_log` returns (not sent; the Log is built from the stream); whether wheel events reach mainUi (the Log scrolls).
+- BeyondATC's own socket handler (`Echo.OnMessage` in `BeyondATC_Data\Managed\Assembly-CSharp.dll`, read as IL with
+  the `dnfile` / `dncil` Python packages, 2026-10-27) takes more than the toolbar sends. Payloads split on ":" and are
+  trimmed. `set_frequency_com2: <f>` (SimConnect, as COM1: its `BatcSimConnect.dll` holds `COM2_STBY_RADIO_SET_HZ`,
+  `COM2_RADIO_SWAP`, `COM2_RADIO_SET_HZ`; works on the Fenix, verified live 2026-10-27), `start_flight: <mode>` (the app's Start
+  button; `IFR`, or anything starting `VFR`, `VFR_MSFS` for the MSFS plan; ignored with a flight active or within 3 s;
+  saves the flight type as the app's setting; uses the SimBrief ID set in the app, else an `AppError`),
+  `quit_to_menu`, `turnaround` (the app's SimBrief download, only when no plan is downloaded or downloading),
+  `prompt_reply: <id>:yes|no`, `ack_error` (closes the error in the app too, verified live 2026-10-27), `play_sample: autoRespond|controller|traffic`, `settings`,
+  `set_setting: {"key","value"}` (voiceVolume, uiSounds, controllerVoice, trafficVoice, trafficOn, the four densities,
+  navigraphLiveTraffic, taxiArrowsShown, dynamicVoiceOn, dynamicVoiceGender, autoRespondVoice), `ping` (`Pong:`).
+  `LoadState` stages from its code: `menu` (no flight), `loading` (app not ready, or holding after a wipe), `ready`
+  (plan downloaded), `download`, `turnaround` (a plan was downloaded this session and is gone: at the gate after a
+  leg, seen in two flights; also after a failed download, "Ensure you have generated your next planned leg"),
+  `waiting` ("Waiting for Flight Plan...", never seen). `Prompt: {id,title,text,yesLabel,noLabel}` (empty when none;
+  the one in the code: `liveTrafficTime` during loading, live traffic with a sim clock off real time). `CommsState`
+  text names the transmitter: ATC, Traffic, ATIS, AWOS, ASOS, AWIS, AWIB. `Donut:` is an easter egg.
 - A faded-out chip column still took clicks (chips set `pointer-events: auto` and carry `data-input-group`), so the
   answer under a message got the invisible request above it (flight 2026-10-27, 5 times). Closed columns and rows now
   untag their chips and set `pointer-events: none`; `onChip` sends only what `Actions` offers.
@@ -185,10 +204,12 @@ screen corner during flight, with a click-to-open settings card. Windows only. U
 
 - Never commit Asobo files (cooked components, vanilla UI); the build copies them from the local install.
 - Never commit design or prototype files (mockups, clickable prototypes): keep them in `.local/`.
-- The only sim command the pill sends: `COM2_RADIO_SET_HZ` (right click on a frequency), via
-  `engine.call("TRIGGER_KEY_EVENT", <event>, true, <value>, 0, 0)` from mainUi.
+- The pill sends no sim commands (COM2 goes through BeyondATC's `set_frequency_com2`).
 - Never send anything on the BeyondATC socket except, on the user's click, the toolbar's own commands:
   `set_autotune: true|false`, `set_autorespond: true|false` (the hover buttons), and for the comms panel
   `set_action: <label>` (an answer or request, exactly as `Actions` lists it),
-  `set_frequency: <f>`, and the tab requests `frequencies` / `atc_log`. WebSocket pongs aside.
+  `set_frequency: <f>`, and the tab requests `frequencies` / `atc_log`; and these from BeyondATC's own command set
+  (below): `set_frequency_com2: <f>` (right click on a frequency), `start_flight: IFR` (Start IFR flight, in
+  BeyondATC's menu), `turnaround` (Load Next Leg, at the gate), `prompt_reply: <id>:yes|no` (the answers to `Prompt`),
+  `ack_error` (the error's ✕). WebSocket pongs aside.
 - Changelogs and release notes list what changed, not why.
