@@ -8,7 +8,7 @@ Reply to ATC and make requests from the pill, without BeyondATC's toolbar.
 - Added: hover the pill or the message ATC is waiting on to see your possible answers.
 - Added: hover the pill when the radio is quiet, or while only other aircraft are talking, to see the requests you can make.
 - Added: with Auto Tune off, a "Tune" button sets COM1 to the next station after a handoff.
-- Added: click the pill to open the Frequencies and Log panel. Frequencies lists the departure and arrival airports' stations, one row each with its frequencies; the Log starts over when you change COM1. A click elsewhere closes the panel.
+- Added: click the pill to open the Frequencies and Log panel. Frequencies lists the departure and arrival airports' stations, one row each with its frequencies and the runways they serve; the Log starts over when you change COM1. A click elsewhere closes the panel.
 - Added: Auto Tune and Auto Respond buttons next to the pill.
 - Added: readback hints. When ATC waits for your reply, the pill says so and shows what to read back: a short hint, the values, or the clearance boxes. The boxes stay on the pill until the readback is over.
 - Added: the pill turns red-orange when ATC calls you again ("×2", "×3"), when ATC corrects a wrong readback ("Negative"), and when ATC calls you while COM1 is muted.
@@ -16,6 +16,8 @@ Reply to ATC and make requests from the pill, without BeyondATC's toolbar.
 - Added: "Readback OK" in green when ATC accepts your reply.
 - Added: optional "Keep last clearance", which keeps your last clearance on the pill, dimmed.
 - Added: a "Contact" reminder when Auto Tune is off and ATC hands you to another station.
+- Added: a "Check in" reminder when you haven't announced yourself on a new station after 10 s, and a "Not checked in" warning after a minute.
+- Added: "Unable" when ATC turns down your request.
 - Added: new ATIS letters, and "ATIS" while one plays on COM1.
 - Added: optional PTT indicator, which turns red-orange if you talk over ATC or traffic.
 - Added: "Waiting for BATC" when BeyondATC is running without a flight (the pill used to hide).

@@ -598,6 +598,8 @@
 #batc-pill-list { max-height: calc(330 * var(--u)); overflow-y: auto; }
 #batc-pill-list[data-edge="bottom"] { flex-direction: column-reverse; } /* the first one nearest the pill */
 #batc-pill-list.is-closed { opacity: 0; transform: translateY(calc(-4 * var(--u))); pointer-events: none; }
+/* a chip's own "auto" would still catch clicks through its faded-out column or row */
+#batc-pill-list.is-closed .bm-chip, .bm-acts.is-out .bm-chip { pointer-events: none; }
 #batc-pill-list .bm-chip { margin: 0 0 calc(4 * var(--u)) 0; }
 #batc-pill-list[data-edge="bottom"] .bm-chip { margin: calc(4 * var(--u)) 0 0 0; }
 
@@ -683,6 +685,7 @@
   font-size: calc(11.5 * var(--u)); font-weight: 500; line-height: 1; cursor: pointer;
 }
 .bm-fq:hover { background-color: var(--btn-hover); color: #ffffff; }
+.bm-rwy { margin-left: calc(5 * var(--u)); font-size: calc(9.5 * var(--u)); opacity: 0.6; } /* the runways it serves */
 .bm-fq.is-com1 { background-color: var(--on); color: #0e1218; }
 .bm-fq.is-com2 { border-color: var(--on); color: var(--on); }
 .bm-fq.is-ask { background-color: #ffb547; color: #15110a; }

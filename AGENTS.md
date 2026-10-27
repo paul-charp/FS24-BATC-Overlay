@@ -105,7 +105,11 @@ screen corner during flight, with a click-to-open settings card. Windows only. U
   clearance boxes (`info` may hold `<br>`); `[]` at load, a CTAF box on UNICOM.
 - `AutoTune: true|false`, `AutoRespond: true|false` (the toolbar switches). With Auto Tune off,
   `pill.js` keeps a "Contact" reminder from "contact <Station> [on] <freq>" until COM1 (`Facility`)
-  matches. An `ATIS Current` box with a new letter shows "ATIS"; the snapshot's box doesn't.
+  matches. An `ATIS Current` box with a new letter shows "ATIS"; the snapshot's box doesn't, nor a PDC's own `ATIS`
+  box (CPDLC clearance, 2026-10-27). A new station whose menu still offers "Announce On Frequency" after `checkInMs`
+  (10 s, restarted by any exchange with ATC) shows amber "Check in", red-orange "Not checked in" after `checkInWarnMs` (60 s) (with Contact reminders, not with Auto Respond); seen
+  2026-10-27: 3.5 min on Vancouver Centre 134.4 without checking in. ATC answering your reply with "unable ..."
+  ("unable 15,000 at this time" after a `set_action: 15000`, menu back to requests) shows "Unable", not "Response OK".
   `CPDLCCode:` and other CPDLC traffic: the pill stays silent (CPDLC is fully handled in the sim).
   A CPDLC request (`CPDLC_Pilot: REQUEST DIRECT TO LTP`) gets `CPDLC_ATC: CLEARED DIRECT TO LTP` 15-35 s later, and
   BeyondATC flashes `CommsState` `request` (stale text, e.g. "Announce On Frequency") around that answer with no
@@ -150,7 +154,10 @@ screen corner during flight, with a click-to-open settings card. Windows only. U
   Center (the toolbar also knows ApproachDeparture). `pill.js` splits after each ATIS, files the blocks by ICAO (no
   ATIS: Progress from/to by position), and shows Departure / Arrival by `Progress: {from,to,pct}` with Center under
   "En route". Without Progress the tab shows the reply as is. Asked when the panel opens and when COM1 changes with
-  Frequencies open. Unverified: the reply mid-flight or at arrival.
+  Frequencies open. Since 2026-10-27 (CYVR-CYYC) each row also has `airport` (ICAO; "" for Center), `airportName`,
+  `runways` ("26L"; a Tower/Ground/Approach per runway) and `stationType` (""), and a new type FlightService ("PACIFIC
+  RADIO"); same block order. `pill.js` files by `airport` when present and tags each frequency with its runways.
+  The same reply came at the gate, mid-flight and at arrival.
 - Sniff digest (11 sniffs, 2026-10-22/23, incl. LFMT-LIRF 127 min): `Progress` pct is 0-100, from/to are ICAO, about
   once a minute in flight. No `Actions` request carries a parameter: requests that need one (direct-to fixes, arrival
   gates) get a follow-up reply menu once ATC asks. A command a client sends (toolbar, Auto Respond) is never echoed:
@@ -166,11 +173,13 @@ screen corner during flight, with a click-to-open settings card. Windows only. U
   While a flight loads: `LoadState` `loading` / `download` with text and pct, `Wipe:`, `RadioMute` true then false,
   and `Facility: 121.955|121.955` (the frequency as the name) before the station's. `DATIS: <ICAO>|<letter>|<text>`
   per airport in the snapshot, then `DATIS_END:`. On an ATIS frequency the menu is `Actions: []`.
-- Comms panel, not yet verified live: the `Frequencies:` reply's exact values (`parseFreqs` shows anything it
-  can't read raw); whether `set_frequency` sets COM1 active or standby; whether right clicks reach mainUi
-  (`contextmenu` or a button-2 `mousedown`; the COM2 right click needs one) and whether the Fenix follows
-  `COM2_RADIO_SET_HZ`; what `atc_log` returns (not sent; the Log is built from the stream); whether wheel events reach
-  mainUi (the Log scrolls); whether `set_action` from the pill (not the toolbar) is taken the same way.
+- Comms panel, verified live 2026-10-27: `set_frequency` sets COM1 active; a right click reaches mainUi and the Fenix
+  follows `COM2_RADIO_SET_HZ`; `set_action` from the pill is taken like the toolbar's (`queued`, then `Player:`), for
+  answers and requests; a `set_action` the current `Actions` doesn't list is silently ignored. Not yet verified: what
+  `atc_log` returns (not sent; the Log is built from the stream); whether wheel events reach mainUi (the Log scrolls).
+- A faded-out chip column still took clicks (chips set `pointer-events: auto` and carry `data-input-group`), so the
+  answer under a message got the invisible request above it (flight 2026-10-27, 5 times). Closed columns and rows now
+  untag their chips and set `pointer-events: none`; `onChip` sends only what `Actions` offers.
 
 ## Rules
 

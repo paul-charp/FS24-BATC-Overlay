@@ -9,9 +9,10 @@ A small pill in a corner of the Microsoft Flight Simulator 2024 screen that show
 - **Queued / Processing / Awaiting ATC** (blue): your request is on its way.
 - **ATC talking** (amber): the controller is speaking, with the station and frequency.
 - **Transmitting** (green): your readback or request is being played (sound-wave icon), or you're holding PTT (mic icon, optional, see below). While you answer a readback, its hint, values or boxes stay in the same layout under your label ("Transmitting · Taxi 30R"), and through "Processing" while BeyondATC handles a voice reply.
-- **Awaiting readback / Awaiting response** (amber, pulsing): ATC waits for your readback, acknowledgement or answer (the toolbar offers "Say Again"), with a short hint ("IFR clearance · Climb FL060", "Taxi 30R", the answers to a question: "Runway 12L / Runway 12R"), or the toolbar's clearance boxes (runway, SID, altitude, squawk). If ATC calls you again before you reply, the pill turns red-orange ("Awaiting response ×2"). If ATC answers your readback with a correction ("Negative, QNH 1013"), the pill turns red-orange with "Negative" and the correction. When ATC takes your reply, the pill turns green for 1.5 s ("Readback OK"; after a handoff with Auto Tune on, the new station shows instead); with **Keep last clearance** on, its hint then stays on the pill, dimmed, until the next instruction, a new station on COM1, or its ✕ (hover the pill: the clipboard icon turns into ✕). If BeyondATC stops waiting without a reply (it drops taxi and acknowledge replies after about 18 s), "No readback" shows for 5 s.
+- **Awaiting readback / Awaiting response** (amber, pulsing): ATC waits for your readback, acknowledgement or answer (the toolbar offers "Say Again"), with a short hint ("IFR clearance · Climb FL060", "Taxi 30R", the answers to a question: "Runway 12L / Runway 12R"), or the toolbar's clearance boxes (runway, SID, altitude, squawk). If ATC calls you again before you reply, the pill turns red-orange ("Awaiting response ×2"). If ATC answers your readback with a correction ("Negative, QNH 1013"), the pill turns red-orange with "Negative" and the correction. When ATC takes your reply, the pill turns green for 1.5 s ("Readback OK"; after a handoff with Auto Tune on, the new station shows instead); with **Keep last clearance** on, its hint then stays on the pill, dimmed, until the next instruction, a new station on COM1, or its ✕ (hover the pill: the clipboard icon turns into ✕). If BeyondATC stops waiting without a reply (it drops taxi and acknowledge replies after about 18 s), "No readback" shows for 5 s. If ATC turns down what you asked ("unable 15,000 at this time"), "Unable · 15,000" shows in red-orange for 5 s.
 - **Radio change** (cyan): the new station when COM1 or COM2 changes.
 - **Contact** (cyan): with BeyondATC's Auto Tune off, after "contact Marseille Approach on 120.100", until COM1 is on it.
+- **Check in** (amber, pulsing): on a new station, if you haven't announced yourself after 10 s (BeyondATC still offers "Announce On Frequency"), until you do; after a minute it turns red-orange, "Not checked in". Hovering the pill fills "Announce On Frequency" amber. Not with Auto Respond on.
 - **ATIS** (purple): a new ATIS letter ("ATIS · Z"), for 6 s; and "ATIS" while COM1 plays an ATIS.
 - **Exchange ended**: the station stays for 3 s, then the pill shrinks back to the dot.
 - **Offline**: BeyondATC isn't running (can be hidden).
@@ -28,7 +29,7 @@ Everything the BeyondATC toolbar does, around the pill:
 - **Answers**: hover that message, or the pill, and its answers open below it; the obvious one (a readback, an acknowledgement) is amber. A long list shows three and "+N" for the rest. With messages off, the answers open in a column under the pill instead.
 - **Requests**: with nothing pending, hovering the pill opens BeyondATC's requests in a column under it, the likely next one first. They close while the radio is busy and come back when it's quiet.
 - **Tune**: with Auto Tune off, once you've acknowledged a handoff, "Tune 118.775" sets COM1 to the new station (under the handoff message, or in the column).
-- **Panel**: click the pill for **Frequencies** (Departure / Arrival: the stations BeyondATC lists around you, gathered over the flight, ATIS first; click one to tune COM1) and **Log** (every radio line, scrolling). The gear opens the settings. The panel isn't modal: leave it open and the cockpit stays clickable.
+- **Panel**: click the pill for **Frequencies** (Departure / Arrival: the stations BeyondATC lists around you, gathered over the flight, ATIS first; a frequency that serves some runways only says which, "118.700 26L"; click one to tune COM1) and **Log** (every radio line, scrolling). The gear opens the settings. The panel isn't modal: leave it open and the cockpit stays clickable.
 
 <img src="docs/images/panel.png" alt="The panel's Frequencies tab" width="380">
 
@@ -59,7 +60,7 @@ Hovering the pill shows two buttons beside it: BeyondATC's **Auto Respond** (spe
 | Keep last clearance | after ATC takes your reply, keep its hint on the pill (dimmed) instead of shrinking to the dot |
 | Messages: Off / Mine / All | ATC's messages under the pill: none, your exchanges, or also AI traffic (with AI traffic on) |
 | Radio changes | show the new station when COM1 or COM2 changes |
-| Contact reminders | with Auto Tune off, show whom to contact until COM1 is on it |
+| Contact reminders | with Auto Tune off, show whom to contact until COM1 is on it; and "Check in" when a new station waits for you to announce yourself |
 | ATIS changes | show a new ATIS letter |
 | Warn when COM1 muted | red-orange pill when ATC calls you while COM1 is muted |
 | PTT indicator | show "Transmitting" while your PTT button is held (see below) |

@@ -18,6 +18,8 @@
     errorMs: 5000,
     missedMs: 5000,      // "No readback" stays this long when BeyondATC stops waiting without your reply
     atisMs: 6000,        // how long a new ATIS letter is shown
+    checkInMs: 10000,    // on a new station, "Check in" shows once you haven't announced yourself for this long,
+    checkInWarnMs: 60000, // and turns into the "Not checked in" warning after this long
     demoMs: 4000,        // settings card: how long the sample shows the last change before going back
     showReadback: true,  // while BeyondATC waits for your readback, hint what it is ("Taxi 30R")
     readbackDetail: "hint", // with a readback pending: "none" (status only), "short" (the boxes' values:
@@ -25,7 +27,8 @@
     keepLast: false,     // after ATC took your reply, keep its hint on the pill (quiet) until the next instruction,
                          // a new station on COM1, or its ✕ (hover) instead of shrinking to the dot
     showTuning: true,    // show the new station when COM1/COM2 changes
-    showContact: true,   // Auto Tune off: after "contact <station> <freq>", remind you until COM1 is on it
+    showContact: true,   // Auto Tune off: after "contact <station> <freq>", remind you until COM1 is on it; and
+                         // "Check in" while the new station waits for your "Announce On Frequency"
     showAtis: true,      // show a new ATIS letter
     warnMuted: true,     // ATC calling you while COM1 is muted: red-orange instead of amber
     showPtt: false,      // show "Transmitting" while your PTT button is held. Needs that button also bound to
@@ -108,6 +111,7 @@
     tuneUntil: 0,
     com2: null,          // last Com2 label|frequency, to detect changes
     atcText: "",         // last ATC: line
+    atcAnswer: "",       // that line, when it came after you spoke ("unable 15,000 at this time")
     replies: [],         // the toolbar's replies while ATC waits for you ("Readback IFR Clearance", "Runway 12L")
     repliesKey: "",
     menuFresh: false,    // the toolbar re-sent its menu since the last transmission (it always does)
@@ -130,6 +134,7 @@
     autoTune: true,      // BeyondATC tunes the radios itself ("AutoTune: true")
     autoRespond: false,  // BeyondATC replies for you ("AutoRespond: true")
     contact: null,       // { name, freq } ATC told you to contact, until COM1 is on it (Auto Tune off)
+    checkInSince: 0,     // when the menu started offering "Announce On Frequency" (0: it doesn't), or you last spoke
     atis: "",            // new ATIS letter, shown until atisUntil
     atisUntil: 0,
     atisLetter: "",      // last "ATIS Current" box seen
@@ -161,7 +166,7 @@
     cpdlcAsked: false,   // a CPDLC request is out (CPDLC_Pilot: REQUEST ...) until a CPDLC_ATC: line
   };
   var socket = null;
-  var timers = { reconnect: 0, linger: 0, error: 0, tune: 0, missed: 0, confirm: 0, swHide: 0, atis: 0, demo: 0, ptt: 0, pttShow: 0, swap: 0, poll: 0, log: 0, sent: 0, capHover: 0, logClear: 0, traffic: 0, store: 0 };
+  var timers = { checkIn: 0, checkInWarn: 0, reconnect: 0, linger: 0, error: 0, tune: 0, missed: 0, confirm: 0, swHide: 0, atis: 0, demo: 0, ptt: 0, pttShow: 0, swap: 0, poll: 0, log: 0, sent: 0, capHover: 0, logClear: 0, traffic: 0, store: 0 };
   var destroyed = false;
   var current = null;    // last rendered view signature
 
@@ -600,6 +605,11 @@
           v = atisLook(state.atis);
         } else if (state.contact && !state.autoTune && CONFIG.showContact) {
           v = contactLook(state.contact);
+        } else if (checkInDue()) {
+          // a reminder (amber, like ATC waiting for you), then a warning
+          v = checkInWarn()
+            ? { cls: "s-insist is-pulse", html: LAMP + '<span class="bp-who">Not checked in</span>' + facilityHtml("") }
+            : { cls: "s-atc is-pulse", html: LAMP + '<span class="bp-who">Check in</span>' + facilityHtml("") };
         } else if ((v = keptView())) {
           // the last reply ATC took, instead of the station and the dot
         } else if (now < state.lingerUntil) {
@@ -825,6 +835,9 @@
     // checking in ("Announce On Frequency"), BeyondATC flashes "Say Callsign/Altitude¬Say Again¬" for a few ms
     // while your own request is still out, before ATC has said anything: not ATC waiting for you
     if (waiting && /^(request|processing|queued)$/.test(state.mode)) return;
+    var announce = list.some(function (s) { return /^announce on frequency$/i.test(s); });
+    if (!announce) state.checkInSince = 0;
+    else if (!state.checkInSince) armCheckIn();
     var replies = waiting ? list.filter(function (s) { return s && !/^(say again|cancel\b)/i.test(s); }) : [];
     state.menu = list.filter(function (s) { return s; });
     if (!waiting) state.requests = state.menu;
@@ -837,9 +850,18 @@
       state.missed = null;
     } else if (!waiting) {
       var wc = waitingFor();
+      // ATC's answer to your reply: "Air Canada 202, unable 15,000 at this time."
+      var unable = /\bunable\b[,\s]*(.*?)(?:\s+at this time)?[.\s]*$/i.exec(state.atcAnswer);
       if (state.readback && state.replied && state.autoTune && /^handoff$/i.test(wc.kind)) {
         // a handoff with Auto Tune on: BeyondATC retunes COM1 at once, and the radio change says it all
         state.confirmed = state.kept = null;
+      } else if (state.readback && state.replied && unable) {
+        // ATC turned down what you asked: not "Response OK"
+        state.confirmed = state.kept = null;
+        state.missed = { label: "Unable", detail: correction(unable[1]), boxes: [] };
+        state.missedUntil = Date.now() + CONFIG.missedMs;
+        clearTimeout(timers.missed);
+        timers.missed = setTimeout(render, CONFIG.missedMs + 20);
       } else if (state.readback && state.replied) {
         // ATC took your reply (a correct readback gets no answer: the toolbar just drops "Say Again")
         state.confirmed = { readback: wc.readback,
@@ -862,6 +884,23 @@
     state.replies = replies;
     state.repliesKey = waiting ? key : "";
     state.menuFresh = true;
+  }
+
+  // the new station's menu offers "Announce On Frequency" (you haven't checked in): "Check in" after checkInMs
+  function armCheckIn() {
+    state.checkInSince = Date.now();
+    clearTimeout(timers.checkIn);
+    var show = function () { render(); renderComms(); };
+    clearTimeout(timers.checkInWarn);
+    timers.checkIn = setTimeout(show, CONFIG.checkInMs + 20);
+    timers.checkInWarn = setTimeout(show, CONFIG.checkInWarnMs + 20);
+  }
+
+  function checkInWarn() { return checkInDue() && Date.now() - state.checkInSince >= CONFIG.checkInWarnMs; }
+
+  function checkInDue() {
+    return !!state.checkInSince && Date.now() - state.checkInSince >= CONFIG.checkInMs && CONFIG.showContact &&
+      !state.autoRespond; // Auto Respond checks in for you
   }
 
   function startConfirm() {
@@ -924,6 +963,8 @@
         if (mode === "request" && state.cpdlcAsked && !/^(processing|queued|speaking)$/.test(state.mode)) return;
         // you're talking (a voice reply gives processing then ready, with no Player: line)
         if (mode === "processing" || mode === "request" || mode === "queued") state.answered = state.replied = true;
+        // talking with ATC: the check-in may be under way (an exchange's menu often re-offers it for a moment)
+        if (state.checkInSince && /^(processing|request|queued|awaiting|speaking)$/.test(mode)) armCheckIn();
         if (mode !== "ready") {
           // talking again: an older confirmation is stale
           if (state.confirmedUntil) state.confirmed = null;
@@ -942,6 +983,7 @@
       case "ATC":
         state.speaker = "atc";
         state.atcText = payload;
+        state.atcAnswer = state.answered ? payload : ""; // ATC answering what you just said
         state.lastAtcCap = addLine("atc", stationLabel(), payload);
         var c = contactIn(payload);
         if (c && !state.autoTune && !onContact(c)) { c.capId = state.lastAtcCap; state.contact = c; }
@@ -1061,9 +1103,10 @@
           }
           state.infoBoxes.push(box);
         });
-        // {"title":"ATIS Current","info":"Z"} appears or changes after "information Z now current"
+        // {"title":"ATIS Current","info":"Z"} appears or changes after "information Z now current"; a clearance's
+        // own "ATIS" box (a PDC's "information N") isn't news
         state.infoBoxes.forEach(function (b) {
-          if (!/^atis/i.test(b.title) || !b.info || b.info === state.atisLetter) return;
+          if (!/^atis current$/i.test(b.title) || !b.info || b.info === state.atisLetter) return;
           if (state.seenInfo && CONFIG.showAtis) {
             state.atis = b.info;
             state.atisUntil = Date.now() + CONFIG.atisMs;
@@ -1138,6 +1181,7 @@
       state.caps = [];
       state.menu = [];
       state.requests = [];
+      state.checkInSince = 0;
       state.panel = false;
       showSwitches(false);
       // closed on purpose for the developer log's snapshot: straight back, no "BATC offline" in between
@@ -1619,6 +1663,7 @@
     }
     var gone = 0;
     if (row && !acts) {
+      untag(row);
       gone = row.offsetHeight;
       row.className = "bm-acts is-out";
       n.batcRowTimer = setTimeout(function () { if (row.parentNode) row.parentNode.removeChild(row); }, CAP_MS);
@@ -1696,13 +1741,24 @@
         if (!capShown(state.contact.capId)) html = tuneChip();
       } else if (canRequest()) {
         // BeyondATC's order: the likely next request first
-        html = state.requests.map(function (r) { return chip(r, "data-req", r, ""); }).join("");
+        html = state.requests.map(function (r) {
+          return chip(r, "data-req", r, checkInDue() && /^announce on frequency$/i.test(r) ? "is-primary" : "");
+        }).join("");
       }
     }
     if (html && list.innerHTML !== html) list.innerHTML = html; // closing keeps its chips while they fade out
     list.className = html ? "" : "is-closed";
     if (html) list.setAttribute("data-input-group", "BATC-PILL");
-    else list.removeAttribute("data-input-group");
+    else {
+      // fading out, they'd still take clicks meant for the answers under a message
+      list.removeAttribute("data-input-group");
+      untag(list);
+    }
+  }
+
+  function untag(el) {
+    var tagged = el.querySelectorAll("[data-input-group]");
+    for (var i = 0; i < tagged.length; i++) tagged[i].removeAttribute("data-input-group");
   }
 
   // a click on an answer, a request, "+N" or "Tune" (under a message or in the column)
@@ -1718,8 +1774,10 @@
       return;
     }
     if (el.getAttribute("data-tune")) { tune(el.getAttribute("data-tune")); return; }
-    if (el.getAttribute("data-req") ? !canRequest() : busy()) return;
     var label = el.getAttribute("data-reply") || el.getAttribute("data-req");
+    // only what the toolbar's menu offers right now: a request while ATC waits for you is ignored by BeyondATC
+    if (el.getAttribute("data-req") ? !canRequest() || awaiting() || state.requests.indexOf(label) < 0 ||
+      state.menu.indexOf(label) < 0 : busy() || !awaiting() || answers().indexOf(label) < 0) return;
     // exactly as the toolbar's menu item: BeyondATC answers with queued / Player: / processing
     if (!send("set_action: " + label)) return;
     state.sentAt = Date.now();
@@ -1778,12 +1836,15 @@
     rows.forEach(function (r) {
       if (r.kind === "center") { enroute.push(r); return; }
       var cur = blocks[blocks.length - 1], last = cur[cur.length - 1];
-      if (last && last.kind === "atis" && r.kind !== "atis") blocks.push(cur = []);
+      // each row names its airport (since 2026-10-27); older replies end each airport's block with its ATIS
+      if (last && (r.airport || last.airport ? r.airport !== last.airport : last.kind === "atis" && r.kind !== "atis")) {
+        blocks.push(cur = []);
+      }
       cur.push(r);
     });
     blocks.forEach(function (b, i) {
-      var named = b.filter(function (r) { return r.icao; })[0];
-      var icao = named ? named.icao : [pg.from, pg.to][i]; // no ATIS: the route's order
+      var named = b.filter(function (r) { return r.airport || r.icao; })[0];
+      var icao = named ? named.airport || named.icao : [pg.from, pg.to][i]; // no ATIS: the route's order
       if (!icao) return;
       var book = state.freqBook[icao] = state.freqBook[icao] || [];
       b.forEach(function (r) {
@@ -1811,7 +1872,8 @@
       // "FIUME GROUND" -> "Fiume Ground"; a one-word name gets its type: "LIRF ATIS", "Fiume Clearance"
       if (!icao) name = name.replace(/[^\s\/-]+/g, function (w) { return /^(ATIS|ACC|FIS)$/i.test(w) ? w.toUpperCase() : w.charAt(0).toUpperCase() + w.slice(1).toLowerCase(); });
       rows.push({ name: !name ? type : /\s/.test(name) ? name : name + " " + type, kind: type.toLowerCase().replace(/[^a-z]/g, ""),
-        freq: f.toFixed(3), icao: icao });
+        freq: f.toFixed(3), icao: icao, airport: /^[A-Z0-9]{3,4}$/.test(o.airport) ? o.airport : "",
+        rwys: String(o.runways || "").replace(/\s*,\s*/g, " ").trim() }); // "26L": a station per runway
     });
     return rows.length ? { rows: rows } : { raw: String(payload) };
   }
@@ -1862,21 +1924,23 @@
     if (!rows.length) return "";
     // COM2 as followed from its key events (see onCom2Event), else as BeyondATC reports it (only while received)
     var com2 = state.com2Radio.act || (state.com2 ? state.com2.split("|")[1] : "");
-    // one row per station, its frequencies as chips ("Fiume Ground 121.675 122.125 121.900"), in the rows' order
+    // one row per station, its frequencies as chips ("Fiume Ground 121.675 122.125 121.900"), in the rows' order;
+    // a frequency for some runways only says which ("Vancouver Tower 118.700 26L 119.550 26R")
     var groups = [], byKey = {};
     rows.forEach(function (r) {
       var k = r.kind + "|" + r.name;
       if (!byKey[k]) groups.push(byKey[k] = { name: r.name, freqs: [] });
-      byKey[k].freqs.push(r.freq);
+      byKey[k].freqs.push(r);
     });
     return '<div class="bm-rows">' + groups.map(function (g) {
       var on1 = false;
-      var chips = g.freqs.map(function (f) {
-        var c1 = sameFreq(f, state.facility.freq);
+      var chips = g.freqs.map(function (r) {
+        var f = r.freq, c1 = sameFreq(f, state.facility.freq);
         on1 = on1 || c1;
         // filled: COM1; outlined: COM2; amber: the station ATC handed you to
         var cls = c1 ? " is-com1" : contactPending() && sameFreq(f, state.contact.freq) ? " is-ask" : sameFreq(f, com2) ? " is-com2" : "";
-        return '<span class="bm-fq' + cls + '" data-tune="' + esc(f) + '">' + esc(f) + "</span>";
+        return '<span class="bm-fq' + cls + '" data-tune="' + esc(f) + '">' + esc(f) +
+          (r.rwys ? '<span class="bm-rwy">' + esc(r.rwys) + "</span>" : "") + "</span>";
       }).join("");
       return '<div class="bm-row' + (on1 ? " is-active" : "") + '"><span class="bm-grow">' + esc(g.name) + "</span>" +
         '<span class="bm-fqs">' + chips + "</span></div>";
