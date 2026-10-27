@@ -73,13 +73,23 @@ CONTACTS.forEach(([t, want]) => expect("contact " + t.slice(0, 60), contactIn(t)
 const parseFreqs = new Function(
   src.slice(src.indexOf("  function parseJson"), src.indexOf("  // Short hints")) +
   src.slice(src.indexOf('  // "Frequencies: ['), src.indexOf("  var GEAR")) + "; return parseFreqs;")();
+// the reply's order is kept: sideRows sorts each airport's stations
 expect("freqs   order and format", parseFreqs(JSON.stringify([
   { name: "Montpellier Tower (30R, 30L)", type: "Tower", frequency: "118.775", cpdlcLogonCode: "" },
   { name: "Marseille Control", type: "Center", frequency: 132.365, cpdlcLogonCode: "LFMM" },
   { name: "Montpellier Automated Terminal Information Service", type: "ATIS", frequency: "124.13" },
   { name: "Montpellier Ground", type: "Ground", frequency: "121.955" },
 ])).rows.map((r) => r.name + " " + r.freq),
-  ["Montpellier ATIS 124.130", "Montpellier Ground 121.955", "Montpellier Tower 118.775", "Marseille Control 132.365"]);
+  ["Montpellier Tower 118.775", "Marseille Control 132.365", "Montpellier ATIS 124.130", "Montpellier Ground 121.955"]);
+// since 2026-10-27 (CYVR-CYYC): each row names its airport and the runways it serves
+expect("freqs   airport and runways", parseFreqs(JSON.stringify([
+  { airport: "CYVR", airportName: "Vancouver Intl", frequency: "118.700", name: "VANCOUVER TOWER", type: "Tower", stationType: "", runways: "26L" },
+  { airport: "CYVR", airportName: "Vancouver Intl", frequency: "123.150", name: "PACIFIC RADIO", type: "FlightService", stationType: "", runways: "" },
+  { airport: "CYVR", airportName: "Vancouver Intl", frequency: "124.600", name: "CYVR", type: "ATIS", stationType: "", runways: "" },
+  { airport: "", airportName: "", frequency: "133.700", name: "Vancouver Centre", type: "Center", cpdlcLogonCode: "CZVR" },
+])).rows.map((r) => [r.name, r.freq, r.airport, r.rwys, r.icao].join("|")),
+  ["Vancouver Tower|118.700|CYVR|26L|", "Pacific Radio|123.150|CYVR||", "CYVR ATIS|124.600|CYVR||CYVR",
+    "Vancouver Centre|133.700|||"]);
 expect("freqs   unreadable kept raw", parseFreqs("Nothing here"), { raw: "Nothing here" });
 
 // speed: each must finish well under a frame budget even on long, unlucky input
