@@ -1,12 +1,12 @@
 # Agent notes
 
-MSFS 2024 community package BATC Overlay (`paul-batc-pill`, the repo FS24-BATC-Pill) that shows BeyondATC's comms state as a small pill in a
+MSFS 2024 community package BATC Overlay (`paulcharp-batc-overlay`, the repo FS24-BATC-Pill) that shows BeyondATC's comms state as a small pill in a
 screen corner during flight, with a click-to-open settings card. Windows only. User docs:
 [README.md](README.md).
 
 ## Layout
 
-- `src/html_ui/paul-batc-pill/pill.js`: the whole runtime. WebSocket client for BeyondATC
+- `src/html_ui/paulcharp-batc-overlay/pill.js`: the whole runtime. WebSocket client for BeyondATC
   (`ws://127.0.0.1:41716`), state machine (`view()`), animated render (`render()` measures the new
   content, then transitions width), settings card, `CONFIG` defaults, and the comms section (messages under the
   pill, answers/requests on hover, Frequencies/Log panel). `pill.css`: the look; `--u` is
@@ -35,7 +35,8 @@ screen corner during flight, with a click-to-open settings card. Windows only. U
   `captions`, `scene`, `hover`, `panel`); the cards embed it zoomed (`?bare`). The hover sometimes misses the answer chip
   in headless Edge: the script reshoots until the chip's amber shows. Headless Chrome
   behind a proxy hangs on the Google Fonts link (it ignores HTTPS_PROXY): render with the proxy set, or offline.
-  `docs/flightsim-to.md`: flightsim.to page text. `CHANGELOG.md`: release history.
+  `docs/flightsim-to.md`: flightsim.to page text. `docs/settings.md`: the user guide to every setting (keep it in step
+  with the settings card). `CHANGELOG.md`: release history.
 - `.github/workflows/check.yml`: syntax checks, plus `tools/check_pill.js` (readback hints and contact parsing
   on real lines; pattern speed on hostile input). CI can't build without a sim install.
 - `.local/` (git-ignored): local config, mockups, design prototypes, screenshots. Put new private files there.
