@@ -687,6 +687,12 @@
   transition: opacity 0.22s ease, transform 0.3s var(--ease), visibility 0s linear 0.3s;
 }
 #batc-pill-panel[data-edge="bottom"].is-closed { transform: translateY(calc(6 * var(--u))) scale(0.97); }
+/* the loaded flight, above the tabs: callsign, then the route */
+.bm-id {
+  display: flex; align-items: baseline; margin: calc(-2 * var(--u)) calc(2 * var(--u)) calc(8 * var(--u));
+  font-size: calc(12.5 * var(--u)); font-weight: 600; white-space: nowrap;
+}
+.bm-route { flex: none; margin-left: calc(8 * var(--u)); color: var(--dim); font-size: calc(11 * var(--u)); font-weight: 500; }
 .bm-head { display: flex; align-items: center; margin-bottom: calc(8 * var(--u)); }
 .bm-tabs, .bm-seg { display: flex; flex: 1 1 auto; }
 .bm-seg { margin-bottom: calc(4 * var(--u)); }

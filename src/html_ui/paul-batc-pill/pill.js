@@ -2188,7 +2188,11 @@
       return '<span class="bm-tab' + (state.panelTab === t[0] ? " is-on" : "") + '" data-tab="' + t[0] + '">' + t[1] +
         (badge ? '<i class="bm-badge"></i>' : "") + "</span>";
     }).join("");
-    var html = '<div class="bm-head"><span class="bm-tabs">' + tabs + "</span>" +
+    // the loaded flight: full callsign ("Airfrans 1234"), and its route
+    var pg = state.progress, route = pg && pg.from && pg.to ? esc(pg.from) + " → " + esc(pg.to) : "";
+    var html = (state.callsign ? '<div class="bm-id"><span class="bm-grow">' + esc(state.callsign) + "</span>" +
+      (route ? '<span class="bm-route">' + route + "</span>" : "") + "</div>" : "") +
+      '<div class="bm-head"><span class="bm-tabs">' + tabs + "</span>" +
       '<span class="bm-icon" data-act="settings">' + GEAR + '</span><span class="bm-icon" data-act="close">' + CROSS + "</span></div>" +
       (state.panelTab === "log" ? logTab() : freqTab()) +
       '<div class="bm-foot">' + toggleHtml("Auto Respond", "data-sw", "autorespond", state.autoRespond) +
