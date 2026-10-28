@@ -24,7 +24,7 @@ jobs:
 
       - name: JavaScript
         run: |
-          node --check src/html_ui/paul-batc-pill/pill.js
+          node --check src/html_ui/paulcharp-batc-overlay/pill.js
           node --check docs/render/pills.js
           node --check tools/check_pill.js
           node tools/check_pill.js

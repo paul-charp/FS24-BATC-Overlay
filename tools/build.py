@@ -1,10 +1,10 @@
-"""Build tool for the paul-batc-pill community package.
+"""Build tool for the paulcharp-batc-overlay community package.
 
     python tools/build.py build       assemble build/<package>/ with the hooked component, layout.json, manifest.json
     python tools/build.py install     build, then junction build/<package> into the Community folder
     python tools/build.py uninstall   remove the Community junction
     python tools/build.py lock        record the stock hash of each hooked component in stock.lock.json
-    python tools/build.py release [X.Y.Z]   build, then zip the package as dist/paul-batc-pill-X.Y.Z.zip
+    python tools/build.py release [X.Y.Z]   build, then zip the package as dist/paulcharp-batc-overlay-X.Y.Z.zip
 
 Local paths (sim_packages, community) go in .local/config.json, which overrides config.json.
 build and install turn the pill's developer log on (it streams to tools/pill_log.py when that runs); release
@@ -26,8 +26,8 @@ SRC = ROOT / "src"
 BUILD = ROOT / "build"
 DIST = ROOT / "dist"
 LOCK = ROOT / "stock.lock.json"
-MARK_BEGIN = "<!-- paul-batc-pill:begin -->"
-MARK_END = "<!-- paul-batc-pill:end -->"
+MARK_BEGIN = "<!-- paulcharp-batc-overlay:begin -->"
+MARK_END = "<!-- paulcharp-batc-overlay:end -->"
 # Seconds between 1601-01-01 (Windows FILETIME epoch) and 1970-01-01.
 FILETIME_EPOCH = 11644473600
 
@@ -129,7 +129,7 @@ def cmd_build(cfg, injections, dev=True):
     written = sync_tree(SRC, pkg_dir)
     if dev:
         # your own builds stream to tools/pill_log.py when it runs; releases never look for it
-        js = pkg_dir / "html_ui" / "paul-batc-pill" / "pill.js"
+        js = pkg_dir / "html_ui" / "paulcharp-batc-overlay" / "pill.js"
         text = js.read_text(encoding="utf-8")
         if "    devLog: false," not in text:
             sys.exit("build: can't find `devLog: false,` in pill.js")

@@ -4,7 +4,7 @@
 const fs = require("fs");
 const path = require("path");
 
-const src = fs.readFileSync(path.join(__dirname, "..", "src", "html_ui", "paul-batc-pill", "pill.js"), "utf8");
+const src = fs.readFileSync(path.join(__dirname, "..", "src", "html_ui", "paulcharp-batc-overlay", "pill.js"), "utf8");
 function extract(from, to, name) {
   const a = src.indexOf(from), b = src.indexOf(to, a);
   if (a < 0 || b < 0) throw new Error("check_pill: can't find " + name + " in pill.js");

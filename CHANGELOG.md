@@ -27,6 +27,7 @@ BeyondATC's toolbar, in the sim: ATC's messages, your answers and requests, the 
 - Added: BeyondATC's questions (live traffic with a sim clock that isn't real time) show on the pill, with their answers.
 - Added: a ✕ on BeyondATC errors that dismisses them in BeyondATC too. Errors that stop BeyondATC stay until dismissed, and long errors show in full.
 - Changed: renamed BATC Overlay.
+- Changed: the package folder is now `paulcharp-batc-overlay`. Delete the old `paul-batc-pill` folder from Community when you install it. Your settings are kept.
 - Changed: "You" is now "Transmitting".
 - Changed: settings are split into Display and Position tabs, and open from the gear in the panel (closing them goes back to the panel), or from a click on the pill while BeyondATC is offline, has no flight or is loading one.
 - Changed: the sample pill in the settings shows what your last change does, with sample station names.

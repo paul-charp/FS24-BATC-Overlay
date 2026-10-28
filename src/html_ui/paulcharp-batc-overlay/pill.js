@@ -188,7 +188,7 @@
   } else {
     style = document.createElement("link");
     style.rel = "stylesheet";
-    style.href = "/paul-batc-pill/pill.css";
+    style.href = "/paulcharp-batc-overlay/pill.css";
     // sizes are measured from computed styles: nothing renders until the sheet applies (see poll),
     // since Coherent doesn't reliably fire onload for <link>
   }

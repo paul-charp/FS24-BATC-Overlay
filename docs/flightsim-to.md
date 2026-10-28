@@ -52,7 +52,8 @@ Queued, Processing and Awaiting ATC while your request is on its way; ATC talkin
 - BeyondATC 3.x desktop app (the toolbar panel doesn't need to be open)
 
 **Installation**
-Extract the `paul-batc-pill` folder into your Community folder.
+Extract the `paulcharp-batc-overlay` folder into your Community folder.
+Updating from 1.x: delete the old `paul-batc-pill` folder first.
 
 **Notes**
 - The pill reads BeyondATC's local connection. It only sends BeyondATC commands, when you click: an answer or request, a frequency (COM1 or COM2), the frequency list, Auto Tune / Auto Respond, Start flight, Load Next Leg, the answer to a BeyondATC question, and dismissing an error.
@@ -91,6 +92,7 @@ BeyondATC's toolbar, in the sim: ATC's messages, your answers and requests, the 
 - Added: BeyondATC's questions show on the pill, with their answers.
 - Added: a ✕ to dismiss BeyondATC errors, and long errors show in full.
 - Changed: renamed BATC Overlay.
+- Changed: the package folder is now `paulcharp-batc-overlay`. Delete the old `paul-batc-pill` folder from Community when you install it. Your settings are kept.
 - Changed: "You" is now "Transmitting".
 - Changed: settings are split into Display and Position tabs, and open from the gear in the panel.
 - Changed: the sample pill in the settings shows what your last change does.

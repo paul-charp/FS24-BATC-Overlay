@@ -112,7 +112,7 @@ def main():
     if args.push:
         # Tear down the running pill, then evaluate the current src/ files. Works without a sim
         # restart, even for edits the VFS hasn't picked up yet.
-        src = os.path.join(os.path.dirname(__file__), "..", "src", "html_ui", "paul-batc-pill")
+        src = os.path.join(os.path.dirname(__file__), "..", "src", "html_ui", "paulcharp-batc-overlay")
         css = open(os.path.join(src, "pill.css"), encoding="utf-8").read()
         js = open(os.path.join(src, "pill.js"), encoding="utf-8").read()
         js = js.replace("    devLog: false,", "    devLog: true,", 1)  # a dev build: streams to tools/pill_log.py
