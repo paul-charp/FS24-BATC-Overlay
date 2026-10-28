@@ -59,6 +59,7 @@ The package is built from your sim install, so no Asobo files are in the repo. S
 | `python tools/sniff_batc.py --quiet-snapshot` | log every BeyondATC socket message |
 | `python tools/pill_log.py` | record a flight as the pill sees it (dev builds only) |
 | `python tools/batc_timeline.py` | print the latest log as a timeline |
+| `python tools/replay.py` | replay the latest log through the current code, and show where the pill now differs |
 | `python docs/render_images.py` | render the images in `docs/images/` (headless Edge or Chrome, needs Pillow) |
 | `python tools/build.py release 2.0.0` | build `dist/paulcharp-batc-overlay-2.0.0.zip` |
 

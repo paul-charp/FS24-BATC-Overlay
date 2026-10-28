@@ -27,6 +27,9 @@ screen corner during flight, with a click-to-open settings card. Windows only. U
   to `%LOCALAPPDATA%\paul-batc-pill\logs`. `tools/batc_timeline.py` prints either log as a timeline with
   `Actions`/`InfoBoxes` changes as diffs. `tools/harness.html`: desktop preview with replays, a fake
   `engine` and a "Hold PTT" button; `?fake` swaps in a socket that records what the pill sends (`batcPill.sent`).
+  `tools/replay.py` feeds pill logs back through src pill.js (headless Edge, virtual clock) and prints where the pill
+  now differs from the flight; `--save` / `--against` compare two runs (before and after a refactor: no difference).
+  It replays BeyondATC's messages and settings changes, not clicks or PTT; `--config` sets the starting settings.
 - `docs/render/*.html` + `docs/render_images.py`: the four 1920x1080 README/flightsim.to images via headless Edge (or
   Chrome/Chromium): `splash` (title + a takeoff clearance and its answer), `detail` (one clearance at four levels of
   detail), `assist` (warnings), `toolbar` (requests, Frequencies, Log). `backdrop.js` draws their radar-screen backdrop
@@ -53,7 +56,7 @@ screen corner during flight, with a click-to-open settings card. Windows only. U
 - `localStorage` is shared across all Coherent views but doesn't survive a sim restart (user report on 1.0.1,
   2026-10-26). `pill.js` saves settings to the sim's DataStorage too: `engine.trigger("ADD_VIEW_LISTENER",
   "JS_LISTENER_DATASTORAGE", "/Global/mainUI.html")`, then `window.datastorage.getData/setData` once it appears
-  (Simple UI does this from mainUI). Unverified live in this package.
+  (Simple UI does this from mainUI). Verified: settings survive a sim restart (2026-10-28).
 - mainUi has no `SimVar`, `GetStoredData` or `Coherent`; VCockpit views (e.g. VLogic) have `SimVar`.
 - mainUi fonts: only `Roboto-Regular` / `RobotoMono-Regular`; weights are synthesized.
 - Avoid `gap`, `color-mix`, `backdrop-filter` in pill.css (Gameface).
@@ -75,9 +78,8 @@ screen corner during flight, with a click-to-open settings card. Windows only. U
 - No gamepads in mainUi (`navigator.getGamepads()` is `[]` even after presses). A package can't add new
   actions to the Controls menu (MSFS 2024 SDK: presets of existing actions only).
 - Rounded `overflow: hidden` boxes had jagged corners in the sim while the unclipped settings card was
-  smooth; the pill now clips square and draws its rounded background on `.bp-bg`. Corners still look
-  jagged on light backgrounds: the outer borders are now a dark rim (`rgba(0, 0, 0, 0.1)`) to soften them;
-  unverified in the sim.
+  smooth; the pill now clips square and draws its rounded background on `.bp-bg`, with a dark rim
+  (`rgba(0, 0, 0, 0.1)`) on the outer borders.
 
 ## BeyondATC protocol
 
