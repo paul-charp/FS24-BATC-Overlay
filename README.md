@@ -1,10 +1,10 @@
-# BATC Comms Pill
+# BATC Overlay
 
-![BATC Comms Pill](docs/images/splash.png)
+![BATC Overlay](docs/images/splash.png)
 
-A small pill in a corner of the Microsoft Flight Simulator 2024 screen that shows what [BeyondATC](https://www.beyondatc.net/) is doing on the radio. It shrinks to a dot when the radio is quiet, so you can keep the BeyondATC toolbar closed.
+[BeyondATC](https://www.beyondatc.net/), inside Microsoft Flight Simulator 2024. A small pill in a corner of the screen shows what's happening on the radio, and everything the BeyondATC toolbar does sits around it: ATC's messages, your answers and requests, the frequencies and the radio log. It shrinks to a dot when the radio is quiet, shows as little or as much as you want, and warns you when ATC needs you. Keep the toolbar closed.
 
-![Pill states](docs/images/states.png)
+![Warnings and reminders](docs/images/assist.png)
 
 - **Queued / Processing / Awaiting ATC** (blue): your request is on its way.
 - **ATC talking** (amber): the controller is speaking, with the station and frequency.
@@ -27,15 +27,13 @@ A muted COM1 adds a speaker icon; ATC calling you while it's muted turns the pil
 
 Everything the BeyondATC toolbar does, around the pill:
 
-<img src="docs/images/comms.png" alt="ATC's message under the pill, with its answer" width="620">
-
 - **Messages**: ATC's lines (and yours) show under the pill. An exchange's messages stay until it closes, then leave together 5 s later; AI traffic's leave one by one. The message ATC waits on is outlined in amber.
 - **Answers**: hover that message, or the pill, and its answers open below it; the obvious one (a readback, an acknowledgement) is amber. A long list shows three and "+N" for the rest. With messages off, the answers open in a column under the pill instead.
 - **Requests**: with nothing pending, hovering the pill opens BeyondATC's requests in a column under it, the likely next one first. They close while the radio is busy and come back when it's quiet.
 - **Tune**: with Auto Tune off, once you've acknowledged a handoff, "Tune 118.775" sets COM1 to the new station (under the handoff message, or in the column).
-- **Panel**: click the pill for **Frequencies** (Departure / Arrival: the stations BeyondATC lists around you, gathered over the flight, ATIS first; a frequency that serves some runways only says which, "118.700 26L"; click one to tune COM1) and **Log** (every radio line, scrolling). The gear opens the settings. The panel isn't modal: leave it open and the cockpit stays clickable.
+- **Panel**: click the pill for your callsign and route, **Frequencies** (Departure / Arrival: the stations BeyondATC lists around you, gathered over the flight, ATIS first; a frequency that serves some runways only says which, "118.700 26L"; click one to tune COM1, right click for COM2) and **Log** (every radio line, scrolling). The gear opens the settings. The panel isn't modal: leave it open and the cockpit stays clickable.
 
-<img src="docs/images/panel.png" alt="The panel's Frequencies tab" width="380">
+![Requests, Frequencies and Log](docs/images/toolbar.png)
 
 In the bottom corners everything stacks upward from the pill; in the left corners it's mirrored.
 
@@ -49,9 +47,9 @@ Requires BeyondATC 3.x. The BeyondATC toolbar panel doesn't need to be open.
 
 ## Settings
 
-Click the pill in flight, then the gear in its panel, to open the settings card (two tabs: Display and Position); click the pill, the ✕, or anywhere outside the card to close it. Changes apply immediately. While the card is open, the pill shows a sample so you can see its size and position; after a change, the sample shows what that setting does (a radio change, a readback hint, the traffic pill, ...).
+![The same clearance at four levels of detail](docs/images/detail.png)
 
-<img src="docs/images/settings.png" alt="Settings card" width="340">
+Click the pill in flight, then the gear in its panel, to open the settings card (two tabs: Display and Position); click the pill, the ✕, or anywhere outside the card to close it. Changes apply immediately. While the card is open, the pill shows a sample so you can see its size and position; after a change, the sample shows what that setting does (a radio change, a readback hint, the traffic pill, ...).
 
 Hovering the pill shows two buttons beside it: BeyondATC's **Auto Respond** (speech bubble) and **Auto Tune** (radio waves); the panel has them too. Lit means on, dimmed and struck through means off; a click flips it, as the toolbar's own switches do.
 
@@ -144,7 +142,7 @@ Prints the latest log (a sniff or a pill recording) as a timeline, with the tool
 python docs/render_images.py
 ```
 
-Renders the images in `docs/images/` with headless Edge, or Chrome/Chromium when Edge isn't installed (needs Pillow).
+Renders the four images in `docs/images/` (1920x1080, for the README and flightsim.to) with headless Edge, or Chrome/Chromium when Edge isn't installed (needs Pillow): the real pill on recorded exchanges, over a drawn radar screen. A sim screenshot at `.local/shots/<name>-bg.png` replaces the backdrop for that image.
 
 ### Release
 

@@ -1,11 +1,11 @@
 # flightsim.to page
 
-Main image: `docs/images/splash.png` (1920x1080). Gallery: `docs/images/comms.png`, `docs/images/panel.png`,
-`docs/images/states.png`, `docs/images/settings.png`.
+Main image: `docs/images/splash.png`. Gallery: `docs/images/detail.png`, `docs/images/assist.png`,
+`docs/images/toolbar.png`. All 1920x1080.
 
 ## Title
 
-BATC Comms Pill (BeyondATC radio status, messages and replies)
+BATC Overlay (BeyondATC in the sim: radio status, messages, replies and frequencies)
 
 ## Keywords
 
@@ -13,33 +13,39 @@ BeyondATC, BATC, ATC, radio, comms, status, indicator, overlay, HUD, UI, toolbar
 
 ## Short description
 
-A small, quiet pill in a corner of the screen that shows what BeyondATC is doing on the radio, with ATC's messages under it and your answers, requests and frequencies one hover or click away.
+BeyondATC, inside Microsoft Flight Simulator 2024: ATC's messages, your answers and requests, the frequencies and the radio log, around a small pill in a corner. It replaces the BeyondATC toolbar and shows as little or as much as you want.
 
 ## Description
 
-A small, quiet pill in a corner of the screen that shows what BeyondATC is doing on the radio, and does what the BeyondATC toolbar does around it, so you can keep the toolbar closed.
+BeyondATC, inside the sim. A small pill in a corner of the screen shows what's happening on the radio, and everything the BeyondATC toolbar does sits around it: ATC's messages, your answers and requests, the frequencies and the radio log. Keep the toolbar closed.
 
-**Messages, answers and requests**
-- ATC's messages (and yours) show under the pill. An exchange's messages leave together once it's over; AI traffic's can be shown too
+**Replaces the toolbar**
+- ATC's messages (and yours) under the pill. An exchange's messages leave together once it's over; AI traffic's can be shown too
 - Hover the message ATC waits on, or the pill, and its answers open below it: one click to read back, acknowledge or answer a question
 - With nothing pending, hover the pill for BeyondATC's requests (clearance, push, taxi, direct to, ...)
-- With Auto Tune off, "Tune" sets COM1 to the station ATC handed you to
-- Click the pill for a panel with the frequencies (Departure / Arrival) and the radio log
-- In the bottom corners everything stacks upward; in the left corners it's mirrored
+- Auto Tune and Auto Respond switches next to the pill
+- Click the pill for a panel with your callsign and route, the frequencies (Departure / Arrival / En route; click for COM1, right click for COM2) and the radio log
+- Start a flight from BeyondATC's menu, load your next leg at the gate, answer BeyondATC's questions and dismiss its errors
 
-**What it shows**
-- Queued, Processing and Awaiting ATC while your request is on its way
-- ATC talking, with the station and frequency (amber)
-- Awaiting readback / Awaiting response: what ATC is waiting for from you, as a short hint ("Taxi via T1 · Hold short 12L"), the clearance values or the toolbar's clearance boxes. Red-orange when ATC calls you again or answers "Negative" with a correction, green when ATC takes your reply, and "No readback" if BeyondATC gives up waiting
-- Transmitting, while your readback or request plays (green), and optionally while you hold PTT, with the hint of the readback you're answering
-- Radio changes: the new station when COM1 or COM2 changes (cyan), and with Auto Tune off, whom to contact
-- Loading flight, with your callsign and a progress line; then your callsign and route once BeyondATC is ready
-- A new ATIS letter, ATC calling while COM1 is muted, AI traffic talking, and BeyondATC offline
+**Stays out of the way**
+- A small dot while the radio is quiet; it grows only when something happens, with animated changes
+- Any corner, any offset, 60% to 250% size. In the bottom corners everything stacks upward; in the left corners it's mirrored
+- The panel doesn't block the cockpit: leave it open and keep flying
 
-When nothing is happening it shrinks to a small dot. Changes between states are animated.
+**Your level of detail**
+- From a status alone ("Awaiting readback") to a hint ("Taxi via T1 · Hold short 12L"), the clearance values or the toolbar's clearance boxes
+- Messages Off, Mine (your exchanges) or All (with AI traffic)
+- Turn off what you don't want: radio changes, contact reminders, ATIS, AI traffic, ...
+- Click the pill, then the gear in its panel, for the settings (Display and Position tabs)
 
-**Settings**
-Hover the pill for two buttons that flip BeyondATC's Auto Tune and Auto Respond. Click the pill, then the gear in its panel, to open the settings (a click outside closes them): which events and messages to show and how much detail (Display tab), corner, position and size (Position tab).
+**It has your back**
+- Red-orange when ATC calls you again (×2), corrects your readback ("Negative"), or calls while COM1 is muted
+- Contact: with Auto Tune off, the station ATC handed you to, until COM1 is on it ("Tune" sets it)
+- Check in, when a new station waits for you to announce yourself
+- Readback OK when ATC takes your reply, No readback when BeyondATC gives up waiting, Unable when ATC turns you down
+
+**Also shown**
+Queued, Processing and Awaiting ATC while your request is on its way; ATC talking, with the station and frequency; Transmitting while your readback or request plays (optionally while you hold PTT); radio changes on COM1 and COM2; new ATIS letters; Loading flight with your callsign; BeyondATC offline.
 
 **Requirements**
 - Microsoft Flight Simulator 2024
@@ -61,13 +67,13 @@ Source and issues: https://github.com/paul-charp/FS24-BATC-Pill
 
 2.0.0
 
-Reply to ATC and make requests from the pill, without BeyondATC's toolbar.
+BeyondATC's toolbar, in the sim: ATC's messages, your answers and requests, the frequencies and the radio log around the pill, with as much detail as you want.
 
 - Added: ATC's messages appear under the pill. Choose Off, Mine (only your conversations) or All.
 - Added: hover the pill or the message ATC is waiting on to see your possible answers.
-- Added: hover the pill when the radio is quiet to see the requests you can make.
+- Added: hover the pill when the radio is quiet, or while only other aircraft are talking, to see the requests you can make.
 - Added: with Auto Tune off, a "Tune" button sets COM1 to the next station after a handoff.
-- Added: click the pill to open the Frequencies and Log panel.
+- Added: click the pill to open the Frequencies and Log panel, with your callsign and route at the top.
 - Added: Auto Tune and Auto Respond buttons next to the pill.
 - Added: readback hints. When ATC waits for your reply, the pill says so and shows what to read back: a short hint, the values, or the clearance boxes.
 - Added: the pill turns red-orange when ATC calls you again ("×2", "×3"), when ATC corrects a wrong readback ("Negative"), and when ATC calls you while COM1 is muted.
@@ -75,22 +81,30 @@ Reply to ATC and make requests from the pill, without BeyondATC's toolbar.
 - Added: "Readback OK" in green when ATC accepts your reply.
 - Added: optional "Keep last clearance", which keeps your last clearance on the pill, dimmed.
 - Added: a "Contact" reminder when Auto Tune is off and ATC hands you to another station.
+- Added: a "Check in" reminder when you haven't announced yourself on a new station after 10 s, and a "Not checked in" warning after a minute.
+- Added: "Unable" when ATC turns down your request.
 - Added: new ATIS letters, and "ATIS" while one plays on COM1.
 - Added: optional PTT indicator, which turns red-orange if you talk over ATC or traffic.
+- Added: "Waiting for BATC" when BeyondATC is running without a flight (the pill used to hide).
 - Added: "Loading flight" with your callsign and a progress line while BeyondATC loads a flight, then your callsign and route.
 - Added: "Start IFR flight" and "Load Next Leg" from the pill.
 - Added: BeyondATC's questions show on the pill, with their answers.
 - Added: a ✕ to dismiss BeyondATC errors, and long errors show in full.
+- Changed: renamed BATC Overlay.
 - Changed: "You" is now "Transmitting".
 - Changed: settings are split into Display and Position tabs, and open from the gear in the panel.
 - Changed: the sample pill in the settings shows what your last change does.
+- Changed: the kept clearance can be closed while other aircraft or ATC to them are talking.
+- Changed: a right click on a frequency sets COM2 through BeyondATC.
 - Changed: a softer, darker edge around the pill and its panels.
+- Fixed: settings were lost when the sim restarted.
 - Fixed: the idle dot stayed on screen in the sim's menus after a flight.
 - Fixed: BeyondATC errors showed as raw code.
 - Fixed: ATC broadcasts to all aircraft showed "ATC Generating" / "ATC Transmitting".
 - Fixed: an ATIS on COM1 showed as "Traffic" or "Service".
 - Fixed: AWOS, ASOS, AWIS and AWIB stations on COM1 showed as "Traffic".
 - Fixed: radio changes showed while a flight was loading.
+- Fixed: CPDLC requests showed "Processing", then the station.
 
 1.0.1
 

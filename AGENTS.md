@@ -1,6 +1,6 @@
 # Agent notes
 
-MSFS 2024 community package (`paul-batc-pill`) that shows BeyondATC's comms state as a small pill in a
+MSFS 2024 community package BATC Overlay (`paul-batc-pill`, the repo FS24-BATC-Pill) that shows BeyondATC's comms state as a small pill in a
 screen corner during flight, with a click-to-open settings card. Windows only. User docs:
 [README.md](README.md).
 
@@ -27,9 +27,13 @@ screen corner during flight, with a click-to-open settings card. Windows only. U
   to `%LOCALAPPDATA%\paul-batc-pill\logs`. `tools/batc_timeline.py` prints either log as a timeline with
   `Actions`/`InfoBoxes` changes as diffs. `tools/harness.html`: desktop preview with replays, a fake
   `engine` and a "Hold PTT" button; `?fake` swaps in a socket that records what the pill sends (`batcPill.sent`).
-- `docs/render/*.html` + `docs/render_images.py`: README/flightsim.to images via headless Edge (or
-  Chrome/Chromium); `docs/render/pills.js` mirrors `view()`'s markup for the state sheet; `comms.html` runs the
-  real pill.js on a recorded clearance through a stand-in socket (`?panel`: the Frequencies panel). Headless Chrome
+- `docs/render/*.html` + `docs/render_images.py`: the four 1920x1080 README/flightsim.to images via headless Edge (or
+  Chrome/Chromium): `splash` (title + a takeoff clearance and its answer), `detail` (one clearance at four levels of
+  detail), `assist` (warnings), `toolbar` (requests, Frequencies, Log). `backdrop.js` draws their radar-screen backdrop
+  (`.local/shots/<name>-bg.png` replaces it); `pills.js` mirrors `view()`'s markup for static pills; `comms.html` runs
+  the real pill.js on recorded exchanges through a stand-in socket, its query picking settings and moment (`detail`,
+  `captions`, `scene`, `hover`, `panel`); the cards embed it zoomed (`?bare`). The hover sometimes misses the answer chip
+  in headless Edge: the script reshoots until the chip's amber shows. Headless Chrome
   behind a proxy hangs on the Google Fonts link (it ignores HTTPS_PROXY): render with the proxy set, or offline.
   `docs/flightsim-to.md`: flightsim.to page text. `CHANGELOG.md`: release history.
 - `.github/workflows/check.yml`: syntax checks, plus `tools/check_pill.js` (readback hints and contact parsing

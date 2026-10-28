@@ -1,4 +1,4 @@
-/* BATC comms pill. Units: --u is one screen pixel at 1080p. */
+/* BATC Overlay. Units: --u is one screen pixel at 1080p. */
 #batc-pill {
   --u: 0.0926vh; /* pill.js sets it from CONFIG.scale; position comes from CONFIG.corner/x/y */
 

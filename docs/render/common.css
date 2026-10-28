@@ -1,24 +1,31 @@
-/* Shared backdrop for the doc renders: a dusk sky over terrain, close to what the pill sits on in flight. */
+/* Shared styles for the doc renders. The backdrop is drawn by backdrop.js into .sky (or a sim screenshot: .sky.photo). */
 html, body { margin: 0; }
 body {
   font-family: "Roboto", "Segoe UI", Arial, sans-serif;
   background: #0e1218;
 }
-.sky {
-  position: relative;
-  overflow: hidden;
-  background:
-    radial-gradient(120% 70% at 75% 38%, rgba(255, 196, 140, 0.55) 0%, rgba(255, 196, 140, 0) 60%),
-    linear-gradient(180deg, #34507a 0%, #6f8fb5 36%, #c9b9a6 56%, #8f9278 58%, #5f6650 72%, #3b4234 100%);
-}
+.sky { position: absolute; top: 0; right: 0; bottom: 0; left: 0; overflow: hidden; }
+.sky svg { display: block; }
 .sky.photo { background-size: cover; background-position: center; }
-.sky::after { /* distant ridge */
-  content: ""; position: absolute; left: -5%; right: -5%; top: 52%; height: 10%;
-  background: linear-gradient(180deg, rgba(70, 82, 96, 0.9), rgba(70, 82, 96, 0));
-  clip-path: polygon(0 60%, 8% 35%, 17% 55%, 28% 20%, 38% 50%, 47% 30%, 58% 58%, 69% 25%, 80% 48%, 90% 30%, 100% 50%, 100% 100%, 0 100%);
-}
-.sky.photo::after { display: none; }
+/* a live page embedded in a feature card (?bare): no backdrop of its own */
+body.bare { background: transparent; }
+body.bare .sky { display: none; }
 /* static pills: the stylesheet keys on #batc-pill, so each sample reuses the id */
 body:not(.live) #batc-pill { position: relative; display: inline-flex; width: auto; }
 /* a header over boxes or text: pill.js sets the height in the sim */
 body:not(.live) #batc-pill.is-msg { height: auto; }
+
+/* feature cards (1920x1080): a headline on the left, the pill's UI on the right */
+.card-text, .cap { text-shadow: 0 1px 12px rgba(0, 0, 0, 0.45); }
+.card-text { position: absolute; left: 120px; top: 50%; transform: translateY(-50%); width: 700px; color: #f2f5f8; }
+.eyebrow { font: 500 24px/1 "Roboto", sans-serif; letter-spacing: 0.16em; text-transform: uppercase; color: #ffb547; }
+.card-text h1 { font: 700 104px/1 "Roboto", sans-serif; margin: 24px 0 30px; letter-spacing: -0.02em; }
+.card-text h2 { font: 700 72px/1.05 "Roboto", sans-serif; margin: 24px 0 28px; letter-spacing: -0.015em; }
+.sub { font: 400 32px/1.4 "Roboto", sans-serif; color: rgba(242, 245, 248, 0.8); }
+.sub b { font-weight: 500; color: #f2f5f8; }
+.foot { margin-top: 40px; font: 500 22px/1 "Roboto", sans-serif; color: rgba(242, 245, 248, 0.55); letter-spacing: 0.04em; }
+/* the pill's UI set off the dark backdrop by a faint light halo (a dark shadow hid the pill's dark rim) */
+.zoom, .rows { filter: drop-shadow(0 0 48px rgba(150, 180, 210, 0.1)); }
+/* a live page zoomed in: the frame is a 1920x1080 page, scaled from its top-right corner */
+.zoom { position: absolute; overflow: hidden; }
+.zoom iframe { position: absolute; top: 0; right: 0; width: 1920px; height: 1080px; border: 0; transform-origin: top right; background: transparent; }

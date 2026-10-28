@@ -1,4 +1,4 @@
-// BATC comms pill: shows BeyondATC's comms state in a screen corner during flight, with ATC's messages, their
+// BATC Overlay: shows BeyondATC's comms state in a screen corner during flight, with ATC's messages, their
 // answers, the requests and a Frequencies / Log panel around it.
 // Reads BeyondATC's toolbar socket (the same one its in-sim panel uses). It only sends, on a click, what the
 // toolbar itself sends: "set_autotune: <bool>", "set_autorespond: <bool>", "set_action: <label>",
@@ -217,7 +217,7 @@
   card.id = "batc-pill-cfg";
   card.className = "is-closed";
   card.innerHTML =
-    '<div class="bc-head"><span>BATC Comms Pill</span><span class="bc-btn bc-x" data-act="close">' +
+    '<div class="bc-head"><span>BATC Overlay</span><span class="bc-btn bc-x" data-act="close">' +
       // drawn, not the ✕ glyph: the sim's font set it off-center
       '<svg viewBox="0 0 10 10"><path d="M2 2l6 6M8 2l-6 6"/></svg></span></div>' +
     '<div class="bc-tabs"><span class="bc-btn bc-tab" data-tab="display">Display</span>' +
