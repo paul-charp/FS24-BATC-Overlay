@@ -33,27 +33,7 @@ Requires BeyondATC 3.x. The toolbar doesn't need to be open.
 
 ## Settings
 
-Click the pill, then the gear in its panel. Changes apply right away, and the pill shows a sample of each change. Every setting is explained in the **[settings guide](docs/settings.md)**.
-
-**Display**
-
-| Setting | |
-|---|---|
-| Readback hints | None, Short, Hint or Boxes |
-| Keep last clearance | keep your last clearance on the pill, dimmed |
-| Messages | Off, Mine or All |
-| Radio changes | the new station when COM1 or COM2 changes |
-| Contact reminders | whom to contact after a handoff, and "Check in" |
-| ATIS changes | a new ATIS letter |
-| Warn when COM1 muted | red-orange pill when ATC calls on a muted COM1 |
-| PTT indicator | "Transmitting" while you hold PTT |
-| AI traffic | other aircraft's radio calls |
-| Full station names | "Montpellier Ground" instead of "Ground" |
-| Hide when BATC is off | no pill while BeyondATC isn't running |
-
-**Position**: corner, distance from the corner, and size (60% to 250%).
-
-The PTT indicator needs your PTT button bound a second time in the sim: see [PTT indicator](docs/settings.md#ptt-indicator).
+Click the pill, then the gear in its panel. See the **[settings guide](docs/settings.md)**; the PTT indicator needs a second key binding.
 
 ## Compatibility
 
