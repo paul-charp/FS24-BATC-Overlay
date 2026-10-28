@@ -24,7 +24,7 @@ It also shows ATC talking, your transmissions, radio and ATIS changes, flight lo
 
 ## Install
 
-1. Download `paulcharp-batc-overlay-X.Y.Z.zip` from [Releases](https://github.com/paul-charp/FS24-BATC-Pill/releases).
+1. Download `paulcharp-batc-overlay-X.Y.Z.zip` from [Releases](https://github.com/paul-charp/FS24-BATC-Overlay/releases).
 2. Extract the `paulcharp-batc-overlay` folder into your Community folder.
    Updating from 1.x: delete the old `paul-batc-pill` folder first.
 3. Start the BeyondATC app and a flight. The pill appears in the top-right corner.
@@ -63,7 +63,7 @@ The package is built from your sim install, so no Asobo files are in the repo. S
 | `python docs/render_images.py` | render the images in `docs/images/` (headless Edge or Chrome, needs Pillow) |
 | `python tools/build.py release 2.0.0` | build `dist/paulcharp-batc-overlay-2.0.0.zip` |
 
-Logs go to `%LOCALAPPDATA%\paul-batc-pill\logs`. `tools/harness.html` previews the pill in a browser with replayed exchanges: run `python -m http.server 8765` and open `http://localhost:8765/tools/harness.html`.
+Logs go to `%LOCALAPPDATA%\paulcharp-batc-overlay\logs`. `tools/harness.html` previews the pill in a browser with replayed exchanges: run `python -m http.server 8765` and open `http://localhost:8765/tools/harness.html`.
 
 To release: set `version` in `config.json` and the date in `CHANGELOG.md`, commit, build, then:
 

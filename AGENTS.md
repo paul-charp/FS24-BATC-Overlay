@@ -1,6 +1,6 @@
 # Agent notes
 
-MSFS 2024 community package BATC Overlay (`paulcharp-batc-overlay`, the repo FS24-BATC-Pill) that shows BeyondATC's comms state as a small pill in a
+MSFS 2024 community package BATC Overlay (`paulcharp-batc-overlay`, the repo FS24-BATC-Overlay) that shows BeyondATC's comms state as a small pill in a
 screen corner during flight, with a click-to-open settings card. Windows only. User docs:
 [README.md](README.md).
 
@@ -24,9 +24,9 @@ screen corner during flight, with a click-to-open settings card. Windows only. U
   `build.py build`/`install` and `inspect_ui.py --push` set `CONFIG.devLog` and stream BeyondATC's messages,
   what the pill shows and what the user does to `ws://127.0.0.1:41799` while it runs; `release` doesn't;
   sniffer records plus `{"t","pill"}` / `{"t","event"}`; every command the pill sends is an event). Both write
-  to `%LOCALAPPDATA%\paul-batc-pill\logs`. `tools/batc_timeline.py` prints either log as a timeline with
+  to `%LOCALAPPDATA%\paulcharp-batc-overlay\logs`. `tools/batc_timeline.py` prints either log as a timeline with
   `Actions`/`InfoBoxes` changes as diffs. `tools/harness.html`: desktop preview with replays, a fake
-  `engine` and a "Hold PTT" button; `?fake` swaps in a socket that records what the pill sends (`batcPill.sent`).
+  `engine` and a "Hold PTT" button; `?fake` swaps in a socket that records what the pill sends (`batcOverlay.sent`).
   `tools/replay.py` feeds pill logs back through src pill.js (headless Edge, virtual clock) and prints where the pill
   now differs from the flight; `--save` / `--against` compare two runs (before and after a refactor: no difference).
   It replays BeyondATC's messages and settings changes, not clicks or PTT; `--config` sets the starting settings.
@@ -51,7 +51,7 @@ screen corner during flight, with a click-to-open settings card. Windows only. U
 - Clicks reach an element only if the element directly under the cursor has `data-input-group` and
   computed `pointer-events` isn't `none` (mainUi inherits `none`). Mousemove arrives regardless.
   A click on no element of ours never reaches the page (a document `mousedown` listener saw nothing), so the
-  open settings card closes on outside clicks through a transparent full-screen `#batc-pill-shade` with
+  open settings card closes on outside clicks through a transparent full-screen `#batc-overlay-shade` with
   `data-input-group` (that click doesn't reach the sim; verified live 2026-10-23).
 - `localStorage` is shared across all Coherent views but doesn't survive a sim restart (user report on 1.0.1,
   2026-10-26). `pill.js` saves settings to the sim's DataStorage too: `engine.trigger("ADD_VIEW_LISTENER",

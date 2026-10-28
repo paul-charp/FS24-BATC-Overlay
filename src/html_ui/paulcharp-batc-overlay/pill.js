@@ -60,7 +60,7 @@
   var USER_KEYS = ["corner", "x", "y", "scale", "showTuning", "showContact", "showAtis", "showReadback", "readbackDetail", "keepLast",
     "warnMuted", "showPtt", "hideOffline",
     "showTraffic", "facility", "captions"];
-  var STORE_KEY = "batcpill.settings";
+  var STORE_KEY = "batcoverlay.settings", OLD_STORE_KEY = "batcpill.settings"; // read when the new one is empty
   var DEFAULTS = {};
   USER_KEYS.forEach(function (k) { DEFAULTS[k] = CONFIG[k]; });
 
@@ -82,7 +82,7 @@
 
   function loadSettings() {
     var patch = null;
-    try { patch = savedPatch(localStorage.getItem(STORE_KEY)); } catch (e) { /* ignore */ }
+    try { patch = savedPatch(localStorage.getItem(STORE_KEY) || localStorage.getItem(OLD_STORE_KEY)); } catch (e) { /* ignore */ }
     for (var k in patch) CONFIG[k] = patch[k];
   }
 
@@ -96,7 +96,7 @@
 
   loadSettings();
 
-  if (window.batcPill) window.batcPill.destroy();
+  if (window.batcOverlay) window.batcOverlay.destroy();
 
   var state = {
     inFlight: false,
@@ -182,9 +182,9 @@
   // ---- DOM -------------------------------------------------------------
 
   var style;
-  if (window.batcPillInlineCss) {
+  if (window.batcOverlayInlineCss) {
     style = document.createElement("style");
-    style.textContent = window.batcPillInlineCss;
+    style.textContent = window.batcOverlayInlineCss;
   } else {
     style = document.createElement("link");
     style.rel = "stylesheet";
@@ -192,11 +192,11 @@
     // sizes are measured from computed styles: nothing renders until the sheet applies (see poll),
     // since Coherent doesn't reliably fire onload for <link>
   }
-  style.setAttribute("data-batc-pill", "");
+  style.setAttribute("data-batc-overlay", "");
   document.head.appendChild(style);
 
   var root = document.createElement("div");
-  root.id = "batc-pill";
+  root.id = "batc-overlay";
   root.className = "is-hidden";
   var body = document.createElement("div");
   body.className = "bp-body";
@@ -214,7 +214,7 @@
 
   // Clicks only reach elements that carry data-input-group; the sim takes all others (see openCard).
   var card = document.createElement("div");
-  card.id = "batc-pill-cfg";
+  card.id = "batc-overlay-cfg";
   card.className = "is-closed";
   card.innerHTML =
     '<div class="bc-head"><span>BATC Overlay</span><span class="bc-btn bc-x" data-act="close">' +
@@ -248,7 +248,7 @@
 
   // Auto Tune / Auto Respond buttons, beside the pill while the mouse is over it (see onMouseMove)
   var switches = document.createElement("div");
-  switches.id = "batc-pill-sw";
+  switches.id = "batc-overlay-sw";
   switches.className = "is-closed";
   // one icon button each, lit when on, dimmed and struck through when off
   var SLASH = '<path class="bs-slash" d="M2.5 2.5l11 11"/>';
@@ -266,14 +266,14 @@
 
   // ATC's messages, the answers/requests column and the comms panel (see "comms" below)
   var msgs = document.createElement("div");
-  msgs.id = "batc-pill-msgs";
+  msgs.id = "batc-overlay-msgs";
   document.body.appendChild(msgs);
   var list = document.createElement("div");
-  list.id = "batc-pill-list";
+  list.id = "batc-overlay-list";
   list.className = "is-closed";
   document.body.appendChild(list);
   var panel = document.createElement("div");
-  panel.id = "batc-pill-panel";
+  panel.id = "batc-overlay-panel";
   panel.className = "is-closed";
   document.body.appendChild(panel);
 
@@ -420,14 +420,14 @@
 
   // The last reply ATC took, kept quiet in the pill. Its clipboard icon turns into a ✕ on hover (CSS); a click
   // there hides it (the rest of the pill still opens the settings). Returns null when there's nothing to show.
-  var KEPT_ICON = '<span class="bp-unpin" data-input-group="BATC-PILL">' +
+  var KEPT_ICON = '<span class="bp-unpin" data-input-group="BATC-OVERLAY">' +
     '<svg class="bp-clip" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" ' +
     'stroke-linejoin="round"><rect x="3.5" y="3" width="9" height="11" rx="1.5"/><path d="M6 3V2h4v1M6 7h4M6 10h3"/></svg>' +
     '<svg class="bp-x" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round">' +
     '<path d="M4.5 4.5l7 7M11.5 4.5l-7 7"/></svg></span>';
 
   // BeyondATC's error: its ✕ dismisses it there too ("ack_error")
-  var ERROR_X = '<span class="bp-unpin is-x" data-input-group="BATC-PILL" data-dismiss="error">' +
+  var ERROR_X = '<span class="bp-unpin is-x" data-input-group="BATC-OVERLAY" data-dismiss="error">' +
     '<svg class="bp-x" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round">' +
     '<path d="M4.5 4.5l7 7M11.5 4.5l-7 7"/></svg></span>';
 
@@ -791,7 +791,7 @@
       if (state.editing) openCard(false);
       return;
     }
-    root.setAttribute("data-input-group", "BATC-PILL");
+    root.setAttribute("data-input-group", "BATC-OVERLAY");
 
     function apply() {
       root.className = v.cls;
@@ -1366,7 +1366,7 @@
     // the sim checks data-input-group on the exact element under the cursor, so tag every element
     var els = [card].concat([].slice.call(cardEls));
     for (var i = 0; i < els.length; i++) {
-      if (open) els[i].setAttribute("data-input-group", "BATC-PILL");
+      if (open) els[i].setAttribute("data-input-group", "BATC-OVERLAY");
       else els[i].removeAttribute("data-input-group");
     }
     if (open) updateCard();
@@ -1402,7 +1402,7 @@
   // While the card or the panel is open, a transparent layer behind it (and the pill) takes the clicks elsewhere
   // and closes it: the sim keeps clicks that land on no element of ours, so the page never sees them otherwise.
   var shade = document.createElement("div");
-  shade.id = "batc-pill-shade";
+  shade.id = "batc-overlay-shade";
   shade.className = "is-closed";
   document.body.appendChild(shade);
   shade.addEventListener("click", function () {
@@ -1413,7 +1413,7 @@
   function updateShade() {
     var on = state.editing || (state.panel && commsShown());
     shade.className = on ? "" : "is-closed";
-    if (on) shade.setAttribute("data-input-group", "BATC-PILL");
+    if (on) shade.setAttribute("data-input-group", "BATC-OVERLAY");
     else shade.removeAttribute("data-input-group");
   }
 
@@ -1524,7 +1524,7 @@
     switches.className = open ? "" : "is-closed";
     // clicks need data-input-group on the exact element under the cursor (see openCard)
     for (var i = 0; i < switchEls.length; i++) {
-      if (open) switchEls[i].setAttribute("data-input-group", "BATC-PILL");
+      if (open) switchEls[i].setAttribute("data-input-group", "BATC-OVERLAY");
       else switchEls[i].removeAttribute("data-input-group");
     }
     if (open) { placeSwitches(); updateSwitches(); }
@@ -1595,20 +1595,20 @@
   var LOG_MAX = 200;
   var SENT_MS = 4000;     // after a click, answers and requests stay hidden this long unless BeyondATC reacts first
   var CHIP_MAX = 3;       // answers shown before "+N"
-  var IG = ' data-input-group="BATC-PILL"'; // clicks reach only elements carrying it (see openCard)
+  var IG = ' data-input-group="BATC-OVERLAY"'; // clicks reach only elements carrying it (see openCard)
   var capSeq = 0, hoverCap = 0, hoverCapAll = false, listAll = false, panelHtml = "";
   var sent = [];
   // the Log, COM2 as followed so far and the stations heard outlive a restart of the pill (a hot reload): destroy()
   // leaves them here
-  if (window.batcPillLog) {
-    var kept = window.batcPillLog;
+  if (window.batcOverlayLog) {
+    var kept = window.batcOverlayLog;
     state.log = kept.log;
     capSeq = kept.seq;
     ["com2Radio:com2", "com2Names:com2Names", "freqs:freqs", "freqBook:freqBook", "freqEnroute:freqEnroute"].forEach(function (p) {
       p = p.split(":");
       if (kept[p[1]]) state[p[0]] = kept[p[1]];
     });
-    window.batcPillLog = null;
+    window.batcOverlayLog = null;
   }
 
   function send(cmd) {
@@ -1898,7 +1898,7 @@
     }
     if (html && list.innerHTML !== html) list.innerHTML = html; // closing keeps its chips while they fade out
     list.className = html ? "" : "is-closed";
-    if (html) list.setAttribute("data-input-group", "BATC-PILL");
+    if (html) list.setAttribute("data-input-group", "BATC-OVERLAY");
     else {
       // fading out, they'd still take clicks meant for the answers under a message
       list.removeAttribute("data-input-group");
@@ -2221,7 +2221,7 @@
     state.logReset = false;
     // the sim checks data-input-group on the exact element under the cursor
     var els = [panel].concat([].slice.call(panel.querySelectorAll("*")));
-    for (var i = 0; i < els.length; i++) els[i].setAttribute("data-input-group", "BATC-PILL");
+    for (var i = 0; i < els.length; i++) els[i].setAttribute("data-input-group", "BATC-OVERLAY");
     syncScrollbar();
   }
 
@@ -2350,7 +2350,7 @@
     var eng = window.engine;
     if (!eng || typeof eng.on !== "function") return;
     // once per view and event: hot reloads (inspect_ui.py --push) keep the view, and its intercepts
-    var reg = window.batcPillKeys = window.batcPillKeys || { attached: false, intercepted: {} };
+    var reg = window.batcOverlayKeys = window.batcOverlayKeys || { attached: false, intercepted: {} };
     if (!reg.attached) {
       eng.trigger("ADD_VIEW_LISTENER", "JS_LISTENER_KEYEVENT", "/Global/mainUI.html");
       reg.attached = true;
@@ -2454,7 +2454,7 @@
 
   function destroy() {
     destroyed = true;
-    window.batcPillLog = { log: state.log, seq: capSeq, com2: state.com2Radio, com2Names: state.com2Names,
+    window.batcOverlayLog = { log: state.log, seq: capSeq, com2: state.com2Radio, com2Names: state.com2Names,
       freqs: state.freqs, freqBook: state.freqBook, freqEnroute: state.freqEnroute };
     clearTimeout(com2Timer);
     for (var k in timers) { clearTimeout(timers[k]); clearInterval(timers[k]); }
@@ -2470,10 +2470,10 @@
     document.removeEventListener("mouseup", onDrag);
     if (shade.parentNode) shade.parentNode.removeChild(shade);
     if (style.parentNode) style.parentNode.removeChild(style);
-    if (window.batcPill && window.batcPill.destroy === destroy) delete window.batcPill;
+    if (window.batcOverlay && window.batcOverlay.destroy === destroy) delete window.batcOverlay;
   }
 
-  // Same as the settings card, e.g. batcPill.set({ corner: "top-left", x: 40, y: 120 }). Saved.
+  // Same as the settings card, e.g. batcOverlay.set({ corner: "top-left", x: 40, y: 120 }). Saved.
   function set(patch) {
     settingsChanged = true;
     devLog("event", "settings " + JSON.stringify(patch));
@@ -2500,25 +2500,25 @@
     var ds = dataStorage();
     if (!ds) {
       var eng = window.engine;
-      if (!window.batcPillStore && eng && typeof eng.trigger === "function") {
+      if (!window.batcOverlayStore && eng && typeof eng.trigger === "function") {
         eng.trigger("ADD_VIEW_LISTENER", "JS_LISTENER_DATASTORAGE", "/Global/mainUI.html");
-        window.batcPillStore = true; // once per view, like the key listener
+        window.batcOverlayStore = true; // once per view, like the key listener
       }
       if (tries < 90) timers.store = setTimeout(function () { loadStoredSettings(tries + 1); }, 1000);
       return;
     }
     var patch = null;
-    try { patch = savedPatch(ds.getData(STORE_KEY)); } catch (e) { /* ignore */ }
+    try { patch = savedPatch(ds.getData(STORE_KEY) || ds.getData(OLD_STORE_KEY)); } catch (e) { /* ignore */ }
     if (patch && !settingsChanged) applySettings(patch);
     else saveSettings();
   }
 
-  window.batcPill = {
+  window.batcOverlay = {
     destroy: destroy,
     set: set,
     state: state,
     config: CONFIG,
-    feed: onMessage, // test hook: batcPill.feed('CommsState: {"mode":"awaiting","text":""}')
+    feed: onMessage, // test hook: batcOverlay.feed('CommsState: {"mode":"awaiting","text":""}')
     sent: sent,      // the last commands sent to BeyondATC, newest last
     settings: function (open) { openCard(open !== false); }, // docs/render: the card as its gear opens it
   };

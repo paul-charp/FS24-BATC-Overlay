@@ -1,7 +1,7 @@
 """Print a readable timeline from a sniff_batc.py log, to see how BeyondATC's state messages move
 around an exchange (e.g. which pilot responses `Actions` offers while ATC waits for a readback). Stdlib only.
 
-    python tools/batc_timeline.py                  the latest log in %LOCALAPPDATA%\\paul-batc-pill\\logs (sniff or pill)
+    python tools/batc_timeline.py                  the latest log in %LOCALAPPDATA%\\paulcharp-batc-overlay\\logs (sniff or pill)
     python tools/batc_timeline.py path\\to\\batc-X.jsonl --types Actions,InfoBoxes
 
 Speech (ATC:, Player:, ...), CommsState, Facility and QueuedAction lines are printed as they come, and so are

@@ -10,8 +10,8 @@ body {
 /* a live page embedded in a feature card (?bare): no backdrop of its own */
 body.bare { background: transparent; }
 body.bare .sky { display: none; }
-/* static pills: the stylesheet keys on #batc-pill, so each sample reuses the id */
-body:not(.live) #batc-pill { position: relative; display: inline-flex; width: auto; }
+/* static pills: the stylesheet keys on #batc-overlay, so each sample reuses the id */
+body:not(.live) #batc-overlay { position: relative; display: inline-flex; width: auto; }
 
 /* feature cards (1920x1080): a headline on the left, the pill's UI on the right */
 .card-text, .cap { text-shadow: 0 1px 12px rgba(0, 0, 0, 0.45); }

@@ -38,7 +38,7 @@
     return '<div class="row"><div class="cap"><b>' + r[1] + "</b><span>" + r[2] + "</span></div>" + BP.pill(r[0], 3) + "</div>";
   }).join("");
   // as pill.js: each pill as wide as its content
-  document.querySelectorAll("#batc-pill").forEach(function (p) {
+  document.querySelectorAll("#batc-overlay").forEach(function (p) {
     var body = p.querySelector(".bp-body");
     body.style.width = "max-content";
     p.style.width = body.offsetWidth + "px";

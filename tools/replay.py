@@ -52,7 +52,7 @@ PAGE = """<!doctype html>
     }}
     vnow = Math.max(vnow, to);
   }}
-  window.batcPillInlineCss = " ";
+  window.batcOverlayInlineCss = " ";
   // BeyondATC's socket is fed by hand; the dev log socket (devLog on) reports every view the pill shows
   window.WebSocket = function (url) {{
     this.url = url; this.readyState = 1;
@@ -72,12 +72,12 @@ PAGE = """<!doctype html>
   var out = document.getElementById("out");
   try {{
     advance(1e12 + 100);
-    batcPill.state.inFlight = true;
-    batcPill.set(START);
+    batcOverlay.state.inFlight = true;
+    batcOverlay.set(START);
     // BeyondATC's messages, and the settings changes made in flight
     MSGS.forEach(function (m) {{
       advance(1e12 + m[0] * 1000);
-      if (typeof m[1] === "string") batcPill.feed(m[1]); else batcPill.set(m[1]);
+      if (typeof m[1] === "string") batcOverlay.feed(m[1]); else batcOverlay.set(m[1]);
     }});
     advance(vnow + 30000);
     out.textContent = JSON.stringify(views);

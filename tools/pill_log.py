@@ -6,7 +6,7 @@ Your own builds of the pill (tools/build.py build or install, inspect_ui.py --pu
 stream to it while it runs: everything they get from BeyondATC (reconnecting once, so a recording starts with
 BeyondATC's snapshot), what they show, and what you do (clicks, PTT, settings, the Auto Tune / Auto Respond
 commands). Release builds never look for it. One file per recording, pill-<date>.jsonl in the logs folder
-(%LOCALAPPDATA%\\paul-batc-pill\\logs, shared with sniff_batc.py), written line by line, so a sim crash keeps
+(%LOCALAPPDATA%\\paulcharp-batc-overlay\\logs, shared with sniff_batc.py), written line by line, so a sim crash keeps
 everything up to it. Records:
 
     {"t": 12.345, "msg": "CommsState: {...}"}       as sniff_batc.py writes them (replays and batc_timeline.py read them)
@@ -29,9 +29,9 @@ NOISY = ("DATIS", "Settings", "Actions", "InfoBoxes", "Progress", "Traffic:", "A
 
 
 def log_dir():
-    """Where every tool here writes its logs: %LOCALAPPDATA%\\paul-batc-pill\\logs."""
+    """Where every tool here writes its logs: %LOCALAPPDATA%\\paulcharp-batc-overlay\\logs."""
     base = os.environ.get("LOCALAPPDATA") or str(Path.home() / ".local" / "share")
-    return Path(base) / "paul-batc-pill" / "logs"
+    return Path(base) / "paulcharp-batc-overlay" / "logs"
 
 
 def recv_exact(conn, n):

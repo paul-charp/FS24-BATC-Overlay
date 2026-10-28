@@ -117,9 +117,9 @@ def main():
         js = open(os.path.join(src, "pill.js"), encoding="utf-8").read()
         js = js.replace("    devLog: false,", "    devLog: true,", 1)  # a dev build: streams to tools/pill_log.py
         args.expr = ("(function (css, js) {"
-                     " if (window.batcPill) window.batcPill.destroy();"
-                     " window.batcPillInlineCss = css; (0, eval)(js);"
-                     " return !!document.getElementById('batc-pill'); })(" + json.dumps(css) + ", " + json.dumps(js) + ")")
+                     " if (window.batcOverlay) window.batcOverlay.destroy();"
+                     " window.batcOverlayInlineCss = css; (0, eval)(js);"
+                     " return !!document.getElementById('batc-overlay'); })(" + json.dumps(css) + ", " + json.dumps(js) + ")")
     if args.expr:
         r = call(ws, 2, "Runtime.evaluate", {"expression": args.expr, "returnByValue": True})
         res = r.get("result", {})

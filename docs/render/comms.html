@@ -9,7 +9,7 @@
   html, body { width: 1920px; height: 1080px; overflow: hidden; }
   body { font-family: "Roboto", "Segoe UI", Arial, sans-serif; }
   /* a screenshot is one frame: skip the resize and fade animations */
-  #batc-pill, #batc-pill *, [id^="batc-pill-"], [id^="batc-pill-"] * { transition: none !important; animation: none !important; }
+  #batc-overlay, #batc-overlay *, [id^="batc-overlay-"], [id^="batc-overlay-"] * { transition: none !important; animation: none !important; }
 </style>
 <body class="live">
 <div class="sky" id="sky"></div>
@@ -20,7 +20,7 @@
 </script>
 <ui-resource-element name="MasterPage_InGame"></ui-resource-element>
 <script>
-  window.batcPillInlineCss = " "; // the <link> above already loads pill.css
+  window.batcOverlayInlineCss = " "; // the <link> above already loads pill.css
   // no BeyondATC here: an open socket that ignores what the pill sends
   window.WebSocket = function () { this.readyState = 1; setTimeout(() => this.onopen && this.onopen(), 0); };
   window.WebSocket.prototype.send = function () {};
@@ -36,7 +36,7 @@
   var patch = {};
   if (q.get("detail")) patch.readbackDetail = q.get("detail");
   if (q.get("captions")) patch.captions = q.get("captions");
-  batcPill.set(patch);
+  batcOverlay.set(patch);
   var panel = q.has("panel");
   // from the 2026-10-22 and 2026-10-26 sniffs
   var START = [
@@ -74,12 +74,12 @@
   ];
   setTimeout(function () {
     var scene = { requests: REQUESTS, takeoff: TAKEOFF }[q.get("scene")] || CLEARANCE;
-    START.concat(scene).forEach(batcPill.feed);
+    START.concat(scene).forEach(batcOverlay.feed);
   }, 300);
   setTimeout(function () {
     if (panel) {
-      document.getElementById("batc-pill").click();
-      batcPill.feed('Frequencies: ' + JSON.stringify([
+      document.getElementById("batc-overlay").click();
+      batcOverlay.feed('Frequencies: ' + JSON.stringify([
         // as BeyondATC sends it: each airport's block in reverse calling order, ATIS (named by ICAO) last, then Center
         { name: "MONTPELLIER APPROACH", type: "Approach", frequency: "127.280", cpdlcLogonCode: "" },
         { name: "MONTPELLIER DEPARTURE", type: "Departure", frequency: "130.855", cpdlcLogonCode: "" },
@@ -94,13 +94,13 @@
         { name: "Marseille Control", type: "Center", frequency: "132.365", cpdlcLogonCode: "" },
       ]));
       if (q.get("panel") === "log") {
-        var tab = document.querySelector('#batc-pill-panel [data-tab="log"]');
+        var tab = document.querySelector('#batc-overlay-panel [data-tab="log"]');
         if (tab) tab.click();
       }
     } else if (q.has("hover")) {
       // the cursor on the pill (kept there, so a late frame still has what it opens)
       setInterval(function () {
-        var r = document.getElementById("batc-pill").getBoundingClientRect();
+        var r = document.getElementById("batc-overlay").getBoundingClientRect();
         document.dispatchEvent(new MouseEvent("mousemove", { clientX: r.right - 20, clientY: r.top + r.height / 2 }));
       }, 200);
     }

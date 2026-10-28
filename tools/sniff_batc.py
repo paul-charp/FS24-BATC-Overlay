@@ -1,7 +1,7 @@
 """Log every message from BeyondATC's toolbar socket (ws://127.0.0.1:41716) with timestamps. Stdlib only.
 
     python tools/sniff_batc.py                 log until Ctrl+C to batc-<date>.jsonl in the logs folder
-                                               (%LOCALAPPDATA%\\paul-batc-pill\\logs) and the console
+                                               (%LOCALAPPDATA%\\paulcharp-batc-overlay\\logs) and the console
     python tools/sniff_batc.py --seconds 90 --quiet-snapshot
 
 Read-only: it sends no messages (only the protocol's pong replies to pings); BeyondATC pushes its

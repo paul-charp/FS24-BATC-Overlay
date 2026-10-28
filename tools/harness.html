@@ -1,8 +1,8 @@
 <!doctype html>
 <!-- Desktop preview of the pill against the live BeyondATC socket. Open in a browser:
      python -m http.server -d . 8765, then http://localhost:8765/tools/harness.html
-     Replay buttons feed captured messages through batcPill.feed(). Add ?fake to run without BeyondATC: a
-     stand-in socket records what the pill sends (batcPill.sent). -->
+     Replay buttons feed captured messages through batcOverlay.feed(). Add ?fake to run without BeyondATC: a
+     stand-in socket records what the pill sends (batcOverlay.sent). -->
 <meta charset="utf-8">
 <title>BATC pill harness</title>
 <style>
@@ -25,7 +25,7 @@
   <button id="ptt">Hold PTT</button>
 </div>
 <script>
-  window.batcPillInlineCss = null;
+  window.batcOverlayInlineCss = null;
   // Stand-in for the sim's `engine` key events: a held binding sends its event once, then every ~33 ms
   // after ~0.4 s, each one twice in the same ms (measured live with BAROMETRIC). Only what pill.js uses.
   window.engine = {
@@ -37,7 +37,7 @@
   };
   // pill.js would add its own <link>; the harness already has one with a path that resolves here
   // harness.html?fake: no BeyondATC needed; a stand-in socket that is open and records what the pill sends
-  // (batcPill.sent), so the answers, requests and Tune can be clicked through with the replays
+  // (batcOverlay.sent), so the answers, requests and Tune can be clicked through with the replays
   if (/[?&]fake\b/.test(location.search)) {
     window.WebSocket = function () {
       this.readyState = 1;
@@ -114,16 +114,16 @@
            [11800, 'LoadState: {"stage":"ready","text":"","pct":-1,"vfr":false,"loggedIn":true}']],
   };
   document.querySelectorAll('[data-seq]').forEach(b => b.onclick = () => {
-    batcPill.state.connected = true;
-    SEQ[b.dataset.seq].forEach(([t, m]) => setTimeout(() => batcPill.feed(m), t));
+    batcOverlay.state.connected = true;
+    SEQ[b.dataset.seq].forEach(([t, m]) => setTimeout(() => batcOverlay.feed(m), t));
   });
-  err.onclick = () => batcPill.feed('AppError: Speech service unavailable');
+  err.onclick = () => batcOverlay.feed('AppError: Speech service unavailable');
   let muted = false;
-  mute.onclick = () => batcPill.feed('RadioMute: ' + JSON.stringify({ com1: (muted = !muted), com2: false }));
+  mute.onclick = () => batcOverlay.feed('RadioMute: ' + JSON.stringify({ com1: (muted = !muted), com2: false }));
   const hostEl = document.getElementById('host'); // window.host stops resolving once it's removed
   let pttTimers = [];
   ptt.onmousedown = () => {
-    const send = () => { engine.emit('keyIntercepted', batcPill.config.pttEvent, 0, 0, 0); engine.emit('keyIntercepted', batcPill.config.pttEvent, 0, 0, 0); };
+    const send = () => { engine.emit('keyIntercepted', batcOverlay.config.pttEvent, 0, 0, 0); engine.emit('keyIntercepted', batcOverlay.config.pttEvent, 0, 0, 0); };
     send();
     pttTimers.push(setTimeout(() => pttTimers.push(setInterval(send, 33)), 400));
   };

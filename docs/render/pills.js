@@ -20,7 +20,7 @@ var BP = (function () {
   };
   function pill(key, unit) {
     var s = STATES[key];
-    return s ? '<div id="batc-pill" class="' + s[0] + '" style="--u:' + unit + 'px"><div class="bp-bg"></div>' +
+    return s ? '<div id="batc-overlay" class="' + s[0] + '" style="--u:' + unit + 'px"><div class="bp-bg"></div>' +
       '<div class="bp-body">' + s[1] + "</div></div>" : "";
   }
   return { pill: pill };

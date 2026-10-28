@@ -62,7 +62,7 @@ Updating from 1.x: delete the old `paul-batc-pill` folder first.
 - The mod overrides one stock UI component (`MasterPage_InGame`) to load. Another mod that overrides the same component will conflict with it. After a sim update that changes it, install the updated version.
 - Not affiliated with BeyondATC or Microsoft.
 
-Source and issues: https://github.com/paul-charp/FS24-BATC-Pill
+Source and issues: https://github.com/paul-charp/FS24-BATC-Overlay
 
 ## Changelog
 

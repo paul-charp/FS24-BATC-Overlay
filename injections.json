@@ -6,7 +6,7 @@
       "component": "MasterPage_InGame",
       "guid": "14293394-0041-4A90-B239-83617B5E633F",
       "boot": "/paulcharp-batc-overlay/pill.js",
-      "guard": "batcpill_booted"
+      "guard": "batcoverlay_booted"
     }
   ]
 }
