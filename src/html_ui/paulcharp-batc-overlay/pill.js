@@ -1023,238 +1023,252 @@
     renderComms();
   }
 
+  // "Type: payload" from BeyondATC, by type. A handler returns true when the pill should render now; the radio
+  // lines (ATC:, Player:, ...) don't: the CommsState that follows them does.
   function handleMessage(msg) {
     var i = msg.indexOf(":");
     if (i < 0) return;
     var type = msg.slice(0, i);
-    var payload = msg.slice(i + 1).trim();
+    if (!Object.prototype.hasOwnProperty.call(HANDLERS, type)) return;
+    if (HANDLERS[type](msg.slice(i + 1).trim())) render();
+  }
 
-    switch (type) {
-      case "CommsState": {
-        var cs = parseJson(payload);
-        if (!cs) return;
-        var mode = cs.mode || "ready";
-        // a CPDLC exchange flashes "request" (with a stale label) around ATC's datalink answer, with no
-        // processing or queued before it: the pill stays as it was (CPDLC is handled in the sim)
-        if (mode === "request" && state.cpdlcAsked && !/^(processing|queued|speaking)$/.test(state.mode)) return;
-        // you're talking (a voice reply gives processing then ready, with no Player: line)
-        if (mode === "processing" || mode === "request" || mode === "queued") state.answered = state.replied = true;
-        // talking with ATC: the check-in may be under way (an exchange's menu often re-offers it for a moment)
-        if (state.checkInSince && /^(processing|request|queued|awaiting|speaking)$/.test(mode)) armCheckIn();
-        if (mode !== "ready") {
-          // talking again: an older confirmation is stale
-          if (state.confirmedUntil) state.confirmed = null;
-        } else if (state.confirmed && !state.confirmedUntil) {
-          startConfirm(); // your reply finished playing
-        }
-        if (cs.mode === "ready" && state.mode !== "ready") {
-          state.lingerUntil = Date.now() + CONFIG.lingerMs;
-          clearTimeout(timers.linger);
-          timers.linger = setTimeout(render, CONFIG.lingerMs + 20);
-        }
-        state.mode = cs.mode || "ready";
-        state.text = cs.text || "";
-        break;
-      }
-      case "ATC":
-        state.speaker = "atc";
-        state.atcText = payload;
-        state.atcAnswer = state.answered ? payload : ""; // ATC answering what you just said
-        state.lastAtcCap = addLine("atc", stationLabel(), payload);
-        var c = contactIn(payload);
-        if (c && !state.autoTune && !onContact(c)) { c.capId = state.lastAtcCap; state.contact = c; }
-        state.menuFresh = false; // ATC may close the exchange: wait for the menu sent after it
-        state.missed = null;
-        if (state.readback) {
-          // ATC calls you again before you replied: "Airfrans 1234, Montpellier Tower?" or the clearance
-          // again (the toolbar's "Say Again" would have sent a Player: line first)
-          // "Negative, QNH 1013.": ATC answers a wrong readback with the correction
-          var negative = /^negative\b/i.test(payload);
-          if (!negative && (state.answered || state.readback.facility.name !== state.facility.name)) {
-            // you replied (or a new station talks): a new instruction with the same reply menu, like
-            // "Nantes Tower, continue." after the handoff's "Acknowledge Instruction". Not the old hint.
-            state.readback = { text: clip(payload), facility: state.facility, calls: 1, negative: false, capId: state.lastAtcCap };
-          } else if (!state.answered && !negative) {
-            state.readback.calls++;
-          }
-          if (negative || readbackHint(payload)) {
-            state.readback.text = clip(payload);
-            state.readback.negative = negative;
-          }
-          state.readback.capId = state.lastAtcCap; // the latest call is the message to answer
-          if (negative) state.replied = false; // that reply didn't count
-          state.answered = false;
-        }
-        return;
-      case "ATCTraffic":
-        state.speaker = "atcTraffic"; // ATC talking to another aircraft: your pending readback stays
-        addLine("traffic", "ATC", payload);
-        return;
-      case "Player":
-        state.speaker = "player"; // your readback (or "say again") is starting
-        addLine("you", "You", payload);
-        state.answered = state.replied = true;
-        state.missed = null;
-        state.menuFresh = false;
-        return;
-      case "Traffic":
-        state.speaker = "traffic";
-        addLine("traffic", "Traffic", payload);
-        return;
-      case "CPDLC_Pilot":
-        // "REQUEST DIRECT TO LTP": ATC answers by datalink ("CPDLC_ATC: CLEARED DIRECT TO LTP") 15-35 s later
-        if (/^request\b/i.test(payload)) state.cpdlcAsked = true;
-        return;
-      case "CPDLC_ATC":
-        state.cpdlcAsked = false;
-        return;
-      case "Frequencies":
-        state.freqs = parseFreqs(payload);
-        if (state.freqs.rows) fileFreqs(state.freqs.rows);
-        break;
-      case "Progress": {
-        var pg = parseJson(payload);
-        if (!pg || typeof pg !== "object") break;
-        // a new route: the stations filed for the last one don't apply
-        if (state.progress && (pg.from !== state.progress.from || pg.to !== state.progress.to)) {
-          state.freqBook = {};
-          state.freqEnroute = [];
-        }
-        state.progress = pg;
-        break;
-      }
-      case "Facility": {
-        // "Montpellier Ground (30R, 30L)|121.955", or "Nothing Tuned" without a frequency
-        var parts = payload.split("|");
-        var freq = (parts[1] || "").trim();
-        var prev = state.facility;
-        state.facility = freq ? { name: stationName(parts[0]), freq: freq } : { name: "", freq: "" };
-        if (state.seenFacility && (prev.name !== state.facility.name || prev.freq !== state.facility.freq)) {
-          tuned("", state.facility);
-          state.kept = null; // a new station: the last clearance belongs to the old one
-          // the stations around you may have changed: refresh the open Frequencies tab
-          if (state.panel && state.panelTab === "freq") send("frequencies");
-        }
-        if (state.seenFacility && prev.freq !== state.facility.freq) clearLog();
-        if (state.contact && onContact(state.contact)) state.contact = null;
-        state.seenFacility = true;
-        break;
-      }
-      case "Com2": {
-        // {"label":"Marseille Approach","frequency":"120.100","monitor":true}, {"label":"Radio Off",...}, or empty
-        var c2 = parseJson(payload) || {};
-        if (/^\(/.test(c2.label || "")) break; // "(Generating LFMT ATIS)": wait for the final label
-        // monitor false ("Radio Off"): COM2 isn't received, the same station muted, not a new one
-        if ("monitor" in c2) state.com2Muted = !c2.monitor;
-        if (c2.frequency) state.com2Names[Number(c2.frequency).toFixed(3)] = stationName(c2.label);
-        var key = (c2.label || "") + "|" + (c2.frequency || "");
-        if (state.com2 !== null && key !== state.com2 && c2.frequency) {
-          tuned("COM2", { name: stationName(c2.label), freq: c2.frequency });
-        }
-        state.com2 = key;
-        break;
-      }
-      case "LoadState": {
-        var ls = parseJson(payload);
-        if (!ls) break;
-        var wasLoading = loading();
-        state.stage = ls.stage || "";
-        state.loadPct = typeof ls.pct === "number" ? ls.pct : -1;
-        // no panel while loading. Route, callsign and filed stations stay: a download can fail ("Ensure you have
-        // generated your next planned leg") and BeyondATC doesn't send them again; a new route resets them (Progress)
-        if (loading() && !wasLoading && state.panel) openPanel(false);
-        if (wasLoading && state.stage === "ready") {
-          state.loadedUntil = Date.now() + CONFIG.loadedMs;
-          clearTimeout(timers.loaded);
-          timers.loaded = setTimeout(render, CONFIG.loadedMs + 20);
-        }
-        break;
-      }
-      case "Prompt": {
-        // {"id":"liveTrafficTime","title":"Live Traffic Enabled","text":"...","yesLabel":"Yes, Continue",
-        // "noLabel":"No"} (field names from BeyondATC's code), or empty once answered, here or in the app
-        var pr = parseJson(payload);
-        state.prompt = pr && typeof pr === "object" && pr.id ? pr : null;
-        break;
-      }
-      case "Callsign": {
-        // {"full":"Alpine 68ML","shortForm":""}, or empty before a flight
-        var cs = parseJson(payload);
-        state.callsign = cs && typeof cs === "object" ? String(cs.full || cs.shortForm || "") : "";
-        break;
-      }
-      case "RadioMute": {
-        var rm = parseJson(payload);
-        if (rm) state.muted = !!rm.com1;
-        break;
-      }
-      case "InfoBoxes": {
-        // [{"title":"Taxi to Runway","info":"12L"},{"title":"SID","info":"KELA8L"},...]
-        var ib = parseJson(payload);
-        var via = null;
-        state.infoBoxes = [];
-        (ib && ib.length ? ib : []).forEach(function (b) {
-          var box = { title: String(b.title || ""), info: String(b.info || "").replace(/<br\s*\/?>/gi, " ") };
-          // a long taxi route comes as "Taxi Via 1".."Taxi Via 6", a box per taxiway: one box, "AK A B G B BA"
-          if (/^taxi via\s*\d+$/i.test(box.title)) {
-            if (via) { via.info += " " + box.info; return; }
-            box.title = "Taxi via";
-            via = box;
-          }
-          state.infoBoxes.push(box);
-        });
-        // {"title":"ATIS Current","info":"Z"} appears or changes after "information Z now current"; a clearance's
-        // own "ATIS" box (a PDC's "information N") isn't news
-        state.infoBoxes.forEach(function (b) {
-          if (!/^atis current$/i.test(b.title) || !b.info || b.info === state.atisLetter) return;
-          if (state.seenInfo && CONFIG.showAtis) {
-            state.atis = b.info;
-            state.atisUntil = Date.now() + CONFIG.atisMs;
-            clearTimeout(timers.atis);
-            timers.atis = setTimeout(render, CONFIG.atisMs + 20);
-          }
-          state.atisLetter = b.info;
-        });
-        state.seenInfo = true;
-        break;
-      }
-      case "AutoTune":
-        state.autoTune = payload !== "false";
-        if (state.autoTune) state.contact = null;
-        updateSwitches();
-        break;
-      case "AutoRespond":
-        state.autoRespond = payload === "true";
-        updateSwitches();
-        break;
-      case "Actions":
-        onActions(payload);
-        break;
-      case "AppError": {
-        // {"text":"No traffic liveries found, ...\nYou must ...","fatal":false,"kicked":false}, or plain text
-        var ae = parseJson(payload);
-        var full = String(ae && typeof ae === "object" ? ae.text || "" : payload).trim();
-        var et = full.split("\n")[0].trim();
-        // longer than a line: the whole text shows under a title
-        state.errorFull = full.replace(/\s*\n\s*/g, " ");
-        if (!et) {
-          // cleared by BeyondATC (or dismissed here)
-          state.error = "";
-          state.errorFatal = false;
-          break;
-        }
-        state.error = et.length > 48 ? et.slice(0, 47) + "…" : et;
-        state.errorFatal = !!(ae && ae.fatal);
-        var errMs = state.errorFull !== state.error ? CONFIG.errorLongMs : CONFIG.errorMs;
-        state.errorUntil = Date.now() + errMs;
-        clearTimeout(timers.error);
-        timers.error = setTimeout(render, errMs + 20);
-        break;
-      }
-      default:
-        return;
+  var HANDLERS = {
+    CommsState: onCommsState,
+    ATC: onAtcLine,
+    ATCTraffic: function (text) {
+      state.speaker = "atcTraffic"; // ATC talking to another aircraft: your pending readback stays
+      addLine("traffic", "ATC", text);
+    },
+    Player: function (text) {
+      state.speaker = "player"; // your readback (or "say again") is starting
+      addLine("you", "You", text);
+      state.answered = state.replied = true;
+      state.missed = null;
+      state.menuFresh = false;
+    },
+    Traffic: function (text) {
+      state.speaker = "traffic";
+      addLine("traffic", "Traffic", text);
+    },
+    CPDLC_Pilot: function (text) {
+      // "REQUEST DIRECT TO LTP": ATC answers by datalink ("CPDLC_ATC: CLEARED DIRECT TO LTP") 15-35 s later
+      if (/^request\b/i.test(text)) state.cpdlcAsked = true;
+    },
+    CPDLC_ATC: function () { state.cpdlcAsked = false; },
+    Actions: function (payload) { onActions(payload); return true; },
+    Frequencies: function (payload) {
+      state.freqs = parseFreqs(payload);
+      if (state.freqs.rows) fileFreqs(state.freqs.rows);
+      return true;
+    },
+    Progress: onProgress,
+    Facility: onFacility,
+    Com2: onCom2,
+    LoadState: onLoadState,
+    Prompt: function (payload) {
+      // {"id":"liveTrafficTime","title":"Live Traffic Enabled","text":"...","yesLabel":"Yes, Continue",
+      // "noLabel":"No"} (field names from BeyondATC's code), or empty once answered, here or in the app
+      var pr = parseJson(payload);
+      state.prompt = pr && typeof pr === "object" && pr.id ? pr : null;
+      return true;
+    },
+    Callsign: function (payload) {
+      // {"full":"Alpine 68ML","shortForm":""}, or empty before a flight
+      var cs = parseJson(payload);
+      state.callsign = cs && typeof cs === "object" ? String(cs.full || cs.shortForm || "") : "";
+      return true;
+    },
+    RadioMute: function (payload) {
+      var rm = parseJson(payload);
+      if (rm) state.muted = !!rm.com1;
+      return true;
+    },
+    InfoBoxes: onInfoBoxes,
+    AutoTune: function (payload) {
+      state.autoTune = payload !== "false";
+      if (state.autoTune) state.contact = null;
+      updateSwitches();
+      return true;
+    },
+    AutoRespond: function (payload) {
+      state.autoRespond = payload === "true";
+      updateSwitches();
+      return true;
+    },
+    AppError: onAppError,
+  };
+
+  function onCommsState(payload) {
+    var cs = parseJson(payload);
+    if (!cs) return false;
+    var mode = cs.mode || "ready";
+    // a CPDLC exchange flashes "request" (with a stale label) around ATC's datalink answer, with no
+    // processing or queued before it: the pill stays as it was (CPDLC is handled in the sim)
+    if (mode === "request" && state.cpdlcAsked && !/^(processing|queued|speaking)$/.test(state.mode)) return false;
+    // you're talking (a voice reply gives processing then ready, with no Player: line)
+    if (mode === "processing" || mode === "request" || mode === "queued") state.answered = state.replied = true;
+    // talking with ATC: the check-in may be under way (an exchange's menu often re-offers it for a moment)
+    if (state.checkInSince && /^(processing|request|queued|awaiting|speaking)$/.test(mode)) armCheckIn();
+    if (mode !== "ready") {
+      // talking again: an older confirmation is stale
+      if (state.confirmedUntil) state.confirmed = null;
+    } else if (state.confirmed && !state.confirmedUntil) {
+      startConfirm(); // your reply finished playing
     }
-    render();
+    if (cs.mode === "ready" && state.mode !== "ready") {
+      state.lingerUntil = Date.now() + CONFIG.lingerMs;
+      clearTimeout(timers.linger);
+      timers.linger = setTimeout(render, CONFIG.lingerMs + 20);
+    }
+    state.mode = cs.mode || "ready";
+    state.text = cs.text || "";
+    return true;
+  }
+
+  function onAtcLine(text) {
+    state.speaker = "atc";
+    state.atcText = text;
+    state.atcAnswer = state.answered ? text : ""; // ATC answering what you just said
+    state.lastAtcCap = addLine("atc", stationLabel(), text);
+    var c = contactIn(text);
+    if (c && !state.autoTune && !onContact(c)) { c.capId = state.lastAtcCap; state.contact = c; }
+    state.menuFresh = false; // ATC may close the exchange: wait for the menu sent after it
+    state.missed = null;
+    if (!state.readback) return;
+    // ATC calls you again before you replied: "Airfrans 1234, Montpellier Tower?" or the clearance
+    // again (the toolbar's "Say Again" would have sent a Player: line first)
+    // "Negative, QNH 1013.": ATC answers a wrong readback with the correction
+    var negative = /^negative\b/i.test(text);
+    if (!negative && (state.answered || state.readback.facility.name !== state.facility.name)) {
+      // you replied (or a new station talks): a new instruction with the same reply menu, like
+      // "Nantes Tower, continue." after the handoff's "Acknowledge Instruction". Not the old hint.
+      state.readback = { text: clip(text), facility: state.facility, calls: 1, negative: false, capId: state.lastAtcCap };
+    } else if (!state.answered && !negative) {
+      state.readback.calls++;
+    }
+    if (negative || readbackHint(text)) {
+      state.readback.text = clip(text);
+      state.readback.negative = negative;
+    }
+    state.readback.capId = state.lastAtcCap; // the latest call is the message to answer
+    if (negative) state.replied = false; // that reply didn't count
+    state.answered = false;
+  }
+
+  function onProgress(payload) {
+    var pg = parseJson(payload);
+    if (!pg || typeof pg !== "object") return true;
+    // a new route: the stations filed for the last one don't apply
+    if (state.progress && (pg.from !== state.progress.from || pg.to !== state.progress.to)) {
+      state.freqBook = {};
+      state.freqEnroute = [];
+    }
+    state.progress = pg;
+    return true;
+  }
+
+  function onFacility(payload) {
+    // "Montpellier Ground (30R, 30L)|121.955", or "Nothing Tuned" without a frequency
+    var parts = payload.split("|");
+    var freq = (parts[1] || "").trim();
+    var prev = state.facility;
+    state.facility = freq ? { name: stationName(parts[0]), freq: freq } : { name: "", freq: "" };
+    if (state.seenFacility && (prev.name !== state.facility.name || prev.freq !== state.facility.freq)) {
+      tuned("", state.facility);
+      state.kept = null; // a new station: the last clearance belongs to the old one
+      // the stations around you may have changed: refresh the open Frequencies tab
+      if (state.panel && state.panelTab === "freq") send("frequencies");
+    }
+    if (state.seenFacility && prev.freq !== state.facility.freq) clearLog();
+    if (state.contact && onContact(state.contact)) state.contact = null;
+    state.seenFacility = true;
+    return true;
+  }
+
+  function onCom2(payload) {
+    // {"label":"Marseille Approach","frequency":"120.100","monitor":true}, {"label":"Radio Off",...}, or empty
+    var c2 = parseJson(payload) || {};
+    if (/^\(/.test(c2.label || "")) return true; // "(Generating LFMT ATIS)": wait for the final label
+    // monitor false ("Radio Off"): COM2 isn't received, the same station muted, not a new one
+    if ("monitor" in c2) state.com2Muted = !c2.monitor;
+    if (c2.frequency) state.com2Names[Number(c2.frequency).toFixed(3)] = stationName(c2.label);
+    var key = (c2.label || "") + "|" + (c2.frequency || "");
+    if (state.com2 !== null && key !== state.com2 && c2.frequency) {
+      tuned("COM2", { name: stationName(c2.label), freq: c2.frequency });
+    }
+    state.com2 = key;
+    return true;
+  }
+
+  function onLoadState(payload) {
+    var ls = parseJson(payload);
+    if (!ls) return true;
+    var wasLoading = loading();
+    state.stage = ls.stage || "";
+    state.loadPct = typeof ls.pct === "number" ? ls.pct : -1;
+    // no panel while loading. Route, callsign and filed stations stay: a download can fail ("Ensure you have
+    // generated your next planned leg") and BeyondATC doesn't send them again; a new route resets them (Progress)
+    if (loading() && !wasLoading && state.panel) openPanel(false);
+    if (wasLoading && state.stage === "ready") {
+      state.loadedUntil = Date.now() + CONFIG.loadedMs;
+      clearTimeout(timers.loaded);
+      timers.loaded = setTimeout(render, CONFIG.loadedMs + 20);
+    }
+    return true;
+  }
+
+  function onInfoBoxes(payload) {
+    // [{"title":"Taxi to Runway","info":"12L"},{"title":"SID","info":"KELA8L"},...]
+    var ib = parseJson(payload);
+    var via = null;
+    state.infoBoxes = [];
+    (ib && ib.length ? ib : []).forEach(function (b) {
+      var box = { title: String(b.title || ""), info: String(b.info || "").replace(/<br\s*\/?>/gi, " ") };
+      // a long taxi route comes as "Taxi Via 1".."Taxi Via 6", a box per taxiway: one box, "AK A B G B BA"
+      if (/^taxi via\s*\d+$/i.test(box.title)) {
+        if (via) { via.info += " " + box.info; return; }
+        box.title = "Taxi via";
+        via = box;
+      }
+      state.infoBoxes.push(box);
+    });
+    // {"title":"ATIS Current","info":"Z"} appears or changes after "information Z now current"; a clearance's
+    // own "ATIS" box (a PDC's "information N") isn't news
+    state.infoBoxes.forEach(function (b) {
+      if (!/^atis current$/i.test(b.title) || !b.info || b.info === state.atisLetter) return;
+      if (state.seenInfo && CONFIG.showAtis) {
+        state.atis = b.info;
+        state.atisUntil = Date.now() + CONFIG.atisMs;
+        clearTimeout(timers.atis);
+        timers.atis = setTimeout(render, CONFIG.atisMs + 20);
+      }
+      state.atisLetter = b.info;
+    });
+    state.seenInfo = true;
+    return true;
+  }
+
+  function onAppError(payload) {
+    // {"text":"No traffic liveries found, ...\nYou must ...","fatal":false,"kicked":false}, or plain text
+    var ae = parseJson(payload);
+    var full = String(ae && typeof ae === "object" ? ae.text || "" : payload).trim();
+    var et = full.split("\n")[0].trim();
+    // longer than a line: the whole text shows under a title
+    state.errorFull = full.replace(/\s*\n\s*/g, " ");
+    if (!et) {
+      // cleared by BeyondATC (or dismissed here)
+      state.error = "";
+      state.errorFatal = false;
+      return true;
+    }
+    state.error = et.length > 48 ? et.slice(0, 47) + "…" : et;
+    state.errorFatal = !!(ae && ae.fatal);
+    var errMs = state.errorFull !== state.error ? CONFIG.errorLongMs : CONFIG.errorMs;
+    state.errorUntil = Date.now() + errMs;
+    clearTimeout(timers.error);
+    timers.error = setTimeout(render, errMs + 20);
+    return true;
   }
 
   function connect() {
