@@ -199,8 +199,11 @@ def cmd_install(cfg, injections):
     if link.exists() or os.path.lexists(link):
         if not link.is_junction():
             sys.exit(f"install: {link} exists and is not our junction; remove it by hand")
-        print(f"install: junction already in place: {link}")
-        return
+        if os.path.normcase(os.readlink(link).removeprefix("\\\\?\\")) == os.path.normcase(str(target)):
+            print(f"install: junction already in place: {link}")
+            return
+        os.rmdir(link)  # a junction to an old checkout: re-point it
+        print(f"install: removed stale junction {link}")
     subprocess.run(["cmd", "/c", "mklink", "/J", str(link), str(target)], check=True)
     print("install: restart the sim to pick up new files; JS/CSS edits only need a rebuild + UI reload")
 
