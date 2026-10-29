@@ -288,7 +288,7 @@
   100% { opacity: 1; transform: scale(1); }
 }
 /* COM2 tuned but not received: said quietly */
-#batc-overlay .bp-ico.bp-note { color: #ff7a45; }
+#batc-overlay .bp-ico.bp-note { width: calc(15 * var(--u)); height: calc(15 * var(--u)); color: #ff7a45; }
 /* transmitting on a muted COM1: the speaker warns */
 #batc-overlay .bp-ico.bp-warn {
   width: calc(15 * var(--u));
@@ -552,6 +552,9 @@
   pointer-events: none; /* only the chips take clicks */
 }
 #batc-overlay-msgs[data-side="left"] { align-items: flex-start; }
+#batc-overlay-msgs { opacity: 1; transition: opacity 0.18s ease; }
+/* the requests column opened over them */
+#batc-overlay-msgs.is-under { opacity: 0.3; }
 /* each message is a slot that opens and closes its height (and gap) so the others glide */
 .bm-cap {
   display: flex;

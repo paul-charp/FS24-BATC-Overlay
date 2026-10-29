@@ -14,6 +14,7 @@ BeyondATC's toolbar, in the sim: ATC's messages, your answers and requests, the 
 - Added: the pill turns red-orange when ATC calls you again ("×2", "×3"), when ATC corrects a wrong readback ("Negative"), and when ATC calls you while COM1 is muted.
 - Added: "No readback" when BeyondATC gives up waiting for your reply.
 - Added: "Readback OK" in green when ATC accepts your reply.
+- Added: "Not heard" when BeyondATC didn't take your voice reply.
 - Added: optional "Keep last clearance", which keeps your last clearance on the pill, dimmed.
 - Added: a "Contact" reminder when Auto Tune is off and ATC hands you to another station.
 - Added: a "Check in" reminder when you haven't announced yourself on a new station after 10 s, and a "Not checked in" warning after a minute.

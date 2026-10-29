@@ -147,6 +147,9 @@ screen corner during flight, with a click-to-open settings card. Windows only. U
 - Unverified live: what `waiting` means. Whether "Say Again" leaves the menu after a voice reply the recogniser
   heard as nothing (`[VoiceRec] Empty final transcript ... Posting ParseFailed` in Player.log): ATC repeated the
   instruction each time so far, but if BeyondATC ever drops it instead, `pill.js` shows "Readback OK" wrongly.
+- A voice reply BeyondATC took changes the menu (or ATC answers) within 0.3 s of `ready` (4 flights). One it didn't
+  take leaves the menu as it was, and ATC calls again ~18 s later (flight 2026-10-28: 3 times). `pill.js` shows
+  "Not heard" 1.5 s after `ready` with the menu unchanged.
 - BeyondATC's own logs (`%userprofile%\AppData\LocalLow\Skirmish Mode Games, Inc\BeyondATC`):
   `Player.log` has every exchange as `[Instruction]` lines (ATC and pilot alike) and the script
   that handled it (`[ControllerScript] ...WindCheckScript`, `...IFR.IfrEvaluatorScript`), but no

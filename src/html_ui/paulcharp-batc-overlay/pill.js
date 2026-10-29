@@ -54,6 +54,8 @@
   };
   var FADE_MS = 140;
   var CONFIRM_MS = 1500;  // "Readback OK" shows this long after ATC took your reply
+  var COM2_LABEL_MS = 10000; // BeyondATC's Com2 label came 3-6 s after the radio's own change
+  var UNHEARD_MS = 1500;  // a voice reply BeyondATC took changes the menu within 0.3 s of "ready" (4 flights)
 
   // What the settings card changes. Saved in the sim's DataStorage (kept across sim restarts; localStorage
   // isn't) and in localStorage, which covers the seconds before DataStorage answers.
@@ -156,7 +158,7 @@
     requests: [],        // the request menu (Actions while ATC isn't waiting for you)
     sentAt: 0,           // an answer or request was just sent: hide them until BeyondATC reacts
     panel: false,        // comms panel open (click the pill)
-    com2Radio: { act: "", stby: "", shown: "" }, // COM2 from the sim's key events (see onCom2Event)
+    com2Radio: { act: "", stby: "", shown: "", shownAt: 0 }, // COM2 from the sim's key events (see onCom2Event)
     com2Muted: false,    // COM2 not received (BeyondATC's Com2 monitor false, "Radio Off")
     com2Names: {},       // stations by frequency, from BeyondATC's Com2 labels: names the COM2 tune status
     cardBack: false,     // the settings card was opened from the panel: closing it reopens the panel
@@ -175,7 +177,7 @@
     cpdlcAsked: false,   // a CPDLC request is out (CPDLC_Pilot: REQUEST ...) until a CPDLC_ATC: line
   };
   var socket = null;
-  var timers = { checkIn: 0, checkInWarn: 0, reconnect: 0, linger: 0, error: 0, loaded: 0, tune: 0, missed: 0, confirm: 0, swHide: 0, atis: 0, demo: 0, ptt: 0, pttShow: 0, swap: 0, poll: 0, log: 0, sent: 0, capHover: 0, logClear: 0, traffic: 0, store: 0 };
+  var timers = { checkIn: 0, checkInWarn: 0, reconnect: 0, linger: 0, error: 0, loaded: 0, tune: 0, missed: 0, confirm: 0, swHide: 0, atis: 0, demo: 0, ptt: 0, pttShow: 0, swap: 0, unheard: 0, poll: 0, log: 0, sent: 0, capHover: 0, logClear: 0, traffic: 0, store: 0 };
   var destroyed = false;
   var current = null;    // last rendered view signature
 
@@ -368,6 +370,11 @@
     // what ATC waits for: "Readback IFR Clearance" -> "Awaiting readback" + "IFR Clearance";
     // "Acknowledge Instruction" -> "Awaiting response"; a question -> its answers ("Runway 12L / Runway 12R")
     var w = waitingFor();
+    if (rb.unheard && !reply) {
+      // your voice reply didn't register: ATC still waits (and calls again ~18 s later)
+      return readbackLook(w.readback, 1, readbackHint(rb.text) || w.choices.slice(0, 3).join(" / ") || w.kind,
+        w.choices.length ? [] : state.infoBoxes, { cls: "s-insist is-pulse", label: "Not heard" });
+    }
     if (rb.negative) {
       // "Negative, QNH 1013.": your readback was wrong; the correction is the hint, whatever the detail mode
       var fix = CONFIG.readbackDetail === "none" ? "" : readbackHint(rb.text) || correction(rb.text);
@@ -1107,7 +1114,10 @@
     // processing or queued before it: the pill stays as it was (CPDLC is handled in the sim)
     if (mode === "request" && state.cpdlcAsked && !/^(processing|queued|speaking)$/.test(state.mode)) return false;
     // you're talking (a voice reply gives processing then ready, with no Player: line)
-    if (mode === "processing" || mode === "request" || mode === "queued") state.answered = state.replied = true;
+    if (mode === "processing" || mode === "request" || mode === "queued") {
+      state.answered = state.replied = true;
+      if (state.readback) state.readback.unheard = false;
+    }
     // talking with ATC: the check-in may be under way (an exchange's menu often re-offers it for a moment)
     if (state.checkInSince && /^(processing|request|queued|awaiting|speaking)$/.test(mode)) armCheckIn();
     if (mode !== "ready") {
@@ -1115,6 +1125,18 @@
       if (state.confirmedUntil) state.confirmed = null;
     } else if (state.confirmed && !state.confirmedUntil) {
       startConfirm(); // your reply finished playing
+    }
+    // a voice reply ended (processing, then ready) and the reply menu stays: BeyondATC didn't take it
+    clearTimeout(timers.unheard);
+    if (mode === "ready" && /^(processing|request)$/.test(state.mode) && state.readback && state.repliesKey) {
+      var rb = state.readback, key = state.repliesKey;
+      timers.unheard = setTimeout(function () {
+        if (state.readback !== rb || state.repliesKey !== key || state.mode !== "ready") return;
+        rb.unheard = true;
+        state.answered = state.replied = false; // that reply didn't count
+        render();
+        renderComms();
+      }, UNHEARD_MS);
     }
     if (cs.mode === "ready" && state.mode !== "ready") {
       state.lingerUntil = Date.now() + CONFIG.lingerMs;
@@ -1153,6 +1175,7 @@
     }
     state.readback.capId = state.lastAtcCap; // the latest call is the message to answer
     if (negative) state.replied = false; // that reply didn't count
+    state.readback.unheard = false;
     state.answered = false;
   }
 
@@ -1194,7 +1217,10 @@
     if ("monitor" in c2) state.com2Muted = !c2.monitor;
     if (c2.frequency) state.com2Names[Number(c2.frequency).toFixed(3)] = stationName(c2.label);
     var key = (c2.label || "") + "|" + (c2.frequency || "");
-    if (state.com2 !== null && key !== state.com2 && c2.frequency) {
+    // the radio's own change showed it moments ago (BeyondATC names the station a few seconds later)
+    var fresh = state.com2Radio.shownAt && Date.now() - state.com2Radio.shownAt < COM2_LABEL_MS &&
+      sameFreq(c2.frequency, state.com2Radio.shown);
+    if (state.com2 !== null && key !== state.com2 && c2.frequency && !fresh) {
       tuned("COM2", { name: stationName(c2.label), freq: c2.frequency });
     }
     state.com2 = key;
@@ -1898,6 +1924,8 @@
     }
     if (html && list.innerHTML !== html) list.innerHTML = html; // closing keeps its chips while they fade out
     list.className = html ? "" : "is-closed";
+    // the column opens over the messages (same place under the pill): they step back
+    msgs.className = html ? "is-under" : "";
     if (html) list.setAttribute("data-input-group", "BATC-OVERLAY");
     else {
       // fading out, they'd still take clicks meant for the answers under a message
@@ -1952,7 +1980,7 @@
 
   function tune(freq) {
     // as the toolbar's frequency list; BeyondATC retunes COM1 and sends the new Facility
-    if (sameFreq(freq, state.facility.freq)) return; // already there
+    if (sameFreq(freq, state.facility.freq)) { tuned("", state.facility); render(); return; } // already there
     if (send("set_frequency: " + freq)) renderComms();
   }
 
@@ -2269,6 +2297,7 @@
     if (!Number(freq) || !send("set_frequency_com2: " + freq)) return;
     // as if the sim's event came back (whether mainUi sees SimConnect's events is unknown)
     state.com2Radio.act = Number(freq).toFixed(3);
+    state.com2Radio.shown = ""; // the tune status even when COM2 is already on it
     clearTimeout(com2Timer);
     com2Timer = setTimeout(com2Settled, 150);
   }
@@ -2396,6 +2425,7 @@
     var f = state.com2Radio.act;
     if (!f || f === state.com2Radio.shown) return;
     state.com2Radio.shown = f;
+    state.com2Radio.shownAt = Date.now();
     devLog("event", "COM2 now " + f);
     // the tune status even with COM2 muted (BeyondATC then reports "Radio Off"): the station if the panel has
     // listed it, else the frequency on its own
