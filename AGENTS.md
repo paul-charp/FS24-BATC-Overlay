@@ -90,7 +90,11 @@ screen corner during flight, with a click-to-open settings card. Windows only. U
   be advised information Z now current").
 - `speaking` is used for ATC and for the pilot TTS; the preceding `ATC:`/`ATCTraffic:`, `Player:` or
   `Traffic:` line says who.
-- `Facility: Name (runways)|freq` or `Nothing Tuned`; `Com2: {label,frequency,monitor}`;
+- `Facility: Name (runways)|freq` or `Nothing Tuned`; `Com2: {label,frequency,monitor}` (`monitor` is always false
+  on an ATIS or a bare frequency, heard or not: 95 messages over 10 flights). COM2 receive off on the Fenix gives `Com2` "Radio Off"
+  (frequency ""), then the station again once on; `RadioMute` stays false (sniff 2026-10-29). Some `Facility` names
+  lose the airport's punctuation ("Marseilleprovence Automated Terminal Information Service"; `Frequencies`
+  `airportName` "Marseille/Provence");
   `LoadState: {stage,text,pct}` (`menu` in menus); `RadioMute: {com1,com2}`. Loading a flight (log 2026-10-27):
   `loading` (pct -1), then `download` steps with text and pct 0-90, `Callsign` at 10%, `Progress` at 90%, `ready`
   ~13 s after `loading`. `pill.js` shows "Loading flight" with a progress line, then callsign and route for `loadedMs`.

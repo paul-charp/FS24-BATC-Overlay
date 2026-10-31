@@ -118,7 +118,8 @@
     error: "",
     errorUntil: 0,
     lingerUntil: 0,
-    tune: null,          // { label, facility } shown until tuneUntil after a radio change
+    tune: null,          // { label, facility, byYou } shown until tuneUntil after a radio change
+    tuneAsked: null,     // { label, freq, at }: the frequency you last clicked in the panel
     tuneUntil: 0,
     com2: null,          // last Com2 label|frequency, to detect changes
     atcText: "",         // last ATC: line
@@ -136,6 +137,7 @@
     kept: null,          // { detail, boxes } of the last reply ATC took, shown with keepLast   // 0 while your reply still plays: the confirmation starts once the radio is quiet
     infoBoxes: [],       // the toolbar's clearance boxes: [{ title: "SID", info: "KELA8L" }, ...]
     seenFacility: false, // the first Facility after connecting is the snapshot, not a change
+    seenMute: false,     // the same for RadioMute
     editing: false,      // settings card open: the pill shows a sample so size/position are visible
     cardTab: "display",  // settings card tab: "display" | "position"
     ptt: false,          // PTT held (its key event keeps repeating)
@@ -159,7 +161,9 @@
     sentAt: 0,           // an answer or request was just sent: hide them until BeyondATC reacts
     panel: false,        // comms panel open (click the pill)
     com2Radio: { act: "", stby: "", shown: "", shownAt: 0 }, // COM2 from the sim's key events (see onCom2Event)
-    com2Muted: false,    // COM2 not received (BeyondATC's Com2 monitor false, "Radio Off")
+    com2Muted: false,    // BeyondATC's RadioMute com2 (seen true only while a flight loads)
+    com2Off: false,      // COM2 receive off: BeyondATC's Com2 "Radio Off" right after a monitored station
+    com2Monitor: false,  // the last Com2 message's monitor
     com2Names: {},       // stations by frequency, from BeyondATC's Com2 labels: names the COM2 tune status
     cardBack: false,     // the settings card was opened from the panel: closing it reopens the panel
     logBase: 0,          // the last Log line already there when the Log opened (later ones slide in)
@@ -349,7 +353,7 @@
   function facilityHtml(whoClass, f, empty) {
     f = f || state.facility;
     if (!f.name) return '<span class="' + whoClass + '">' + (empty || "ATC") + "</span>";
-    var name = f.name;
+    var name = unsquash(f.name);
     if (CONFIG.facility === "short") {
       var words = name.split(" ");
       name = words[words.length - 1];
@@ -486,7 +490,7 @@
 
   function tuneLook(t) {
     // COM2 tuned but not received: the usual tune status, the speaker saying so quietly
-    if (t.label === "COM2" && state.com2Muted) {
+    if (t.label === "COM2" && (state.com2Muted || state.com2Off)) {
       return { cls: "s-tune", muteShown: true, html: RADIO + '<span class="bp-sep">COM2</span>' +
         facilityHtml("bp-who", t.facility, "No station") + MUTE_NOTE };
     }
@@ -605,7 +609,12 @@
     if (state.pttShown && CONFIG.showPtt) return withExtra(keepBoxes(sendingMuted(pttLook()))); // the boxes too, in Boxes mode
 
     var v;
-    switch (state.mode) {
+    // a tune you made from the panel shows at once, over all but a transmission to or from you
+    var talking = state.mode === "speaking" && state.speaker !== "traffic";
+    switch (state.tune && state.tune.byYou && now < state.tuneUntil && !talking ? "tune" : state.mode) {
+      case "tune":
+        v = tuneLook(state.tune);
+        break;
       case "processing":
       case "request":
         v = replyLook("s-proc", DOTS, "Processing", "");
@@ -666,6 +675,11 @@
       default:
         // modes seen in the app but not yet observed live (waiting, controller, loading, ...)
         v = state.text ? { cls: "", html: LAMP + "<span>" + esc(state.text) + "</span>" } : null;
+    }
+    if (!v && (state.muted || state.com2Muted)) {
+      // nothing to say but a muted radio: say which, quietly
+      var off = (state.muted ? ["COM1"] : []).concat(state.com2Muted ? ["COM2"] : []);
+      v = { cls: "", muteShown: true, html: RADIO + '<span class="bp-who">' + off.join(" and ") + " muted</span>" + MUTE_NOTE };
     }
     if (!v) v = { cls: "is-dot", html: LAMP };
     if (state.muted && !v.muteShown && !/\bis-dot\b/.test(v.cls)) v.html += MUTE;
@@ -1017,8 +1031,13 @@
 
   function tuned(label, facility) {
     // flight loading tunes the radios too (UNICOM, COM2 off): only show changes once loaded
-    if (!CONFIG.showTuning || (state.stage && state.stage !== "ready")) return;
-    state.tune = { label: label, facility: facility };
+    // (at the gate after a leg, "turnaround", the radios are yours)
+    if (!CONFIG.showTuning || (state.stage && !/^(ready|turnaround)$/.test(state.stage))) return;
+    // yours: the frequency you clicked in the panel, a moment ago
+    var ask = state.tuneAsked, byYou = !!ask && Date.now() - ask.at < 5000 && ask.label === label &&
+      sameFreq(facility.freq || facility.name, ask.freq);
+    if (byYou) state.tuneAsked = null;
+    state.tune = { label: label, facility: facility, byYou: byYou };
     state.tuneUntil = Date.now() + CONFIG.tuneMs;
     clearTimeout(timers.tune);
     timers.tune = setTimeout(render, CONFIG.tuneMs + 20);
@@ -1088,7 +1107,13 @@
     },
     RadioMute: function (payload) {
       var rm = parseJson(payload);
-      if (rm) state.muted = !!rm.com1;
+      if (!rm) return true;
+      // COM1 muted or back: the station, with the speaker while muted (never seen outside flight loading yet)
+      var change = state.seenMute && !!rm.com1 !== state.muted && state.facility.freq;
+      state.muted = !!rm.com1;
+      state.seenMute = true;
+      if (change) tuned("", state.facility);
+      state.com2Muted = !!rm.com2;
       return true;
     },
     InfoBoxes: onInfoBoxes,
@@ -1213,9 +1238,17 @@
     // {"label":"Marseille Approach","frequency":"120.100","monitor":true}, {"label":"Radio Off",...}, or empty
     var c2 = parseJson(payload) || {};
     if (/^\(/.test(c2.label || "")) return true; // "(Generating LFMT ATIS)": wait for the final label
-    // monitor false ("Radio Off"): COM2 isn't received, the same station muted, not a new one
-    if ("monitor" in c2) state.com2Muted = !c2.monitor;
     if (c2.frequency) state.com2Names[Number(c2.frequency).toFixed(3)] = stationName(c2.label);
+    // COM2 receive off: "Radio Off", then the station again once on (sniff 2026-10-29). RadioMute doesn't change.
+    // Only after a station BeyondATC monitors: an ATIS (monitor false) turns "Radio Off" 5-30 s in, heard or not.
+    // Turning it off shows the station it leaves, muted
+    var off = c2.label === "Radio Off", was = state.com2 ? state.com2.split("|") : [];
+    if (off && !state.com2Off && was[1] && state.com2Monitor) {
+      state.com2Off = true;
+      tuned("COM2", { name: stationName(was[0]), freq: was[1] });
+    }
+    if (!off) state.com2Off = false;
+    state.com2Monitor = !!c2.monitor;
     var key = (c2.label || "") + "|" + (c2.frequency || "");
     // the radio's own change showed it moments ago (BeyondATC names the station a few seconds later)
     var fresh = state.com2Radio.shownAt && Date.now() - state.com2Radio.shownAt < COM2_LABEL_MS &&
@@ -1307,7 +1340,7 @@
     }
     socket.onopen = function () {
       state.connected = true;
-      state.seenFacility = false;
+      state.seenFacility = state.seenMute = false;
       state.seenInfo = false;
       state.contact = null;
       state.com2 = null;
@@ -1980,6 +2013,7 @@
 
   function tune(freq) {
     // as the toolbar's frequency list; BeyondATC retunes COM1 and sends the new Facility
+    state.tuneAsked = { label: "", freq: freq, at: Date.now() };
     if (sameFreq(freq, state.facility.freq)) { tuned("", state.facility); render(); return; } // already there
     if (send("set_frequency: " + freq)) renderComms();
   }
@@ -2053,6 +2087,8 @@
     return (state.freqBook[side === "arr" ? pg.to : pg.from] || []).slice().sort(function (a, b) { return rank(a) - rank(b); });
   }
 
+  var STATION_WORD = /\s(Ground|Tower|Approach|Departure|Clearance|Delivery|Center|Centre|Control|Radar|Director|Radio|Information|Unicom|ATIS|ACC|FIS)$/i;
+
   function parseFreqs(payload) {
     var data = parseJson(payload), rows = [];
     (data instanceof Array ? data : []).forEach(function (o) {
@@ -2060,10 +2096,13 @@
       if (!f || f < 100 || f > 200) return;
       var type = String(o.type || ""), name = stationName(o.name);
       var icao = /^atis$/i.test(type) && /^[A-Z0-9]{4}$/.test(name) ? name : "";
-      // "FIUME GROUND" -> "Fiume Ground"; a one-word name gets its type: "LIRF ATIS", "Fiume Clearance"
+      // "FIUME GROUND" -> "Fiume Ground"; a name without a station word gets its type: "LIRF ATIS", "Fiume Clearance",
+      // "De Gaulle Clearance"
       if (!icao) name = name.replace(/[^\s\/-]+/g, function (w) { return /^(ATIS|ACC|FIS)$/i.test(w) ? w.toUpperCase() : w.charAt(0).toUpperCase() + w.slice(1).toLowerCase(); });
-      rows.push({ name: !name ? type : /\s/.test(name) ? name : name + " " + type, kind: type.toLowerCase().replace(/[^a-z]/g, ""),
+      var typed = STATION_WORD.test(name) ? name : (name + " " + type.replace(/([a-z])([A-Z])/g, "$1 $2")).trim();
+      rows.push({ name: typed, kind: type.toLowerCase().replace(/[^a-z]/g, ""),
         freq: f.toFixed(3), icao: icao, airport: /^[A-Z0-9]{3,4}$/.test(o.airport) ? o.airport : "",
+        airportName: String(o.airportName || ""),
         rwys: String(o.runways || "").replace(/\s*,\s*/g, " ").trim() }); // "26L": a station per runway
     });
     return rows.length ? { rows: rows } : { raw: String(payload) };
@@ -2247,10 +2286,25 @@
     var log = panel.querySelector(".bm-log");
     if (log) log.scrollTop = atBottom || state.logReset ? log.scrollHeight : top;
     state.logReset = false;
+    slideToggles();
     // the sim checks data-input-group on the exact element under the cursor
     var els = [panel].concat([].slice.call(panel.querySelectorAll("*")));
     for (var i = 0; i < els.length; i++) els[i].setAttribute("data-input-group", "BATC-OVERLAY");
     syncScrollbar();
+  }
+
+  // the panel is rebuilt on every change: a switch that flipped comes back in its old state, then slides over
+  var togWas = {};
+  function slideToggles() {
+    var togs = panel.querySelectorAll(".bm-tog"), flip = [];
+    for (var i = 0; i < togs.length; i++) {
+      var el = togs[i], key = el.getAttribute("data-sw") || el.getAttribute("data-act"), on = / is-on/.test(el.className);
+      if (key in togWas && togWas[key] !== on) { el.className = "bm-tog" + (on ? "" : " is-on"); flip.push(el); }
+      togWas[key] = on;
+    }
+    if (flip.length) setTimeout(function () {
+      flip.forEach(function (el) { el.className = "bm-tog" + (togWas[el.getAttribute("data-sw") || el.getAttribute("data-act")] ? " is-on" : ""); });
+    }, 20);
   }
 
   panel.addEventListener("click", function (e) {
@@ -2295,6 +2349,7 @@
 
   function setCom2(freq) {
     if (!Number(freq) || !send("set_frequency_com2: " + freq)) return;
+    state.tuneAsked = { label: "COM2", freq: freq, at: Date.now() };
     // as if the sim's event came back (whether mainUi sees SimConnect's events is unknown)
     state.com2Radio.act = Number(freq).toFixed(3);
     state.com2Radio.shown = ""; // the tune status even when COM2 is already on it
@@ -2385,7 +2440,11 @@
       reg.attached = true;
     }
     if (!keyHandler) {
-      keyHandler = function (name, v0, v1) { onKeyEvent(name); onCom2Event(name, v1); };
+      var seenKeys = {};
+      keyHandler = function (name, v0, v1) {
+        if (!seenKeys[name]) { seenKeys[name] = true; devLog("event", "first key event " + name); }
+        onKeyEvent(name); onCom2Event(name, v1);
+      };
       eng.on("keyIntercepted", keyHandler);
     }
     var watch = COM2_EVENTS.map(function (e) { return [e, 0]; });
@@ -2434,9 +2493,24 @@
     renderComms();
   }
 
-  function freqStation(f) {
+  function allFreqRows() {
     var all = [].concat(state.freqEnroute, (state.freqs && state.freqs.rows) || []);
     for (var k in state.freqBook) all = all.concat(state.freqBook[k]);
+    return all;
+  }
+
+  // BeyondATC drops the punctuation from some airport names ("Marseilleprovence ATIS"): the Frequencies list has it
+  function unsquash(name) {
+    var first = name.split(" ")[0].toLowerCase(), all = allFreqRows();
+    for (var i = 0; i < all.length; i++) {
+      var an = all[i].airportName;
+      if (an && /[^A-Za-z]/.test(an) && an.replace(/[^A-Za-z]/g, "").toLowerCase() === first) return an + name.slice(first.length);
+    }
+    return name;
+  }
+
+  function freqStation(f) {
+    var all = allFreqRows();
     for (var i = 0; i < all.length; i++) if (sameFreq(all[i].freq, f)) return all[i].name;
     return state.com2Names[Number(f).toFixed(3)] || "";
   }

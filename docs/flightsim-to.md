@@ -80,12 +80,14 @@ BeyondATC's toolbar, in the sim: ATC's messages, your answers and requests, the 
 - Added: the pill turns red-orange when ATC calls you again ("×2", "×3"), when ATC corrects a wrong readback ("Negative"), and when ATC calls you while COM1 is muted.
 - Added: "No readback" when BeyondATC gives up waiting for your reply.
 - Added: "Readback OK" in green when ATC accepts your reply.
+- Added: "Not heard" when BeyondATC didn't take your voice reply.
 - Added: optional "Keep last clearance", which keeps your last clearance on the pill, dimmed.
 - Added: a "Contact" reminder when Auto Tune is off and ATC hands you to another station.
 - Added: a "Check in" reminder when you haven't announced yourself on a new station after 10 s, and a "Not checked in" warning after a minute.
 - Added: "Unable" when ATC turns down your request.
 - Added: new ATIS letters, and "ATIS" while one plays on COM1.
 - Added: optional PTT indicator, which turns red-orange if you talk over ATC or traffic.
+- Added: turning COM2 receive off shows the station with a mute icon.
 - Added: "Waiting for BATC" when BeyondATC is running without a flight (the pill used to hide).
 - Added: "Loading flight" with your callsign and a progress line while BeyondATC loads a flight, then your callsign and route.
 - Added: "Start IFR flight" and "Load Next Leg" from the pill.
@@ -107,6 +109,7 @@ BeyondATC's toolbar, in the sim: ATC's messages, your answers and requests, the 
 - Fixed: AWOS, ASOS, AWIS and AWIB stations on COM1 showed as "Traffic".
 - Fixed: radio changes showed while a flight was loading.
 - Fixed: CPDLC requests showed "Processing", then the station.
+- Fixed: airport names that lost their punctuation ("Marseilleprovence") show in full.
 
 1.0.1
 

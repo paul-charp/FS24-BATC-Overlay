@@ -1,6 +1,6 @@
 # Changelog
 
-## 2.0.0 (unreleased)
+## 2.0.0 (2026-10-31)
 
 BeyondATC's toolbar, in the sim: ATC's messages, your answers and requests, the frequencies and the radio log around the pill, with as much detail as you want.
 
@@ -21,6 +21,7 @@ BeyondATC's toolbar, in the sim: ATC's messages, your answers and requests, the 
 - Added: "Unable" when ATC turns down your request.
 - Added: new ATIS letters, and "ATIS" while one plays on COM1.
 - Added: optional PTT indicator, which turns red-orange if you talk over ATC or traffic.
+- Added: turning COM2 receive off shows the station with a mute icon.
 - Added: "Waiting for BATC" when BeyondATC is running without a flight (the pill used to hide).
 - Added: "Loading flight" with your callsign and a progress line while BeyondATC loads a flight, then your callsign and route for 8 s (in boxes with the Boxes readback detail).
 - Added: "Start IFR flight" when you hover the pill while BeyondATC is in its menu.
@@ -43,6 +44,7 @@ BeyondATC's toolbar, in the sim: ATC's messages, your answers and requests, the 
 - Fixed: an ATIS on COM1 showed as "Traffic" or "Service".
 - Fixed: radio changes showed while a flight was loading.
 - Fixed: CPDLC requests showed "Processing", then the station.
+- Fixed: airport names that lost their punctuation ("Marseilleprovence") show in full.
 
 ## 1.0.1 (2026-10-20)
 
