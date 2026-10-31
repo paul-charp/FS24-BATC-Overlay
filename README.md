@@ -1,55 +1,49 @@
-# BATC Comms Pill
+# BATC Overlay
 
-![BATC Comms Pill](docs/images/splash.png)
+![BATC Overlay](docs/images/splash.png)
 
-A small pill in a corner of the Microsoft Flight Simulator 2024 screen that shows what [BeyondATC](https://www.beyondatc.net/) is doing on the radio. It shrinks to a dot when the radio is quiet, so you can keep the BeyondATC toolbar closed.
+[BeyondATC](https://www.beyondatc.net/) inside Microsoft Flight Simulator 2024, without the toolbar.
 
-![Pill states](docs/images/states.png)
+A small pill in a corner of the screen shows what's happening on the radio. Around it: ATC's messages, your answers and requests, the frequencies and the radio log. It shrinks to a dot when the radio is quiet.
 
-- **Queued / Processing / Awaiting ATC** (blue): your request is on its way.
-- **ATC talking** (amber): the controller is speaking, with the station and frequency.
-- **You talking** (green): your readback or request is being played.
-- **Radio change** (cyan): the new station when COM1 or COM2 changes.
-- **Exchange ended**: the station stays for 3 s, then the pill shrinks back to the dot.
-- **Offline**: BeyondATC isn't running (can be hidden).
+## Showcase
 
-A muted COM1 adds a speaker icon. AI traffic talking shows a neutral "Traffic" pill.
+**Replaces the toolbar.** Hover the pill for your answers and requests, click it for your frequencies (click: COM1, right click: COM2) and the radio log.
+
+![Requests, Frequencies and Log](docs/images/toolbar.png)
+
+**Shows as much as you want.** From a status alone to the full exchange with answer buttons.
+
+![The same clearance at four levels of detail](docs/images/detail.png)
+
+**Warns you.** ATC calling again, a correction, a muted COM1, a handoff to make, a station to check in with.
+
+![Warnings and reminders](docs/images/assist.png)
+
+It also shows ATC talking, your transmissions, radio and ATIS changes, flight loading, BeyondATC's questions and errors, and lets you start a flight or load your next leg.
 
 ## Install
 
-1. Download `paul-batc-pill-X.Y.Z.zip` from [Releases](https://github.com/paul-charp/FS24-BATC-Pill/releases).
-2. Extract the `paul-batc-pill` folder into your Community folder.
-3. Start the BeyondATC desktop app and a flight. The pill appears in the top-right corner.
+1. Download `paulcharp-batc-overlay-X.Y.Z.zip` from [Releases](https://github.com/paul-charp/FS24-BATC-Overlay/releases).
+2. Extract the `paulcharp-batc-overlay` folder into your Community folder.
+   Updating from 1.x: delete the old `paul-batc-pill` folder first.
+3. Start the BeyondATC app and a flight. The pill appears in the top-right corner.
 
-Requires BeyondATC 3.x. The BeyondATC toolbar panel doesn't need to be open.
+Requires BeyondATC 3.x. The toolbar doesn't need to be open.
 
 ## Settings
 
-Click the pill in flight to open its settings card. Changes apply immediately. While the card is open, the pill shows a sample ATC state so you can see its size and position.
-
-<img src="docs/images/settings.png" alt="Settings card" width="340">
-
-| Setting | |
-|---|---|
-| Corner | any of the four screen corners |
-| Side offset / Edge offset | distance from the corner, in 1080p pixels (scales with resolution) |
-| Size | 60% to 250% |
-| Radio changes | show the new station when COM1 or COM2 changes |
-| AI traffic | show the "Traffic" pill while AI traffic talks |
-| Full station names | "Montpellier Ground" instead of "Ground" |
-| Hide when BATC is off | no pill at all while BeyondATC isn't running |
-
-Settings are kept in the sim's UI storage.
+Click the pill, then the gear in its panel. See the **[settings guide](docs/settings.md)**; the PTT indicator needs a second key binding.
 
 ## Compatibility
 
-- The package overrides one stock UI component, `MasterPage_InGame` (the in-flight root of the sim's UI), to load its script. Another mod that overrides the same component will conflict with it; //42 Flow and the BeyondATC toolbar don't.
-- After a sim update that changes that component, use an updated release.
-- PTT state isn't shown: BeyondATC reads your PTT button directly, and nothing in the sim exposes it.
+- The overlay loads through the sim's `MasterPage_InGame` UI component. Another mod that overrides it will conflict; //42 Flow and the BeyondATC toolbar don't.
+- After a sim update that changes that component, install the updated release.
+- CPDLC is left to the sim's own datalink pages.
 
 ## Development
 
-The package is built from your local sim install (the stock component is copied and patched at build time), so no Asobo files are stored in the repo. Set your paths in `.local/config.json`:
+The package is built from your sim install, so no Asobo files are in the repo. Set your paths in `.local/config.json`:
 
 ```json
 {
@@ -58,58 +52,32 @@ The package is built from your local sim install (the stock component is copied 
 }
 ```
 
-`sim_packages` is the sim's own `Content/Packages` folder (the one holding `fs-base-ui`).
+| Command | What it does |
+|---|---|
+| `python tools/build.py install` | build and link into Community (restart the sim once; later builds update in place) |
+| `python tools/inspect_ui.py --push` | hot-reload `pill.js` and `pill.css` into the running sim (Devmode, inspector on `localhost:19999`) |
+| `python tools/sniff_batc.py --quiet-snapshot` | log every BeyondATC socket message |
+| `python tools/pill_log.py` | record a flight as the pill sees it (dev builds only) |
+| `python tools/batc_timeline.py` | print the latest log as a timeline |
+| `python tools/replay.py` | replay the latest log through the current code, and show where the pill now differs |
+| `python docs/render_images.py` | render the images in `docs/images/` (headless Edge or Chrome, needs Pillow) |
+| `python tools/build.py release 2.0.0` | build `dist/paulcharp-batc-overlay-2.0.0.zip` |
+
+Logs go to `%LOCALAPPDATA%\paulcharp-batc-overlay\logs`. `tools/harness.html` previews the pill in a browser with replayed exchanges: run `python -m http.server 8765` and open `http://localhost:8765/tools/harness.html`.
+
+To release: set `version` in `config.json` and the date in `CHANGELOG.md`, commit, build, then:
 
 ```bash
-python tools/build.py install
+gh release create v2.0.0 dist/paulcharp-batc-overlay-2.0.0.zip --title v2.0.0 --notes-file notes.md
 ```
 
-Builds `build/paul-batc-pill` and junctions it into Community. Restart the sim once; after that, rebuilds are enough.
+After a sim update, `build` warns if `MasterPage_InGame` changed: check the pill in flight, run `python tools/build.py lock`, and release.
 
-```bash
-python tools/inspect_ui.py --push
-```
-
-Hot-reloads `pill.css` + `pill.js` into the running sim (Devmode on, inspector on `localhost:19999`). Fake any message with `python tools/inspect_ui.py "batcPill.feed('CommsState: {\"mode\":\"awaiting\",\"text\":\"\"}')"`, or change settings with `batcPill.set({corner: 'top-left'})`.
-
-```bash
-python tools/sniff_batc.py --quiet-snapshot
-```
-
-Logs every BeyondATC socket message with timestamps to `logs/`. Use it when BeyondATC changes its protocol.
-
-`tools/harness.html` previews the pill in a desktop browser against the live socket, with replay buttons for two captured exchanges: run `python -m http.server 8765` in the repo root and open `http://localhost:8765/tools/harness.html`.
-
-```bash
-python docs/render_images.py
-```
-
-Renders the images in `docs/images/` with headless Edge (needs Pillow).
-
-### Release
-
-```bash
-python tools/build.py release 0.2.0
-```
-
-Builds and zips the package as `dist/paul-batc-pill-0.2.0.zip`. Bump `version` in `config.json`, commit, then publish:
-
-```bash
-gh release create v0.2.0 dist/paul-batc-pill-0.2.0.zip --title v0.2.0 --notes "- what changed"
-```
-
-CI (`.github/workflows/check.yml`) checks the JS, Python and JSON on every push. It can't build the package, which needs a sim install.
-
-### After each sim update
-
-`build` warns when the stock `MasterPage_InGame` changed. Check that the pill still appears in flight, run `python tools/build.py lock`, and release a new version.
+CI checks the JS, Python and JSON, and runs `tools/check_pill.js`. It can't build the package (that needs a sim install).
 
 ## How it works
 
-- The BeyondATC desktop app serves its in-sim toolbar over `ws://127.0.0.1:41716`, in lines like `Type: payload`. `CommsState: {"mode","text"}` carries the state (`ready`, `queued`, `processing`, `request`, `awaiting`, `speaking`). The `ATC:` / `Player:` / `Traffic:` line before `speaking` says whose voice it is. `Facility:` (COM1) and `Com2:` changes trigger the radio-change pill. The pill only reads; it never sends.
-- `injections.json`: the build appends a hidden `<img onerror>` to the stock `MasterPage_InGame` cooked component, which loads `pill.js` once (the same hook //42 Flow uses). `MasterPage_InGame` only mounts in flight; the pill also hides when BeyondATC reports `LoadState.stage` `menu`.
-- Clicks in flight: the sim only routes a click to the element directly under the cursor, if it has `data-input-group` and `pointer-events` isn't `none`. The pill's children ignore pointer events; every element of the settings card carries the attribute while it's open.
-- `src/html_ui/paul-batc-pill/pill.js`: socket client, state machine, transitions, settings card, defaults in `CONFIG`. `pill.css`: the look; `--u` is one screen pixel at 1080p, times the size setting.
+The overlay connects to the socket BeyondATC's toolbar uses (`ws://127.0.0.1:41716`). It reads the same messages and sends the toolbar's own commands when you click. The build adds a one-line hook to the sim's `MasterPage_InGame` component that loads `pill.js`. More detail in [AGENTS.md](AGENTS.md).
 
 ## License
 

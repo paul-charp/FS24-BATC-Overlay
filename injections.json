@@ -5,8 +5,8 @@
       "package": "fs-base-ui",
       "component": "MasterPage_InGame",
       "guid": "14293394-0041-4A90-B239-83617B5E633F",
-      "boot": "/paul-batc-pill/pill.js",
-      "guard": "batcpill_booted"
+      "boot": "/paulcharp-batc-overlay/pill.js",
+      "guard": "batcoverlay_booted"
     }
   ]
 }

@@ -1,12 +1,14 @@
-"""Build tool for the paul-batc-pill community package.
+"""Build tool for the paulcharp-batc-overlay community package.
 
     python tools/build.py build       assemble build/<package>/ with the hooked component, layout.json, manifest.json
     python tools/build.py install     build, then junction build/<package> into the Community folder
     python tools/build.py uninstall   remove the Community junction
     python tools/build.py lock        record the stock hash of each hooked component in stock.lock.json
-    python tools/build.py release [X.Y.Z]   build, then zip the package as dist/paul-batc-pill-X.Y.Z.zip
+    python tools/build.py release [X.Y.Z]   build, then zip the package as dist/paulcharp-batc-overlay-X.Y.Z.zip
 
 Local paths (sim_packages, community) go in .local/config.json, which overrides config.json.
+build and install turn the pill's developer log on (it streams to tools/pill_log.py when that runs); release
+doesn't.
 """
 import argparse
 import hashlib
@@ -24,8 +26,8 @@ SRC = ROOT / "src"
 BUILD = ROOT / "build"
 DIST = ROOT / "dist"
 LOCK = ROOT / "stock.lock.json"
-MARK_BEGIN = "<!-- paul-batc-pill:begin -->"
-MARK_END = "<!-- paul-batc-pill:end -->"
+MARK_BEGIN = "<!-- paulcharp-batc-overlay:begin -->"
+MARK_END = "<!-- paulcharp-batc-overlay:end -->"
 # Seconds between 1601-01-01 (Windows FILETIME epoch) and 1970-01-01.
 FILETIME_EPOCH = 11644473600
 
@@ -93,11 +95,45 @@ def cmd_lock(cfg, injections):
     print(f"lock: wrote {LOCK.name} ({len(lock)} targets)")
 
 
-def cmd_build(cfg, injections):
+def sync_tree(src, dst):
+    """Copy src over dst in place and return the files written. The folder itself is kept: with the
+    sim running, the Community junction holds it open and Windows refuses to delete it (WinError 32)."""
+    written = set()
+    for f in sorted(src.rglob("*")):
+        out = dst / f.relative_to(src)
+        if f.is_dir():
+            out.mkdir(parents=True, exist_ok=True)
+        else:
+            out.parent.mkdir(parents=True, exist_ok=True)
+            shutil.copy2(f, out)
+            written.add(out)
+    return written
+
+
+def prune(pkg_dir, written):
+    """Remove files and empty folders a previous build left that this one didn't write."""
+    for f in sorted(pkg_dir.rglob("*"), key=lambda p: len(p.parts), reverse=True):
+        try:
+            if f.is_file() and f not in written:
+                f.unlink()
+                print(f"build: removed stale {f.relative_to(pkg_dir).as_posix()}")
+            elif f.is_dir() and not any(f.iterdir()):
+                f.rmdir()
+        except OSError as e:
+            print(f"build: WARNING could not remove {f.relative_to(pkg_dir).as_posix()} ({e.strerror})")
+
+
+def cmd_build(cfg, injections, dev=True):
     pkg_dir = BUILD / cfg["package_name"]
-    if pkg_dir.exists():
-        shutil.rmtree(pkg_dir)
-    shutil.copytree(SRC, pkg_dir)
+    pkg_dir.mkdir(parents=True, exist_ok=True)
+    written = sync_tree(SRC, pkg_dir)
+    if dev:
+        # your own builds stream to tools/pill_log.py when it runs; releases never look for it
+        js = pkg_dir / "html_ui" / "paulcharp-batc-overlay" / "pill.js"
+        text = js.read_text(encoding="utf-8")
+        if "    devLog: false," not in text:
+            sys.exit("build: can't find `devLog: false,` in pill.js")
+        js.write_text(text.replace("    devLog: false,", "    devLog: true,", 1), encoding="utf-8")
 
     lock = load_json(LOCK) if LOCK.exists() else {}
     stale = []
@@ -112,10 +148,14 @@ def cmd_build(cfg, injections):
         out.write_text(inject(stock.read_text(encoding="utf-8-sig"), inj), encoding="utf-8")
         # The cooked .json (animations, exposed children) ships alongside the .html.
         shutil.copy2(stock.with_suffix(".json"), out.with_suffix(".json"))
+        written.update({out, out.with_suffix(".json")})
         print(f"build: hooked {inj['component']} -> {target(inj)}")
 
+    written.update({pkg_dir / "layout.json", pkg_dir / "manifest.json"})
+    prune(pkg_dir, written)
+
     content = []
-    for f in sorted(p for p in pkg_dir.rglob("*") if p.is_file()):
+    for f in sorted(p for p in pkg_dir.rglob("*") if p.is_file() and not (p.parent == pkg_dir and p.name in ("layout.json", "manifest.json"))):
         content.append({
             "path": f.relative_to(pkg_dir).as_posix(),
             "size": f.stat().st_size,
@@ -159,8 +199,11 @@ def cmd_install(cfg, injections):
     if link.exists() or os.path.lexists(link):
         if not link.is_junction():
             sys.exit(f"install: {link} exists and is not our junction; remove it by hand")
-        print(f"install: junction already in place: {link}")
-        return
+        if os.path.normcase(os.readlink(link).removeprefix("\\\\?\\")) == os.path.normcase(str(target)):
+            print(f"install: junction already in place: {link}")
+            return
+        os.rmdir(link)  # a junction to an old checkout: re-point it
+        print(f"install: removed stale junction {link}")
     subprocess.run(["cmd", "/c", "mklink", "/J", str(link), str(target)], check=True)
     print("install: restart the sim to pick up new files; JS/CSS edits only need a rebuild + UI reload")
 
@@ -179,7 +222,7 @@ def cmd_uninstall(cfg, injections):
 def cmd_release(cfg, injections, version=None):
     if version:
         cfg["version"] = version.lstrip("v")
-    cmd_build(cfg, injections)
+    cmd_build(cfg, injections, dev=False)
     pkg_dir = BUILD / cfg["package_name"]
     DIST.mkdir(exist_ok=True)
     out = DIST / f"{cfg['package_name']}-{cfg['version']}.zip"
@@ -196,10 +239,15 @@ def main():
     args = parser.parse_args()
     cfg = load_config()
     injections = load_json(ROOT / "injections.json")["injections"]
-    if args.command == "release":
-        cmd_release(cfg, injections, args.version)
-    else:
-        globals()[f"cmd_{args.command}"](cfg, injections)
+    try:
+        if args.command == "release":
+            cmd_release(cfg, injections, args.version)
+        else:
+            globals()[f"cmd_{args.command}"](cfg, injections)
+    except PermissionError as e:
+        # the sim keeps some package files open while it runs
+        sys.exit(f"{args.command}: {e.filename} is in use ({e.strerror}). Close the sim and run it again; "
+                 "for JS/CSS changes while the sim runs, use `python tools/inspect_ui.py --push`.")
 
 
 if __name__ == "__main__":

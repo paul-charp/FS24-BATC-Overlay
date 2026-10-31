@@ -1,0 +1,108 @@
+<!doctype html>
+<!-- The real pill.js, fed a recorded exchange through a stand-in socket, on a 1080p page. The feature cards
+     (splash, detail, toolbar) embed it zoomed, with the query below choosing the settings and the moment. -->
+<meta charset="utf-8">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;500&display=swap">
+<link rel="stylesheet" href="../../src/html_ui/paulcharp-batc-overlay/pill.css">
+<link rel="stylesheet" href="common.css">
+<style>
+  html, body { width: 1920px; height: 1080px; overflow: hidden; }
+  body { font-family: "Roboto", "Segoe UI", Arial, sans-serif; }
+  /* a screenshot is one frame: skip the resize and fade animations */
+  #batc-overlay, #batc-overlay *, [id^="batc-overlay-"], [id^="batc-overlay-"] * { transition: none !important; animation: none !important; }
+</style>
+<body class="live">
+<div class="sky" id="sky"></div>
+<script src="backdrop.js"></script>
+<script>
+  // ?bare: embedded in a feature card, which draws the backdrop
+  if (/[?&]bare\b/.test(location.search)) document.body.classList.add("bare"); else BD.draw(document.getElementById("sky"));
+</script>
+<ui-resource-element name="MasterPage_InGame"></ui-resource-element>
+<script>
+  window.batcOverlayInlineCss = " "; // the <link> above already loads pill.css
+  // no BeyondATC here: an open socket that ignores what the pill sends
+  window.WebSocket = function () { this.readyState = 1; setTimeout(() => this.onopen && this.onopen(), 0); };
+  window.WebSocket.prototype.send = function () {};
+  window.WebSocket.prototype.close = function () {};
+</script>
+<script src="../../src/html_ui/paulcharp-batc-overlay/pill.js"></script>
+<script>
+  // ?detail=none|short|hint|boxes, ?captions=off|mine|all: the pill's settings for this shot
+  // ?scene=requests: a quiet radio with the request menu; ?scene=takeoff: the takeoff clearance waiting for its
+  // acknowledgement (default: the IFR clearance waiting for its readback)
+  // ?hover: the cursor on the pill; ?panel (Frequencies) or ?panel=log: the panel open
+  var q = new URLSearchParams(location.search);
+  var patch = {};
+  if (q.get("detail")) patch.readbackDetail = q.get("detail");
+  if (q.get("captions")) patch.captions = q.get("captions");
+  batcOverlay.set(patch);
+  var panel = q.has("panel");
+  // from the 2026-10-22 and 2026-10-26 sniffs
+  var START = [
+    'LoadState: {"stage":"ready"}',
+    'Callsign: {"full":"Airfrans 1234","shortForm":""}',
+    'AutoTune: true',
+    'AutoRespond: false',
+    'Facility: Montpellier Ground (12L, 12R)|121.955',
+    'Progress: {"from":"LFMT","to":"LFML","pct":1.8}',
+  ];
+  var CLEARANCE = [
+    'Player: Montpellier Ground, Airfrans 1234, Airbus A320, Ramp F8, request IFR clearance to Marseille Provence airport, Information Y.',
+    'CommsState: {"mode":"speaking","text":"Speaking"}',
+    'CommsState: {"mode":"ready","text":""}',
+    'ATC: Airfrans 1234, Montpellier Ground, cleared to Marseille Provence via KELA8L departure, runway 12L, climb to FL060, squawk 1000.',
+    'CommsState: {"mode":"speaking","text":"Speaking"}',
+    'CommsState: {"mode":"ready","text":""}',
+    'InfoBoxes: [{"title":"Taxi to Runway","info":"12L"},{"title":"SID","info":"KELA8L"},{"title":"Altitude Clearance","info":"FL060"},{"title":"Squawk","info":"1000"}]',
+    'Actions: [Readback IFR Clearance¬Say Again¬]',
+  ];
+  var TAKEOFF = [ // from the 2026-10-26 flight log, with this page's callsign
+    'Facility: Montpellier Tower (30R)|118.775',
+    'Player: Montpellier Tower, Airfrans 1234, holding short runway 30R, ready for departure.',
+    'CommsState: {"mode":"speaking","text":"Speaking"}',
+    'CommsState: {"mode":"ready","text":""}',
+    'ATC: Airfrans 1234, Montpellier Tower, wind 350 degrees, 4 knots, runway 30R, cleared for takeoff.',
+    'CommsState: {"mode":"speaking","text":"Speaking"}',
+    'CommsState: {"mode":"ready","text":""}',
+    'InfoBoxes: [{"title":"Cleared for Takeoff","info":"30R"}]',
+    'Actions: [Acknowledge Takeoff Clearance¬Say Again¬]',
+  ];
+  var REQUESTS = [
+    'CommsState: {"mode":"ready","text":""}',
+    'Actions: [Request Push and Start¬Request Startup Only¬Request Departure Runway Change¬Wind Check¬Radio Check¬]',
+  ];
+  setTimeout(function () {
+    var scene = { requests: REQUESTS, takeoff: TAKEOFF }[q.get("scene")] || CLEARANCE;
+    START.concat(scene).forEach(batcOverlay.feed);
+  }, 300);
+  setTimeout(function () {
+    if (panel) {
+      document.getElementById("batc-overlay").click();
+      batcOverlay.feed('Frequencies: ' + JSON.stringify([
+        // as BeyondATC sends it: each airport's block in reverse calling order, ATIS (named by ICAO) last, then Center
+        { name: "MONTPELLIER APPROACH", type: "Approach", frequency: "127.280", cpdlcLogonCode: "" },
+        { name: "MONTPELLIER DEPARTURE", type: "Departure", frequency: "130.855", cpdlcLogonCode: "" },
+        { name: "MONTPELLIER TOWER", type: "Tower", frequency: "118.775", cpdlcLogonCode: "" },
+        { name: "MONTPELLIER GROUND", type: "Ground", frequency: "121.955", cpdlcLogonCode: "" },
+        { name: "MONTPELLIER", type: "Clearance", frequency: "121.780", cpdlcLogonCode: "" },
+        { name: "LFMT", type: "ATIS", frequency: "124.130", cpdlcLogonCode: "" },
+        { name: "PROVENCE APPROACH", type: "Approach", frequency: "120.200", cpdlcLogonCode: "" },
+        { name: "PROVENCE TOWER", type: "Tower", frequency: "119.500", cpdlcLogonCode: "" },
+        { name: "PROVENCE GROUND", type: "Ground", frequency: "121.800", cpdlcLogonCode: "" },
+        { name: "LFML", type: "ATIS", frequency: "127.000", cpdlcLogonCode: "" },
+        { name: "Marseille Control", type: "Center", frequency: "132.365", cpdlcLogonCode: "" },
+      ]));
+      if (q.get("panel") === "log") {
+        var tab = document.querySelector('#batc-overlay-panel [data-tab="log"]');
+        if (tab) tab.click();
+      }
+    } else if (q.has("hover")) {
+      // the cursor on the pill (kept there, so a late frame still has what it opens)
+      setInterval(function () {
+        var r = document.getElementById("batc-overlay").getBoundingClientRect();
+        document.dispatchEvent(new MouseEvent("mousemove", { clientX: r.right - 20, clientY: r.top + r.height / 2 }));
+      }, 200);
+    }
+  }, 1600);
+</script>

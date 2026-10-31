@@ -1,47 +1,25 @@
 <!doctype html>
-<!-- flightsim.to main image (1920x1080). Rendered by docs/render_images.py.
-     ?bg=<file> uses a sim screenshot as the backdrop (the script passes .local/shots/splash-bg.png when present). -->
+<!-- README hero and flightsim.to main image (1920x1080): the title, and the real pill on a recorded takeoff
+     clearance (comms.html), zoomed. Rendered by docs/render_images.py; ?bd= picks the backdrop, ?bg=<file> a sim screenshot. -->
 <meta charset="utf-8">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;500;700&display=swap">
-<link rel="stylesheet" href="../../src/html_ui/paul-batc-pill/pill.css">
 <link rel="stylesheet" href="common.css">
 <style>
   html, body { width: 1920px; height: 1080px; overflow: hidden; }
-  .sky { position: absolute; inset: 0; }
-  .shade { /* keeps the title readable over any photo */
-    position: absolute; inset: 0;
-    background: linear-gradient(90deg, rgba(8, 11, 16, 0.82) 0%, rgba(8, 11, 16, 0.55) 42%, rgba(8, 11, 16, 0.05) 70%);
-  }
-  .title {
-    position: absolute; left: 120px; top: 50%; transform: translateY(-50%);
-    color: #f2f5f8; max-width: 980px;
-  }
-  .eyebrow { font: 500 26px/1 "Roboto", sans-serif; letter-spacing: 0.16em; text-transform: uppercase; color: #ffb547; }
-  h1 { font: 700 112px/1 "Roboto", sans-serif; margin: 26px 0 30px; letter-spacing: -0.02em; }
-  .sub { max-width: 760px; font: 400 34px/1.35 "Roboto", sans-serif; color: rgba(242, 245, 248, 0.82); }
-  .for { margin-top: 44px; font: 500 22px/1 "Roboto", sans-serif; color: rgba(242, 245, 248, 0.6); letter-spacing: 0.04em; }
-  .stack {
-    position: absolute; right: 120px; top: 50%; transform: translateY(-50%);
-    display: flex; flex-direction: column; align-items: flex-end; gap: 30px;
-  }
+  .card-text { width: 860px; }
+  .card-text h1 { font-size: 96px; }
+  /* comms.html's top-right corner (x 1500-1920, y 60-330) at 2x, centred on the right half */
+  .zoom { right: 72px; top: 0; width: 1000px; height: 1080px; }
+  .zoom iframe { transform: scale(2); top: 150px; }
 </style>
 <div class="sky" id="sky"></div>
-<div class="shade"></div>
-<div class="title">
+<div class="card-text">
   <div class="eyebrow">For BeyondATC</div>
-  <h1>BATC Comms Pill</h1>
-  <div class="sub">A small, quiet pill in the corner that shows what's happening on the radio.</div>
-  <div class="for">Microsoft Flight Simulator 2024</div>
+  <h1>BATC Overlay</h1>
+  <div class="sub"><b>BeyondATC, inside the sim.</b> ATC's messages, your answers and requests, frequencies and the radio
+    log, around a small pill in the corner. No toolbar.</div>
+  <div class="foot">Microsoft Flight Simulator 2024</div>
 </div>
-<div class="stack" id="stack"></div>
-<script src="pills.js"></script>
-<script>
-  var bg = new URLSearchParams(location.search).get("bg");
-  if (bg) {
-    var sky = document.getElementById("sky");
-    sky.className = "sky photo";
-    sky.style.backgroundImage = "url('" + bg + "')";
-  }
-  document.getElementById("stack").innerHTML =
-    ["queued", "processing", "awaiting", "atc", "you", "tune", "dot"].map(function (k) { return BP.pill(k, 3.4); }).join("");
-</script>
+<div class="zoom"><iframe src="comms.html?bare&scene=takeoff&hover"></iframe></div>
+<script src="backdrop.js"></script>
+<script>BD.draw(document.getElementById("sky"));</script>
