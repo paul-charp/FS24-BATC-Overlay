@@ -227,3 +227,9 @@ screen corner during flight, with a click-to-open settings card. Windows only. U
   BeyondATC's menu), `turnaround` (Load Next Leg, at the gate), `prompt_reply: <id>:yes|no` (the answers to `Prompt`),
   `ack_error` (the error's ✕). WebSocket pongs aside.
 - Changelogs and release notes list what changed, not why.
+- User docs (README, `docs/settings.md`, `docs/flightsim-to.md`): short plain English, only what a user couldn't guess
+  (no "changes apply right away", "click ✕ to close"). Tables over prose, one source per fact (the README links
+  `docs/settings.md` instead of repeating its table). README order: showcase images, install, settings, compatibility,
+  development.
+- By design, keep as is: a misheard PTT (`processing` → `ready`, no reply) shows nothing; after a reply, the Negative
+  hint waits for ATC.
